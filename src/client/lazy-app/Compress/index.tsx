@@ -120,7 +120,7 @@ async function decodeImage(
   } catch (err) {
     if (err instanceof Error && err.name === 'AbortError') throw err;
     console.log(err);
-    throw Error("Couldn't decode image");
+    throw Error('无法解码图片');
   }
 }
 
@@ -232,7 +232,7 @@ async function processSvg(
   }
 
   const viewBox = svg.getAttribute('viewBox');
-  if (viewBox === null) throw Error('SVG must have width/height or viewBox');
+  if (viewBox === null) throw Error('SVG 必须包含 width/height 或 viewBox');
 
   const viewboxParts = viewBox.split(/\s+/);
   svg.setAttribute('width', viewboxParts[2]);
@@ -431,12 +431,12 @@ export default class Compress extends Component<Props, State> {
       sides: cleanSet(this.state.sides, otherIndex, newSettings),
     });
 
-    const result = await this.props.showSnack('Settings copied across', {
+    const result = await this.props.showSnack('设置已复制到另一侧', {
       timeout: 5000,
-      actions: ['undo', 'dismiss'],
+      actions: ['撤销', '关闭'],
     });
 
-    if (result !== 'undo') return;
+    if (result !== '撤销') return;
 
     this.setState({
       sides: cleanSet(this.state.sides, otherIndex, oldSettings),
@@ -457,9 +457,9 @@ export default class Compress extends Component<Props, State> {
       localStorage.setItem('leftSideSettings', leftSideSettings);
       // Firing an event when we save side settings in localstorage
       window.dispatchEvent(new CustomEvent('leftSideSettings'));
-      await this.props.showSnack('Left side settings saved', {
+      await this.props.showSnack('左侧设置已保存', {
         timeout: 1500,
-        actions: ['dismiss'],
+        actions: ['关闭'],
       });
       return;
     }
@@ -472,9 +472,9 @@ export default class Compress extends Component<Props, State> {
       localStorage.setItem('rightSideSettings', rightSideSettings);
       // Firing an event when we save side settings in localstorage
       window.dispatchEvent(new CustomEvent('rightSideSettings'));
-      await this.props.showSnack('Right side settings saved', {
+      await this.props.showSnack('右侧设置已保存', {
         timeout: 1500,
-        actions: ['dismiss'],
+        actions: ['关闭'],
       });
       return;
     }
@@ -499,11 +499,11 @@ export default class Compress extends Component<Props, State> {
       this.setState({
         sides: cleanSet(this.state.sides, index, newLeftSideSettings),
       });
-      const result = await this.props.showSnack('Left side settings imported', {
+      const result = await this.props.showSnack('已导入左侧保存的设置', {
         timeout: 3000,
-        actions: ['undo', 'dismiss'],
+        actions: ['撤销', '关闭'],
       });
-      if (result === 'undo') {
+      if (result === '撤销') {
         this.setState({
           sides: cleanSet(this.state.sides, index, oldLeftSideSettings),
         });
@@ -521,13 +521,13 @@ export default class Compress extends Component<Props, State> {
         sides: cleanSet(this.state.sides, index, newRightSideSettings),
       });
       const result = await this.props.showSnack(
-        'Right side settings imported',
+        '已导入右侧保存的设置',
         {
           timeout: 3000,
-          actions: ['undo', 'dismiss'],
+          actions: ['撤销', '关闭'],
         },
       );
-      if (result === 'undo') {
+      if (result === '撤销') {
         this.setState({
           sides: cleanSet(this.state.sides, index, oldRightSideSettings),
         });
@@ -983,7 +983,7 @@ export default class Compress extends Component<Props, State> {
         />
         <button class={style.back} onClick={onBack}>
           <svg viewBox="0 0 61 53.3">
-            <title>Back</title>
+            <title>返回</title>
             <path
               class={style.backBlob}
               d="M0 25.6c-.5-7.1 4.1-14.5 10-19.1S23.4.1 32.2 0c8.8 0 19 1.6 24.4 8s5.6 17.8 1.7 27a29.7 29.7 0 01-20.5 18c-8.4 1.5-17.3-2.6-24.5-8S.5 32.6.1 25.6z"

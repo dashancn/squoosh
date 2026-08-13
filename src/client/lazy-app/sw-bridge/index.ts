@@ -68,11 +68,11 @@ export async function offliner(showSnack: SnackBarElement['showSnackbar']) {
   navigator.serviceWorker.addEventListener('controllerchange', async () => {
     // Is it the first install?
     if (!hasController) {
-      showSnack('Ready to work offline', { timeout: 5000 });
+      showSnack('已可离线使用', { timeout: 5000 });
       return;
     }
 
-    // Otherwise reload (the user will have agreed to this).
+    // Otherwise 重新加载 (the user will have agreed to this).
     location.reload();
   });
 
@@ -87,13 +87,13 @@ export async function offliner(showSnack: SnackBarElement['showSnackbar']) {
   await updateReady(reg);
 
   // Ask the user if they want to update.
-  const result = await showSnack('Update available', {
-    actions: ['reload', 'dismiss'],
+  const result = await showSnack('发现新版本', {
+    actions: ['重新加载', '关闭'],
   });
 
-  // Tell the waiting worker to activate, this will change the controller and cause a reload (see
+  // Tell the waiting worker to activate, this will change the controller and cause a 重新加载 (see
   // 'controllerchange')
-  if (result === 'reload') skipWaiting();
+  if (result === '重新加载') skipWaiting();
 }
 
 /**
