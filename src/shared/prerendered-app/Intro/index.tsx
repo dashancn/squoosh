@@ -449,11 +449,23 @@ export default class Intro extends Component<Props, State> {
             </div>
           </div>
         </footer>
-        {beforeInstallEvent && (
-          <button class={style.installBtn} onClick={this.onInstallClick}>
-            安装应用
-          </button>
-        )}
+        <div class={style.headerActions}>
+          <a
+            class={style.iPlanBtn}
+            href="https://www.i41.cn"
+            target="_blank"
+            rel="noopener noreferrer"
+            data-tooltip="i方案是一套面向本地实体商家、内容运营人员和营销服务团队的智能内容工作平台。平台围绕行业、平台、品类、风格和使用场景，提供文案生成、文案诊断、客户跟单话术、文生图、视频包制作和精品模板等能力，帮助用户从内容构思、表单草稿、生成优化到后续复用形成完整工作链路。"
+            title="i方案是一套面向本地实体商家、内容运营人员和营销服务团队的智能内容工作平台。平台围绕行业、平台、品类、风格和使用场景，提供文案生成、文案诊断、客户跟单话术、文生图、视频包制作和精品模板等能力，帮助用户从内容构思、表单草稿、生成优化到后续复用形成完整工作链路。"
+          >
+            访问i方案
+          </a>
+          {beforeInstallEvent && (
+            <button class={style.installBtn} onClick={this.onInstallClick}>
+              安装应用
+            </button>
+          )}
+        </div>
       </div>
     );
   }
