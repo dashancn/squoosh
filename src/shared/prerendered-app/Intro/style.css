@@ -323,12 +323,16 @@
   }
 }
 
+.tool-link,
 .i-plan-btn {
   position: relative;
+}
+
+.i-plan-btn {
   background: var(--hot-pink);
 }
 
-.i-plan-btn::after {
+[data-tooltip]::after {
   content: attr(data-tooltip);
   position: absolute;
   top: calc(100% + 0.8rem);
@@ -348,10 +352,20 @@
   transform: translateY(-0.4rem);
   pointer-events: none;
   transition: opacity 180ms ease-in-out, transform 180ms ease-in-out;
+  z-index: 2;
+
+  @media (max-width: 599px) {
+    position: fixed;
+    top: auto;
+    right: 1rem;
+    bottom: 1rem;
+    left: 1rem;
+    width: auto;
+  }
 }
 
-.i-plan-btn:hover::after,
-.i-plan-btn:focus::after {
+[data-tooltip]:hover::after,
+[data-tooltip]:focus-visible::after {
   opacity: 1;
   transform: translateY(0);
 }

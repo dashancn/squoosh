@@ -457,6 +457,7 @@ export default class Intro extends Component<Props, State> {
             href="https://tools.i41.cn"
             target="_blank"
             rel="noopener noreferrer"
+            data-tooltip="开发者工具箱汇集编码转换、格式化、加密、网络、文本和图片等常用在线工具，强调快速、易用和浏览器端处理。"
           >
             开发者工具
           </a>
@@ -465,6 +466,7 @@ export default class Intro extends Component<Props, State> {
             href="https://idphoto.i41.cn"
             target="_blank"
             rel="noopener noreferrer"
+            data-tooltip="证件照工作室是一款浏览器端证件照制作工具，支持本地智能抠图、背景换色、常用证件尺寸和 300DPI 多图拼版，照片无需上传到业务服务器。"
           >
             证件照
           </a>
