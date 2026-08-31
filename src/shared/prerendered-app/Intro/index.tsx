@@ -138,7 +138,7 @@ export default class Intro extends Component<Props, State> {
       this.props.onFile!(file);
     } catch (err) {
       this.setState({ fetchingDemoIndex: undefined });
-      this.props.showSnack!("无法加载示例图片");
+      this.props.showSnack!('无法加载示例图片');
     }
   };
 
@@ -357,7 +357,8 @@ export default class Intro extends Component<Props, State> {
                 <div class={style.infoTextWrapper}>
                   <h2 class={style.infoTitle}>更小</h2>
                   <p class={style.infoCaption}>
-                    图片越小，网页加载越快。Squoosh 可以在尽量保持高画质的同时，显著减小文件体积。
+                    图片越小，网页加载越快。Squoosh
+                    可以在尽量保持高画质的同时，显著减小文件体积。
                   </p>
                 </div>
                 <div class={style.infoImgWrapper}>
@@ -405,7 +406,8 @@ export default class Intro extends Component<Props, State> {
                 <div class={style.infoTextWrapper}>
                   <h2 class={style.infoTitle}>安全</h2>
                   <p class={style.infoCaption}>
-                    担心隐私？图片不会离开你的设备，Squoosh 的压缩处理都在浏览器本地完成。
+                    担心隐私？图片不会离开你的设备，Squoosh
+                    的压缩处理都在浏览器本地完成。
                   </p>
                 </div>
                 <div class={style.infoImgWrapper}>
@@ -450,6 +452,22 @@ export default class Intro extends Component<Props, State> {
           </div>
         </footer>
         <div class={style.headerActions}>
+          <a
+            class={style.toolLink}
+            href="https://tools.i41.cn"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            开发者工具
+          </a>
+          <a
+            class={style.toolLink}
+            href="https://idphoto.i41.cn"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            证件照
+          </a>
           <a
             class={style.iPlanBtn}
             href="https://www.i41.cn"
