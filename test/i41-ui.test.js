@@ -22,9 +22,19 @@ test('首页使用醒目的 i方案引导卡片', async () => {
 });
 
 test('进入编辑器前提示编解码资源缓存状态', async () => {
-  const source = await read('src/shared/prerendered-app/Intro/index.tsx');
+  const [source, css] = await Promise.all([
+    read('src/shared/prerendered-app/Intro/index.tsx'),
+    read('src/shared/prerendered-app/Intro/style.css'),
+  ]);
   const bridge = await read('src/client/lazy-app/sw-bridge/index.ts');
   assert.match(source, /编解码资源已缓存/);
   assert.match(source, /首次使用需要加载编解码资源/);
+  assert.ok(
+    source.indexOf('codecStatus') < source.indexOf('iPlanBanner'),
+    '缓存提示应位于 i方案引导上方',
+  );
+  assert.match(css, /\.i-plan-banner[\s\S]*font-size:\s*1\.15rem/);
+  assert.match(css, /\.codec-status[\s\S]*font-size:\s*0\.9rem/);
+  assert.match(css, /\[data-tooltip\]::after[\s\S]*z-index:\s*5/);
   assert.match(bridge, /codecCacheStatus/);
 });

@@ -307,6 +307,14 @@ export default class Intro extends Component<Props, State> {
             </div>
           </div>
         </div>
+        <p class={style.codecStatus} data-codec-status="missing">
+          <span class={style.codecStatusMissing}>
+            首次使用需要加载编解码资源，加载完成后浏览器会缓存。
+          </span>
+          <span class={style.codecStatusCached}>
+            编解码资源已缓存，可以直接开始图片处理。
+          </span>
+        </p>
         <aside class={style.iPlanBanner} aria-label="关注 i方案">
           <div>
             <strong>关注 i方案</strong>
@@ -321,14 +329,6 @@ export default class Intro extends Component<Props, State> {
             访问 i方案 <span aria-hidden="true">→</span>
           </a>
         </aside>
-        <p class={style.codecStatus} data-codec-status="missing">
-          <span class={style.codecStatusMissing}>
-            首次使用需要加载编解码资源，加载完成后浏览器会缓存。
-          </span>
-          <span class={style.codecStatusCached}>
-            编解码资源已缓存，可以直接开始图片处理。
-          </span>
-        </p>
         <div class={style.demosContainer}>
           <svg viewBox="0 0 1920 140" class={style.topWave}>
             <path
