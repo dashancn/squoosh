@@ -30,11 +30,17 @@ test('进入编辑器前提示编解码资源缓存状态', async () => {
   assert.match(source, /编解码资源已缓存/);
   assert.match(source, /首次使用需要加载编解码资源/);
   assert.ok(
-    source.indexOf('codecStatus') < source.indexOf('iPlanBanner'),
-    '缓存提示应位于 i方案引导上方',
+    source.indexOf('codecStatus') < source.indexOf('demosContainer'),
+    '缓存提示应位于透明背景区',
   );
+  assert.ok(
+    source.indexOf('iPlanBanner') > source.indexOf('demosContainer'),
+    'i方案引导应位于蓝色背景区',
+  );
+  assert.match(css, /\.i-plan-banner[\s\S]*margin:\s*2rem auto/);
   assert.match(css, /\.i-plan-banner[\s\S]*font-size:\s*1\.15rem/);
-  assert.match(css, /\.codec-status[\s\S]*font-size:\s*0\.9rem/);
+  assert.match(css, /\.codec-status[\s\S]*margin:\s*-5rem auto 3rem/);
+  assert.match(css, /\.codec-status[\s\S]*font-size:\s*1\.1rem/);
   assert.match(css, /\[data-tooltip\]::after[\s\S]*z-index:\s*5/);
   assert.match(bridge, /codecCacheStatus/);
 });
