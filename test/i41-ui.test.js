@@ -4,10 +4,15 @@ import { readFile } from 'node:fs/promises';
 
 const read = (path) => readFile(new URL(`../${path}`, import.meta.url), 'utf8');
 
-test('顶部生态导航包含 PDF 工具链接', async () => {
+test('顶部生态导航包含 PDF 工具和 i方案链接', async () => {
   const source = await read('src/shared/prerendered-app/Intro/index.tsx');
   assert.match(source, /href="https:\/\/pdf\.i41\.cn"/);
   assert.match(source, />\s*PDF 工具\s*</);
+  assert.match(
+    source,
+    /class=\{style\.iPlanBtn\}[\s\S]*href="https:\/\/www\.i41\.cn"/,
+  );
+  assert.match(source, />\s*访问 i方案\s*</);
 });
 
 test('首页使用醒目的 i方案引导卡片', async () => {

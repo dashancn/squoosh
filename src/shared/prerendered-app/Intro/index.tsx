@@ -511,6 +511,15 @@ export default class Intro extends Component<Props, State> {
           >
             PDF 工具
           </a>
+          <a
+            class={style.iPlanBtn}
+            href="https://www.i41.cn"
+            target="_blank"
+            rel="noopener noreferrer"
+            data-tooltip="i方案是一套面向本地实体商家、内容运营人员和营销服务团队的智能内容工作平台。"
+          >
+            访问 i方案
+          </a>
           {beforeInstallEvent && (
             <button class={style.installBtn} onClick={this.onInstallClick}>
               安装应用
