@@ -4,6 +4,19 @@ import { get, set } from 'idb-keyval';
 
 import swUrl from 'service-worker:sw';
 
+const CODEC_CACHE_MARKER = 'squoosh-codecs-cached';
+
+export function codecCacheStatus(storage = localStorage): 'cached' | 'missing' {
+  return storage.getItem(CODEC_CACHE_MARKER) === '1' ? 'cached' : 'missing';
+}
+
+function markCodecsCached(storage = localStorage) {
+  storage.setItem(CODEC_CACHE_MARKER, '1');
+  document
+    .querySelectorAll('[data-codec-status]')
+    .forEach((element) => element.setAttribute('data-codec-status', 'cached'));
+}
+
 /** Tell the service worker to skip waiting */
 async function skipWaiting() {
   const reg = await navigator.serviceWorker.getRegistration();
@@ -101,11 +114,15 @@ export async function offliner(showSnack: SnackBarElement['showSnackbar']) {
  * heard about this, cache the heavier assets like codecs.
  */
 export async function mainAppLoaded() {
-  // If the user has already interacted, no need to tell the service worker anything.
+  // If the user has already interacted, the active build has already loaded
+  // its codecs and the service worker was previously asked to cache them.
   const userInteracted = await get<boolean | undefined>('user-interacted');
-  if (userInteracted) return;
+  if (userInteracted) {
+    markCodecsCached();
+    return;
+  }
   set('user-interacted', true);
   const serviceWorker = await getMostActiveServiceWorker();
-  if (!serviceWorker) return; // Service worker not installing yet.
-  serviceWorker.postMessage('cache-all');
+  if (serviceWorker) serviceWorker.postMessage('cache-all');
+  markCodecsCached();
 }

@@ -88,6 +88,16 @@ export default class Intro extends Component<Props, State> {
   private installingViaButton = false;
 
   componentDidMount() {
+    const codecsCached = localStorage.getItem('squoosh-codecs-cached') === '1';
+    document
+      .querySelectorAll('[data-codec-status]')
+      .forEach((element) =>
+        element.setAttribute(
+          'data-codec-status',
+          codecsCached ? 'cached' : 'missing',
+        ),
+      );
+
     // Listen for beforeinstallprompt events, indicating Squoosh is installable.
     window.addEventListener(
       'beforeinstallprompt',
@@ -297,6 +307,28 @@ export default class Intro extends Component<Props, State> {
             </div>
           </div>
         </div>
+        <aside class={style.iPlanBanner} aria-label="关注 i方案">
+          <div>
+            <strong>关注 i方案</strong>
+            <span>获取内容创作、客户跟单、文生图与视频制作方案</span>
+          </div>
+          <a
+            href="https://www.i41.cn"
+            target="_blank"
+            rel="noopener noreferrer"
+            data-tooltip="i方案是一套面向本地实体商家、内容运营人员和营销服务团队的智能内容工作平台。"
+          >
+            访问 i方案 <span aria-hidden="true">→</span>
+          </a>
+        </aside>
+        <p class={style.codecStatus} data-codec-status="missing">
+          <span class={style.codecStatusMissing}>
+            首次使用需要加载编解码资源，加载完成后浏览器会缓存。
+          </span>
+          <span class={style.codecStatusCached}>
+            编解码资源已缓存，可以直接开始图片处理。
+          </span>
+        </p>
         <div class={style.demosContainer}>
           <svg viewBox="0 0 1920 140" class={style.topWave}>
             <path
@@ -471,13 +503,13 @@ export default class Intro extends Component<Props, State> {
             证件照
           </a>
           <a
-            class={style.iPlanBtn}
-            href="https://www.i41.cn"
+            class={style.toolLink}
+            href="https://pdf.i41.cn"
             target="_blank"
             rel="noopener noreferrer"
-            data-tooltip="i方案是一套面向本地实体商家、内容运营人员和营销服务团队的智能内容工作平台。平台围绕行业、平台、品类、风格和使用场景，提供文案生成、文案诊断、客户跟单话术、文生图、视频包制作和精品模板等能力，帮助用户从内容构思、表单草稿、生成优化到后续复用形成完整工作链路。"
+            data-tooltip="PDF 工具箱提供合并、拆分、压缩、转换、编辑、OCR 和发票拼版等浏览器端 PDF 处理能力。"
           >
-            访问i方案
+            PDF 工具
           </a>
           {beforeInstallEvent && (
             <button class={style.installBtn} onClick={this.onInstallClick}>
