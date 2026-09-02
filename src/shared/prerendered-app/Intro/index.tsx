@@ -322,7 +322,7 @@ export default class Intro extends Component<Props, State> {
               <span>获取内容创作、客户跟单、文生图与视频制作方案</span>
             </div>
             <a
-              href="https://www.i41.cn"
+              href="https://www.i41.cn?utm_source=imgzip&utm_medium=tool_referral&utm_campaign=ifangan&utm_content=promo_banner"
               target="_blank"
               rel="noopener noreferrer"
               data-tooltip="i方案是一套面向本地实体商家、内容运营人员和营销服务团队的智能内容工作平台。"
@@ -479,6 +479,18 @@ export default class Intro extends Component<Props, State> {
                   <img src={githubLogo} alt="" width="10" height="10" />
                   GitHub 源码
                 </a>
+                <span>
+                  基于 GoogleChromeLabs Squoosh（Apache 2.0），由 i41
+                  免费实用工具维护
+                </span>
+                <a
+                  class={style.footerLink}
+                  href="https://www.i41.cn?utm_source=imgzip&utm_medium=tool_referral&utm_campaign=ifangan&utm_content=footer"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  访问 i方案
+                </a>
               </footer>
             </div>
           </div>
@@ -531,7 +543,7 @@ export default class Intro extends Component<Props, State> {
           </a>
           <a
             class={style.iPlanBtn}
-            href="https://www.i41.cn"
+            href="https://www.i41.cn?utm_source=imgzip&utm_medium=tool_referral&utm_campaign=ifangan&utm_content=ecosystem_nav"
             target="_blank"
             rel="noopener noreferrer"
             data-tooltip="i方案是一套面向本地实体商家、内容运营人员和营销服务团队的智能内容工作平台。"

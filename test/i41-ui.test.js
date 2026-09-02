@@ -4,7 +4,15 @@ import { readFile } from 'node:fs/promises';
 
 const read = (path) => readFile(new URL(`../${path}`, import.meta.url), 'utf8');
 
-test('顶部生态导航包含完整 i41 工具链接', async () => {
+const iPlanUrl = (content) =>
+  `https://www.i41.cn?utm_source=imgzip&utm_medium=tool_referral&utm_campaign=ifangan&utm_content=${content}`;
+
+const hrefsToIPlan = (source) =>
+  [...source.matchAll(/href="(https:\/\/www\.i41\.cn[^"]*)"/g)].map(
+    ([, href]) => href,
+  );
+
+test('顶部生态导航包含完整 i41 工具链接并标记生态导航来源', async () => {
   const source = await read('src/shared/prerendered-app/Intro/index.tsx');
   for (const [label, url] of [
     ['开发者工具', 'https://tools.i41.cn'],
@@ -12,7 +20,7 @@ test('顶部生态导航包含完整 i41 工具链接', async () => {
     ['PDF 工具', 'https://pdf.i41.cn'],
     ['证件水印', 'https://watermark.i41.cn'],
     ['临时剪贴板', 'https://clip.i41.cn'],
-    ['访问 i方案', 'https://www.i41.cn'],
+    ['访问 i方案', iPlanUrl('ecosystem_nav')],
   ]) {
     assert.ok(source.includes(`href="${url}"`), `缺少 ${label}`);
     assert.match(source, new RegExp(`>\\s*${label}\\s*<`));
@@ -24,15 +32,50 @@ test('顶部生态导航包含完整 i41 工具链接', async () => {
   assert.match(source, /客户端加密、自动过期、读取次数限制和阅后即焚/);
 });
 
-test('首页使用醒目的 i方案引导卡片', async () => {
+test('首页浅黄色促销横幅使用独立 UTM 标记', async () => {
   const [source, css] = await Promise.all([
     read('src/shared/prerendered-app/Intro/index.tsx'),
     read('src/shared/prerendered-app/Intro/style.css'),
   ]);
   assert.match(source, /关注 i方案/);
   assert.match(source, /获取内容创作、客户跟单、文生图与视频制作方案/);
-  assert.match(source, /访问 i方案/);
+  assert.ok(source.includes(`href="${iPlanUrl('promo_banner')}"`));
   assert.match(css, /\.i-plan-banner/);
+});
+
+test('页脚保留上游归属并标记 i方案访问来源', async () => {
+  const [source, license, packageJson] = await Promise.all([
+    read('src/shared/prerendered-app/Intro/index.tsx'),
+    read('LICENSE'),
+    read('package.json'),
+  ]);
+  const footer = source.match(
+    /<footer class=\{style\.footer\}>[\s\S]*?<\/footer>/,
+  )?.[0];
+  assert.ok(footer, '缺少页面页脚');
+  assert.ok(footer.includes(`href="${iPlanUrl('footer')}"`));
+  assert.match(footer, />\s*访问 i方案\s*</);
+  assert.match(footer, /i41\s+免费实用工具/);
+  assert.match(footer, /GoogleChromeLabs/);
+  assert.match(footer, /Apache 2\.0/);
+  assert.match(license, /Apache License[\s\S]*Version 2\.0/);
+  assert.equal(JSON.parse(packageJson).license, 'apache-2.0');
+});
+
+test('所有 i方案链接均使用约定 UTM 且不宣称 i方案免费', async () => {
+  const source = await read('src/shared/prerendered-app/Intro/index.tsx');
+  assert.deepEqual(
+    hrefsToIPlan(source).sort(),
+    [
+      iPlanUrl('ecosystem_nav'),
+      iPlanUrl('footer'),
+      iPlanUrl('promo_banner'),
+    ].sort(),
+  );
+  assert.doesNotMatch(
+    source,
+    /i方案.{0,12}(?:免费|永久免费)|(?:免费|永久免费).{0,12}i方案/,
+  );
 });
 
 test('进入编辑器前提示编解码资源缓存状态', async () => {
