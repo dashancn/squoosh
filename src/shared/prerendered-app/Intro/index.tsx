@@ -512,6 +512,24 @@ export default class Intro extends Component<Props, State> {
             PDF 工具
           </a>
           <a
+            class={style.toolLink}
+            href="https://watermark.i41.cn"
+            target="_blank"
+            rel="noopener noreferrer"
+            data-tooltip="证件水印工具支持为身份证、营业执照和合同截图添加用途水印，图片仅在浏览器本地处理。"
+          >
+            证件水印
+          </a>
+          <a
+            class={style.toolLink}
+            href="https://clip.i41.cn"
+            target="_blank"
+            rel="noopener noreferrer"
+            data-tooltip="临时剪贴板支持客户端加密、自动过期、读取次数限制和阅后即焚，适合跨设备传递临时文本。"
+          >
+            临时剪贴板
+          </a>
+          <a
             class={style.iPlanBtn}
             href="https://www.i41.cn"
             target="_blank"
