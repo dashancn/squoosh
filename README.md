@@ -4,14 +4,9 @@
 
 # Privacy
 
-Squoosh does not send your image to a server. All image compression processes locally.
+图片处理内容不会上传到服务器，压缩、转换和对比均在浏览器本地完成。
 
-However, Squoosh utilizes Google Analytics to collect the following:
-
-- [Basic visitor data](https://support.google.com/analytics/answer/6004245?ref_topic=2919631).
-- The before and after image size value.
-- If Squoosh PWA, the type of Squoosh installation.
-- If Squoosh PWA, the installation time and date.
+本站使用 i41 匿名统计，并保留托管平台自动注入的 Cloudflare Web Analytics。统计会发送匿名访问数据、UTM 来源参数和跨站点击事件，用于了解站点使用情况与工具间的访问来源；不包含图片内容、文件名或永久标识，也不统计图片处理前后的文件尺寸。
 
 # Developing
 

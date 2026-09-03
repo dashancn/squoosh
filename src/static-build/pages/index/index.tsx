@@ -25,8 +25,9 @@ import * as snackbarStyle from '../../../shared/custom-els/snack-bar/styles.css'
 interface Props {}
 
 const Index: FunctionalComponent<Props> = () => (
-  <html lang="zh-CN">
+  <html lang="zh-CN" data-i41-site="imgzip">
     <head>
+      <script src="https://stats.i41.cn/analytics.js" async />
       <title>在线图片压缩工具 - Squoosh</title>
       <meta
         name="description"

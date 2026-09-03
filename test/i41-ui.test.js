@@ -12,6 +12,40 @@ const hrefsToIPlan = (source) =>
     ([, href]) => href,
   );
 
+test('生成页面加载 i41 匿名统计并标记站点', async () => {
+  const source = await read('src/static-build/pages/index/index.tsx');
+  assert.match(source, /<html lang="zh-CN" data-i41-site="imgzip">/);
+  assert.match(
+    source,
+    /<script src="https:\/\/stats\.i41\.cn\/analytics\.js" async \/>/,
+  );
+});
+
+test('隐私说明准确描述本地图片处理和匿名统计范围', async () => {
+  const readme = await read('README.md');
+  assert.match(readme, /图片处理内容.*(?:浏览器)?本地/s);
+  assert.match(readme, /匿名访问/);
+  assert.match(readme, /UTM/);
+  assert.match(readme, /跨站点击/);
+  assert.match(readme, /不(?:会|包含).*图片内容/s);
+  assert.match(readme, /不(?:会|包含).*文件名/s);
+  assert.match(readme, /不(?:会|包含).*永久标识/s);
+});
+
+test('移除旧 Google Analytics 及内容尺寸和 PWA 统计调用', async () => {
+  const sources = await Promise.all([
+    read('src/client/initial-app/index.tsx'),
+    read('src/shared/prerendered-app/Intro/index.tsx'),
+    read('src/client/lazy-app/Compress/Results/index.tsx'),
+  ]);
+  const runtime = sources.join('\n');
+  assert.doesNotMatch(runtime, /UA-\d+-\d+/);
+  assert.doesNotMatch(runtime, /google-analytics\.com/);
+  assert.doesNotMatch(runtime, /\bga\s*\(/);
+  assert.doesNotMatch(runtime, /metric[123]/);
+  assert.doesNotMatch(runtime, /eventCategory:\s*'pwa-install'/);
+});
+
 test('顶部生态导航包含完整 i41 工具链接并标记生态导航来源', async () => {
   const source = await read('src/shared/prerendered-app/Intro/index.tsx');
   for (const [label, url] of [
