@@ -4,6 +4,7 @@ import * as style from './style.css';
 import * as continueStyle from './continue.css';
 import 'add-css:./style.css';
 import 'add-css:./continue.css';
+import 'add-css:./embedded.css';
 import {
   blobToImg,
   blobToText,
@@ -973,7 +974,7 @@ export default class Compress extends Component<Props, State> {
       rightDisplaySettings.processorState.resize.fitMethod === 'contain';
 
     return (
-      <div class={style.compress}>
+      <div class={`${style.compress} embedded`}>
         <Output
           source={source}
           mobileView={mobileView}
