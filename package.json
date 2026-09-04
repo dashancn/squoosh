@@ -9,7 +9,7 @@
     "dev": "DEV_PORT=\"${DEV_PORT:=5000}\" run-p watch serve",
     "watch": "rollup -cw",
     "serve": "serve --listen=$DEV_PORT --config ../../../serve.json .tmp/build/static",
-    "prepare": "husky install"
+    "prepare": "husky install && patch-package"
   },
   "devDependencies": {
     "@rollup/plugin-commonjs": "^17.0.0",
@@ -35,6 +35,7 @@
     "lodash.camelcase": "^4.3.0",
     "mime-types": "^2.1.28",
     "npm-run-all": "^4.1.5",
+    "patch-package": "^8.0.1",
     "pointer-tracker": "^2.5.3",
     "postcss": "^7.0.35",
     "postcss-modules": "^3.2.2",

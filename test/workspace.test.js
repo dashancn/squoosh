@@ -43,6 +43,7 @@ test('background removal is loaded on demand and hands results directly to colla
   assert.match(source, /首次使用需要下载约 54MB/);
   assert.match(source, /模型已缓存/);
   assert.match(source, /加入拼图/);
+  assert.match(source, /proxyToWorker: false/);
   assert.match(app, /next === 'collage'/);
   assert.match(app, /await CollagePromise/);
   assert.match(app, /Collage:/);

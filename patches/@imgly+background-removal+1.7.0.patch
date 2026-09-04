@@ -1,0 +1,13 @@
+diff --git a/node_modules/@imgly/background-removal/dist/index.mjs b/node_modules/@imgly/background-removal/dist/index.mjs
+index 0ea9fb5..f4a485f 100644
+--- a/node_modules/@imgly/background-removal/dist/index.mjs
++++ b/node_modules/@imgly/background-removal/dist/index.mjs
+@@ -1014,7 +1014,7 @@ async function createOnnxSession(model, config) {
+     ort2.env.debug = true;
+     ort2.env.logLevel = "verbose";
+   }
+-  ort2.env.wasm.numThreads = maxNumThreads();
++  ort2.env.wasm.numThreads = 1;
+   ort2.env.wasm.proxy = proxyToWorker;
+   const baseFilePath = useWebGPU ? "/onnxruntime-web/ort-wasm-simd-threaded.jsep" : "/onnxruntime-web/ort-wasm-simd-threaded";
+   const wasmPath = await loadAsUrl(`${baseFilePath}.wasm`, config);
