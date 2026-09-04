@@ -77,23 +77,20 @@ test('首页浅黄色促销横幅使用独立 UTM 标记', async () => {
   assert.match(css, /\.i-plan-banner/);
 });
 
-test('页脚保留上游归属并标记 i方案访问来源', async () => {
-  const [source, license, packageJson] = await Promise.all([
-    read('src/shared/prerendered-app/Intro/index.tsx'),
+test('页脚保留上游归属并明确整体 AGPL 许可', async () => {
+  const [source, agplLicense, squooshLicense, packageJson] = await Promise.all([
+    read('src/client/initial-app/App/index.tsx'),
     read('LICENSE'),
+    read('LICENSE-SQUOOSH-APACHE-2.0'),
     read('package.json'),
   ]);
-  const footer = source.match(
-    /<footer class=\{style\.footer\}>[\s\S]*?<\/footer>/,
-  )?.[0];
-  assert.ok(footer, '缺少页面页脚');
-  assert.ok(footer.includes(`href="${iPlanUrl('footer')}"`));
-  assert.match(footer, />\s*访问 i方案\s*</);
-  assert.match(footer, /i41\s+免费实用工具/);
-  assert.match(footer, /GoogleChromeLabs/);
-  assert.match(footer, /Apache 2\.0/);
-  assert.match(license, /Apache License[\s\S]*Version 2\.0/);
-  assert.equal(JSON.parse(packageJson).license, 'apache-2.0');
+  assert.match(source, /i41\s+免费实用工具/);
+  assert.match(source, /GoogleChromeLabs Squoosh（Apache 2\.0）/);
+  assert.match(source, /AGPL-3\.0-only/);
+  assert.match(source, /查看源码/);
+  assert.match(agplLicense, /GNU Affero General Public License/);
+  assert.match(squooshLicense, /Apache License[\s\S]*Version 2\.0/);
+  assert.equal(JSON.parse(packageJson).license, 'AGPL-3.0-only');
 });
 
 test('所有 i方案链接均使用约定 UTM 且不宣称 i方案免费', async () => {
