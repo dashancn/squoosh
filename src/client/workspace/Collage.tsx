@@ -39,14 +39,19 @@ export default class Collage extends Component<Props, State> {
 
   renderCanvas = async () => {
     if (!this.canvas.current || !this.props.files.length) return;
-    const images = await Promise.all(this.props.files.map(imageFromFile));
+    let images: ImageBitmap[] = [];
     try {
+      images = await Promise.all(this.props.files.map(imageFromFile));
       const layout = calculateCollageLayout(images.map(image => ({ width: image.width, height: image.height })), this.state.mode, { gap: this.state.gap, ratio: this.state.ratio });
       const canvas = this.canvas.current;
       canvas.width = layout.width; canvas.height = layout.height;
       const ctx = canvas.getContext('2d')!;
       ctx.fillStyle = this.state.background; ctx.fillRect(0, 0, canvas.width, canvas.height);
       layout.cells.forEach(cell => drawCover(ctx, images[cell.imageIndex], cell.x, cell.y, cell.width, cell.height));
+    } catch {
+      const canvas = this.canvas.current;
+      const ctx = canvas.getContext('2d');
+      if (ctx) { canvas.width = 800; canvas.height = 450; ctx.fillStyle = '#f5f7fb'; ctx.fillRect(0, 0, canvas.width, canvas.height); ctx.fillStyle = '#667085'; ctx.font = '24px system-ui'; ctx.textAlign = 'center'; ctx.fillText('部分图片无法读取，请重新选择', 400, 225); }
     } finally {
       images.forEach(image => image.close());
     }
