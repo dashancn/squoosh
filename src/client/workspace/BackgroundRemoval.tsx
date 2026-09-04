@@ -29,6 +29,7 @@ export default class BackgroundRemoval extends Component<Props, State> {
         publicPath: `${location.origin}/background-removal/1.7.0/`,
         model: 'isnet_quint8',
         device: 'cpu',
+        proxyToWorker: false,
         progress: (_key, current, total) => this.setState({ progress: total ? Math.round(current / total * 100) : 0 }),
       });
       const result = new File([blob], this.props.file.name.replace(/\.[^.]+$/, '-透明背景.png'), { type: 'image/png' });
