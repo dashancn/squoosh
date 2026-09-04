@@ -12,6 +12,9 @@ test('simple workspace exposes compression, removal and collage actions with sha
   assert.match(source, /history/);
   assert.match(source, /renderNavigation/);
   assert.match(source, /renderToolShell/);
+  const css = await read('src/client/workspace/workspace.css');
+  assert.match(css, /\.topbar\{[^}]*flex-wrap:nowrap/);
+  assert.match(css, /\.toolBody\{[^}]*height:calc\(100vh - 55px\)/);
 });
 
 test('workspace keeps the existing Squoosh compression component', async () => {
