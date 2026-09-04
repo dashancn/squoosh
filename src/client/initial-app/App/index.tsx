@@ -2,6 +2,7 @@ import type { FileDropEvent } from 'file-drop-element';
 import type SnackBarElement from 'shared/custom-els/snack-bar';
 import type { SnackOptions } from 'shared/custom-els/snack-bar';
 import { h, Component } from 'preact';
+import type { ComponentChildren } from 'preact';
 import { linkRef } from 'shared/prerendered-app/util';
 import * as style from 'client/workspace/workspace.css';
 import 'add-css:client/workspace/workspace.css';
@@ -38,11 +39,32 @@ export default class App extends Component<Props, State> {
   private selected = () => this.state.images.find(image => image.id === this.state.activeId) || this.state.images[0];
   private updateCurrent = (file: File, id = this.state.activeId) => { if (!id) return; this.setState(state => ({ images: state.images.map(image => image.id === id ? (URL.revokeObjectURL(image.previewUrl), { ...image, currentFile: file, history: [...image.history, file], previewUrl: URL.createObjectURL(file) }) : image) })); };
   private removeImage = (id: string) => this.setState(state => { const item = state.images.find(image => image.id === id); if (item) URL.revokeObjectURL(item.previewUrl); const images = state.images.filter(image => image.id !== id); return { images, activeId: state.activeId === id ? images[0]?.id : state.activeId }; });
-  private openTool = async (tool: Tool) => { if (tool !== 'home' && !this.state.images.length) { this.showSnack('请先选择图片'); return; } this.setState({ loadingTool: true }); if (tool === 'collage' && !this.state.Collage) this.setState({ Collage: (await CollagePromise).default }); if (tool === 'remove' && !this.state.BackgroundRemoval) this.setState({ BackgroundRemoval: (await BackgroundRemovalPromise).default }); this.setState({ tool, loadingTool: false }); };
+  private openTool = async (tool: Tool) => {
+    if (tool !== 'home' && !this.state.images.length) { this.showSnack('请先选择图片'); return; }
+    this.setState({ loadingTool: true });
+    try {
+      if (tool === 'collage' && !this.state.Collage) this.setState({ Collage: (await CollagePromise).default });
+      if (tool === 'remove' && !this.state.BackgroundRemoval) this.setState({ BackgroundRemoval: (await BackgroundRemovalPromise).default });
+      if (tool === 'compress' && !this.state.Compress) this.setState({ Compress: (await CompressPromise).default });
+      this.setState({ tool });
+    } catch {
+      this.showSnack('功能加载失败，请刷新页面后重试');
+    } finally {
+      this.setState({ loadingTool: false });
+    }
+  };
+
+  renderNavigation() {
+    return <header class={style.topbar}><button class={style.brandButton} onClick={() => this.setState({ tool: 'home' })}>图片压缩与处理</button><nav class={style.nav}><button onClick={() => this.setState({ tool: 'home' })}>工作区</button><button onClick={() => void this.openTool('compress')}>压缩</button><button onClick={() => void this.openTool('remove')}>抠图</button><button onClick={() => void this.openTool('collage')}>拼图</button><a href="https://www.i41.cn?utm_source=imgzip&utm_medium=tool_referral&utm_campaign=ifangan&utm_content=ecosystem_nav" target="_blank" rel="noopener noreferrer">i方案</a><a href="https://tools.i41.cn" target="_blank" rel="noopener noreferrer">开发者工具</a><a href="https://pdf.i41.cn" target="_blank" rel="noopener noreferrer">PDF 工具</a><a href="https://idphoto.i41.cn" target="_blank" rel="noopener noreferrer">证件照</a><a href="https://watermark.i41.cn" target="_blank" rel="noopener noreferrer">证件水印</a><a href="https://clip.i41.cn" target="_blank" rel="noopener noreferrer">临时剪贴板</a></nav></header>;
+  }
+
+  renderToolShell(content: ComponentChildren) {
+    return <div class={style.shell}>{this.renderNavigation()}<div class={style.toolBody}>{content}</div><snack-bar ref={linkRef(this, 'snackbar')} /></div>;
+  }
 
   renderHome() {
     const selected = this.selected();
-    return <div class={style.shell}><header class={style.topbar}><strong class={style.brand}>图片压缩与处理</strong><nav class={style.nav}><a href="https://www.i41.cn?utm_source=imgzip&utm_medium=tool_referral&utm_campaign=ifangan&utm_content=ecosystem_nav" target="_blank" rel="noopener noreferrer">i方案</a><a href="https://tools.i41.cn" target="_blank" rel="noopener noreferrer">开发者工具</a><a href="https://pdf.i41.cn" target="_blank" rel="noopener noreferrer">PDF 工具</a><a href="https://idphoto.i41.cn" target="_blank" rel="noopener noreferrer">证件照</a><a href="https://watermark.i41.cn" target="_blank" rel="noopener noreferrer">证件水印</a><a href="https://clip.i41.cn" target="_blank" rel="noopener noreferrer">临时剪贴板</a></nav></header>
+    return <div class={style.shell}>{this.renderNavigation()}
       <main class={style.main}><section class={style.hero}><h1>图片压缩与处理</h1><p>选择图片后，按需压缩、抠图或拼接。所有图片只在浏览器本地处理。</p><span class={style.privacy}>无需注册 · 不上传业务服务器 · 最多 20 张</span><div class={style.picker}><label>选择图片<input type="file" accept="image/*" onChange={event => this.addFiles([...(event.currentTarget as HTMLInputElement).files || []])} /></label><label class={style.secondary}>选择多张图片<input type="file" accept="image/*" multiple onChange={event => this.addFiles([...(event.currentTarget as HTMLInputElement).files || []])} /></label></div></section>
         <section class={style.cards}><button class={style.card} onClick={() => void this.openTool('compress')}><strong>图片压缩</strong><p>使用 Squoosh 内核减小体积、调整尺寸和转换格式。</p></button><button class={style.card} onClick={() => void this.openTool('remove')}><strong>智能抠图</strong><p>移除背景，导出透明 PNG，结果可直接加入拼图。</p></button><button class={style.card} onClick={() => void this.openTool('collage')}><strong>多图拼接</strong><p>制作宫格图、纵向长图和横向拼图。</p></button></section>
         <section class={style.workspace}>{this.state.images.length ? [<aside class={style.panel}><strong>工作区图片（{this.state.images.length}）</strong><div class={style.images}>{this.state.images.map(image => <div class={style.imageRow} onClick={() => this.setState({ activeId: image.id })}><img src={image.previewUrl} alt="" /><span>{image.currentFile.name}</span><button aria-label="移除" onClick={event => { event.stopPropagation(); this.removeImage(image.id); }}>×</button></div>)}</div></aside>,<div class={style.preview}>{selected ? <div><img src={selected.previewUrl} alt={selected.currentFile.name} style="max-width:100%;max-height:420px" /><div class={style.steps}><button class={style.primary} onClick={() => void this.openTool('compress')}>去压缩</button><button class={style.secondary} onClick={() => void this.openTool('remove')}>去抠图</button><button class={style.secondary} onClick={() => void this.openTool('collage')}>去拼图</button></div></div> : null}</div>] : <div class={style.empty}>先选择一张或多张图片<br />之后无需重复上传，可连续处理</div>}</section>
@@ -51,10 +73,10 @@ export default class App extends Component<Props, State> {
 
   render() {
     const { tool, Compress, Collage, BackgroundRemoval, loadingTool } = this.state; const selected = this.selected();
-    if (loadingTool || this.state.awaitingShareTarget) return <loading-spinner class={style.empty} />;
-    if (tool === 'compress' && selected && Compress) return <Compress file={selected.currentFile} showSnack={this.showSnack} onBack={() => this.setState({ tool: 'home' })} onUseResult={file => { this.updateCurrent(file, selected.id); this.setState({ tool: 'home' }); }} />;
-    if (tool === 'remove' && selected && BackgroundRemoval) return <BackgroundRemoval file={selected.currentFile} onBack={() => this.setState({ tool: 'home' })} onResult={async (file, next) => { this.updateCurrent(file, selected.id); if (next === 'collage' && !this.state.Collage) this.setState({ Collage: (await CollagePromise).default }); this.setState({ tool: next === 'collage' ? 'collage' : 'home' }); }} />;
-    if (tool === 'collage' && Collage) return <Collage files={this.state.images.map(image => image.currentFile)} onBack={() => this.setState({ tool: 'home' })} onAddResult={file => { this.addFiles([file]); this.setState({ tool: 'home' }); }} />;
+    if (loadingTool || this.state.awaitingShareTarget) return this.renderToolShell(<loading-spinner class={style.empty} />);
+    if (tool === 'compress' && selected && Compress) return this.renderToolShell(<Compress file={selected.currentFile} showSnack={this.showSnack} onBack={() => this.setState({ tool: 'home' })} onUseResult={file => { this.updateCurrent(file, selected.id); this.setState({ tool: 'home' }); }} />);
+    if (tool === 'remove' && selected && BackgroundRemoval) return this.renderToolShell(<BackgroundRemoval file={selected.currentFile} onBack={() => this.setState({ tool: 'home' })} onResult={async (file, next) => { this.updateCurrent(file, selected.id); if (next === 'collage' && !this.state.Collage) this.setState({ Collage: (await CollagePromise).default }); this.setState({ tool: next === 'collage' ? 'collage' : 'home' }); }} />);
+    if (tool === 'collage' && Collage) return this.renderToolShell(<Collage files={this.state.images.map(image => image.currentFile)} onBack={() => this.setState({ tool: 'home' })} onAddResult={file => { this.addFiles([file]); this.setState({ tool: 'home' }); }} />);
     return <file-drop onfiledrop={this.onFileDrop} class={style.shell}>{this.renderHome()}</file-drop>;
   }
 }

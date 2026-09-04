@@ -4,12 +4,14 @@ import { readFile } from 'node:fs/promises';
 
 const read = path => readFile(new URL(`../${path}`, import.meta.url), 'utf8');
 
-test('simple workspace exposes compression, removal and collage actions', async () => {
+test('simple workspace exposes compression, removal and collage actions with shared navigation', async () => {
   const source = await read('src/client/initial-app/App/index.tsx');
   for (const text of ['图片压缩与处理','图片压缩','智能抠图','多图拼接','选择图片','选择多张图片']) assert.ok(source.includes(text), text);
   assert.match(source, /WorkspaceImage/);
   assert.match(source, /currentFile/);
   assert.match(source, /history/);
+  assert.match(source, /renderNavigation/);
+  assert.match(source, /renderToolShell/);
 });
 
 test('workspace keeps the existing Squoosh compression component', async () => {
