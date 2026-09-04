@@ -13,12 +13,10 @@
 import { h, FunctionalComponent } from 'preact';
 
 import baseCss from 'css:./base.css';
-import initialCss from 'initial-css:';
 import { allSrc } from 'client-bundle:client/initial-app';
 import favicon from 'url:static-build/assets/favicon.ico';
 import ogImage from 'url:static-build/assets/icon-large-maskable.png';
 import { escapeStyleScriptContent, siteOrigin } from 'static-build/utils';
-import Intro from 'shared/prerendered-app/Intro';
 import snackbarCss from 'css:../../../shared/custom-els/snack-bar/styles.css';
 import * as snackbarStyle from '../../../shared/custom-els/snack-bar/styles.css';
 
@@ -28,10 +26,10 @@ const Index: FunctionalComponent<Props> = () => (
   <html lang="zh-CN" data-i41-site="imgzip">
     <head>
       <script src="https://stats.i41.cn/analytics.js" async />
-      <title>在线图片压缩工具 - Squoosh</title>
+      <title>图片压缩与处理 - 本地压缩、抠图和拼图</title>
       <meta
         name="description"
-        content="Squoosh 是一款免费的在线图片压缩与格式转换工具，可在浏览器本地压缩、对比并导出 JPG、PNG、WebP、AVIF 等格式。"
+        content="在浏览器本地完成图片压缩、智能抠图和多图拼接，图片无需上传业务服务器。"
       />
       <meta name="twitter:card" content="summary" />
       <meta name="twitter:site" content="@SquooshApp" />
@@ -67,15 +65,13 @@ const Index: FunctionalComponent<Props> = () => (
       <style
         dangerouslySetInnerHTML={{ __html: escapeStyleScriptContent(baseCss) }}
       />
-      <style
-        dangerouslySetInnerHTML={{
-          __html: escapeStyleScriptContent(initialCss),
-        }}
-      />
+
     </head>
     <body>
       <div id="app">
-        <Intro />
+        <div style="display:grid;place-items:center;min-height:100vh;font:16px system-ui;color:#667085">
+          正在打开图片工作区…
+        </div>
         <noscript>
           <style
             dangerouslySetInnerHTML={{

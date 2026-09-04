@@ -1,7 +1,9 @@
 import { h, Component } from 'preact';
 
 import * as style from './style.css';
+import * as continueStyle from './continue.css';
 import 'add-css:./style.css';
+import 'add-css:./continue.css';
 import {
   blobToImg,
   blobToText,
@@ -61,6 +63,7 @@ interface Props {
   file: File;
   showSnack: SnackBarElement['showSnackbar'];
   onBack: () => void;
+  onUseResult?: (file: File) => void;
 }
 
 interface State {
@@ -919,7 +922,7 @@ export default class Compress extends Component<Props, State> {
   }
 
   render(
-    { onBack }: Props,
+    { onBack, onUseResult }: Props,
     { loading, sides, source, mobileView, preprocessorState }: State,
   ) {
     const [leftSide, rightSide] = sides;
@@ -981,6 +984,14 @@ export default class Compress extends Component<Props, State> {
           preprocessorState={preprocessorState}
           onPreprocessorChange={this.onPreprocessorChange}
         />
+        {onUseResult && sides[1].file && !sides[1].loading && (
+          <button
+            class={continueStyle.useResult}
+            onClick={() => onUseResult(sides[1].file!)}
+          >
+            使用压缩结果继续处理
+          </button>
+        )}
         <button class={style.back} onClick={onBack}>
           <svg viewBox="0 0 61 53.3">
             <title>返回</title>
