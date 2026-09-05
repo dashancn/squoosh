@@ -81,7 +81,7 @@ await page.waitForFunction(() => document.querySelectorAll('.thumbnail-item').le
 const afterRemove = await page.locator('.thumbnail-item').count();
 const imageManagement = { afterInitial, afterAdd, afterRemove, addPickerCleared };
 const results = [];
-for (const mode of ['grid', 'vertical', 'horizontal', 'two-columns', 'two-rows', 'three-feature', 'four-grid']) {
+for (const mode of ['grid', 'vertical', 'horizontal', 'two-columns', 'two-rows', 'three-feature', 'four-grid', 'left-stack-right-feature', 'top-feature-bottom-pair', 'bottom-feature-top-pair', 'asymmetric-mosaic']) {
   await page.selectOption('#mode', mode);
   await page.fill('#spacing', '17');
   await page.locator('#background').evaluate((input) => {
@@ -160,6 +160,82 @@ const focal = await page.evaluate(async (centerResult) => {
   };
 }, center);
 
+await page.selectOption('#mode', 'three-feature');
+await page.click('#generate');
+await page.waitForFunction(() => document.documentElement.dataset.state === 'complete');
+const threeFeatureBottomRightPixel = await page.evaluate(async () => {
+  const blob = await (await fetch(document.querySelector('#download').href)).blob();
+  const bitmap = await createImageBitmap(blob);
+  const canvas = document.createElement('canvas');
+  canvas.width = bitmap.width;
+  canvas.height = bitmap.height;
+  const context = canvas.getContext('2d');
+  context.drawImage(bitmap, 0, 0);
+  const pixel = Array.from(context.getImageData(bitmap.width - 1, bitmap.height - 1, 1, 1).data);
+  bitmap.close();
+  return pixel;
+});
+
+await page.selectOption('#mode', 'grid');
+await page.waitForFunction(() => document.documentElement.dataset.state === 'complete');
+await page.evaluate(() => {
+  window.__drawCrops = [];
+  const original = CanvasRenderingContext2D.prototype.drawImage;
+  CanvasRenderingContext2D.prototype.drawImage = function (...args) {
+    if (args.length === 9) window.__drawCrops.push({ sourceX: args[1], sourceY: args[2], sourceWidth: args[3], sourceHeight: args[4] });
+    return original.apply(this, args);
+  };
+});
+const checksum = () => page.evaluate(async () => {
+  const bytes = await (await fetch(document.querySelector('#download').href)).arrayBuffer();
+  const digest = await crypto.subtle.digest('SHA-256', bytes);
+  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('');
+});
+const canvasBox = await page.locator('#preview-canvas').boundingBox();
+const initialChecksum = await checksum();
+await page.evaluate(() => { window.__drawCrops = []; });
+await page.locator('#preview-canvas').evaluate((canvas) => {
+  const rect = canvas.getBoundingClientRect();
+  canvas.dispatchEvent(new WheelEvent('wheel', { bubbles: true, cancelable: true, deltaY: -300, clientX: rect.left + rect.width * 0.25, clientY: rect.top + rect.height * 0.25 }));
+});
+await page.waitForFunction(() => document.documentElement.dataset.state === 'complete' && window.__drawCrops.length >= 3);
+const zoomedChecksum = await checksum();
+const zoomedCrop = await page.evaluate(() => window.__drawCrops[0]);
+await page.evaluate(() => { window.__drawCrops = []; });
+const zoomedUrl = await page.locator('#download').getAttribute('href');
+await page.locator('#preview-canvas').evaluate((canvas) => {
+  const rect = canvas.getBoundingClientRect();
+  const fire = (type, fraction) => canvas.dispatchEvent(new PointerEvent(type, { bubbles: true, pointerId: 7, button: 0, clientX: rect.left + rect.width * fraction, clientY: rect.top + rect.height * 0.25 }));
+  fire('pointerdown', 0.25);
+  fire('pointermove', 0.38);
+  fire('pointerup', 0.38);
+});
+await page.waitForTimeout(500);
+const dragDebug = await page.evaluate((oldUrl) => ({ state: document.documentElement.dataset.state, changed: document.querySelector('#download').href !== oldUrl, crops: window.__drawCrops.length, focalX: document.querySelector('#focal-x').value }), zoomedUrl);
+if (!dragDebug.changed || dragDebug.crops < 3) throw new Error(`preview drag did not regenerate: ${JSON.stringify(dragDebug)}`);
+const draggedChecksum = await checksum();
+const draggedCrop = await page.evaluate(() => window.__drawCrops[0]);
+await page.evaluate(() => { window.__drawCrops = []; });
+await page.evaluate(() => {
+  const handle = document.querySelector('.reorder-handle');
+  const target = document.querySelectorAll('.preview-cell')[2].getBoundingClientRect();
+  const source = handle.getBoundingClientRect();
+  const fire = (type, x, y) => handle.dispatchEvent(new PointerEvent(type, { bubbles: true, pointerId: 9, button: 0, clientX: x, clientY: y }));
+  fire('pointerdown', source.left + source.width / 2, source.top + source.height / 2);
+  fire('pointerup', target.left + target.width / 2, target.top + target.height / 2);
+});
+await page.waitForFunction(() => document.documentElement.dataset.state === 'complete' && window.__drawCrops.length >= 3);
+const canvasInteraction = await page.evaluate(({ initialChecksum, zoomedChecksum, draggedChecksum, zoomedCrop, draggedCrop }) => ({
+  initialChecksum, zoomedChecksum, draggedChecksum,
+  initialSourceWidth: 300,
+  zoomedSourceWidth: zoomedCrop.sourceWidth,
+  zoomedSourceX: zoomedCrop.sourceX,
+  draggedSourceX: draggedCrop.sourceX,
+  orderAfterReorder: [...document.querySelectorAll('.thumbnail')].map((button) => button.getAttribute('aria-label').split('：').at(-1)),
+  reorderedSourceWidth: window.__drawCrops[2].sourceWidth,
+  selectedAfterReorder: [...document.querySelectorAll('.thumbnail')].findIndex((button) => button.classList.contains('selected')),
+}), { initialChecksum, zoomedChecksum, draggedChecksum, zoomedCrop, draggedCrop });
+
 await page.setViewportSize({ width: 375, height: 812 });
 const mobile = await page.evaluate(() => {
   const editor = document.querySelector('#position-editor');
@@ -180,6 +256,8 @@ const evidence = {
   results,
   imageManagement,
   focal,
+  threeFeatureBottomRightPixel,
+  canvasInteraction,
   mobile,
   pageErrors,
 };

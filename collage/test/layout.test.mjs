@@ -65,6 +65,48 @@ test('preset templates add common two, three and four image layouts', () => {
   assert.equal(four.items.length, 4);
 });
 
+test('three-feature divides an odd-spaced side column through the exact canvas bottom', () => {
+  const layout = calculateLayout(images, {
+    mode: 'three-feature', ratio: '1:1', cellWidth: 100, spacing: 17,
+  });
+  const upper = layout.items[1];
+  const lower = layout.items[2];
+  assert.equal(upper.y + upper.height + 17, lower.y);
+  assert.equal(lower.y + lower.height, layout.height);
+});
+
+test('decorative templates cover their canvas and fall back without enough images', () => {
+  const fourImages = [...images, images[0]];
+  const expectations = {
+    'left-stack-right-feature': [
+      [0, 0, 400, 392], [0, 409, 400, 391], [417, 0, 400, 800],
+    ],
+    'top-feature-bottom-pair': [
+      [0, 0, 817, 400], [0, 417, 400, 400], [417, 417, 400, 400],
+    ],
+    'bottom-feature-top-pair': [
+      [0, 0, 400, 400], [417, 0, 400, 400], [0, 417, 817, 400],
+    ],
+    'asymmetric-mosaic': [
+      [0, 0, 817, 400], [834, 0, 400, 817], [0, 417, 400, 400], [417, 417, 400, 400],
+    ],
+  };
+  for (const [mode, rectangles] of Object.entries(expectations)) {
+    const source = mode === 'asymmetric-mosaic' ? fourImages : images;
+    const layout = calculateLayout(source, { mode, ratio: '1:1', cellWidth: 400, spacing: 17 });
+    assert.deepEqual(layout.items.map(({ x, y, width, height }) => [x, y, width, height]), rectangles);
+    assert.ok(layout.items.every((item) => item.x + item.width <= layout.width));
+    assert.ok(layout.items.every((item) => item.y + item.height <= layout.height));
+  }
+
+  for (const mode of Object.keys(expectations)) {
+    const layout = calculateLayout(images.slice(0, 2), { mode, cellWidth: 100, spacing: 17 });
+    assert.equal(layout.items.length, 2);
+    assert.equal(layout.items.at(-1).x + layout.items.at(-1).width, layout.width);
+    assert.equal(layout.items.at(-1).y + layout.items.at(-1).height, layout.height);
+  }
+});
+
 test('cover crop accepts per-image focal positions', () => {
   const layout = calculateLayout(images.slice(0, 1), {
     mode: 'grid', ratio: '16:9', focalPoints: [{ x: 0.25, y: 0.1 }],

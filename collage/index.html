@@ -22,7 +22,7 @@
       <section class="intro" aria-labelledby="page-title">
         <p class="eyebrow">本地多图工具</p>
         <h1 id="page-title">多图拼接</h1>
-        <p>选择多张图片，使用 7 种模板拼接，并可手工调整图片位置。图片仅在浏览器本地处理，不会上传图片。</p>
+        <p>选择多张图片，使用 11 种模板拼接；直接在右侧画布滚轮缩放、拖动构图，并用每格手柄排序。图片仅在浏览器本地处理，不会上传图片。</p>
       </section>
 
       <section class="workspace" aria-label="拼图工作区">
@@ -42,8 +42,12 @@
                 <option value="horizontal">横向拼接</option>
                 <option value="two-columns">双列</option>
                 <option value="two-rows">双行</option>
-                <option value="three-feature">三图主视觉</option>
+                <option value="three-feature">左主图 / 右双图</option>
+                <option value="left-stack-right-feature">左双图 / 右主图</option>
+                <option value="top-feature-bottom-pair">上主图 / 下双图</option>
+                <option value="bottom-feature-top-pair">上双图 / 下主图</option>
                 <option value="four-grid">四宫格</option>
+                <option value="asymmetric-mosaic">非对称马赛克（4 图起）</option>
               </select>
             </label>
             <label id="ratio-field">
@@ -68,7 +72,7 @@
           <section id="position-editor" class="position-editor" hidden aria-labelledby="position-title">
             <div>
               <h2 id="position-title">手工调整图片位置</h2>
-              <p>先点选缩略图，再调整焦点；模板切换不会重置。</p>
+              <p>可用滑杆精调；也可在右侧点选图片，滚轮缩放、拖动构图。模板切换与排序不会重置。</p>
             </div>
             <div id="thumbnail-list" class="thumbnail-list" role="list" aria-label="已选图片"></div>
             <label class="add-images-picker">
@@ -102,8 +106,12 @@
             <a id="download" class="download" download="collage.png" hidden>下载 PNG</a>
           </div>
           <div class="preview-stage">
-            <p id="empty-preview">生成后将在这里显示完整预览</p>
-            <img id="preview" alt="拼图预览">
+            <p id="empty-preview">生成后可在这里直接调整构图</p>
+            <div id="composition" class="composition" hidden>
+              <img id="preview" alt="拼图预览">
+              <div id="cell-overlay" class="cell-overlay" aria-label="交互式拼图画布"></div>
+              <canvas id="preview-canvas" aria-label="拼图构图画布：点选图片，滚轮缩放，拖动调整位置"></canvas>
+            </div>
           </div>
         </section>
       </section>

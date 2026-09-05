@@ -12,7 +12,16 @@ test('真实 Chromium 证据覆盖独立页面、多图上传与三种 PNG 模�
   assert.equal(evidence.iframeCount, 0);
   assert.deepEqual(evidence.results.map((result) => result.mode), [
     'grid', 'vertical', 'horizontal', 'two-columns', 'two-rows', 'three-feature', 'four-grid',
+    'left-stack-right-feature', 'top-feature-bottom-pair', 'bottom-feature-top-pair', 'asymmetric-mosaic',
   ]);
+  assert.deepEqual(evidence.threeFeatureBottomRightPixel, [51, 102, 204, 255]);
+  assert.ok(evidence.canvasInteraction.zoomedSourceWidth < evidence.canvasInteraction.initialSourceWidth);
+  assert.notEqual(evidence.canvasInteraction.initialChecksum, evidence.canvasInteraction.zoomedChecksum);
+  assert.notEqual(evidence.canvasInteraction.zoomedChecksum, evidence.canvasInteraction.draggedChecksum);
+  assert.notEqual(evidence.canvasInteraction.zoomedSourceX, evidence.canvasInteraction.draggedSourceX);
+  assert.deepEqual(evidence.canvasInteraction.orderAfterReorder, ['two.png', 'three.png', 'person.png']);
+  assert.equal(evidence.canvasInteraction.reorderedSourceWidth, evidence.canvasInteraction.zoomedSourceWidth);
+  assert.equal(evidence.canvasInteraction.selectedAfterReorder, 2);
   assert.equal(evidence.imageManagement.afterInitial, 3);
   assert.equal(evidence.imageManagement.afterAdd, 4);
   assert.equal(evidence.imageManagement.afterRemove, 3);

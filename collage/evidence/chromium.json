@@ -57,7 +57,7 @@
     {
       "mode": "three-feature",
       "type": "image/png",
-      "size": 23265,
+      "size": 23273,
       "width": 817,
       "height": 800,
       "previewVisible": true,
@@ -73,6 +73,46 @@
       "previewVisible": true,
       "downloadReady": true,
       "file": "evidence/chromium-four-grid.png"
+    },
+    {
+      "mode": "left-stack-right-feature",
+      "type": "image/png",
+      "size": 12739,
+      "width": 817,
+      "height": 800,
+      "previewVisible": true,
+      "downloadReady": true,
+      "file": "evidence/chromium-left-stack-right-feature.png"
+    },
+    {
+      "mode": "top-feature-bottom-pair",
+      "type": "image/png",
+      "size": 13107,
+      "width": 817,
+      "height": 817,
+      "previewVisible": true,
+      "downloadReady": true,
+      "file": "evidence/chromium-top-feature-bottom-pair.png"
+    },
+    {
+      "mode": "bottom-feature-top-pair",
+      "type": "image/png",
+      "size": 16219,
+      "width": 817,
+      "height": 817,
+      "previewVisible": true,
+      "downloadReady": true,
+      "file": "evidence/chromium-bottom-feature-top-pair.png"
+    },
+    {
+      "mode": "asymmetric-mosaic",
+      "type": "image/png",
+      "size": 9051,
+      "width": 1234,
+      "height": 400,
+      "previewVisible": true,
+      "downloadReady": true,
+      "file": "evidence/chromium-asymmetric-mosaic.png"
     }
   ],
   "imageManagement": {
@@ -86,13 +126,26 @@
     "topPercent": 10,
     "centerSourceY": 100,
     "topSourceY": 20,
-    "centerUrl": "blob:http://127.0.0.1:44163/1fcb79f4-4df3-458b-9b65-0ce6fac287cd",
-    "topUrl": "blob:http://127.0.0.1:44163/004996f0-f338-4de8-911c-0a0ffa81c22f",
+    "centerUrl": "blob:http://127.0.0.1:42581/996b6e77-2a69-4b25-8f95-8a47199586eb",
+    "topUrl": "blob:http://127.0.0.1:42581/e61d2cb8-6c20-4b18-aea9-4536ee6545ed",
     "centerChecksum": "ef7e17f42e6d89fc2e038cb068d48fea449487ac5cad439e0b6af1b63a1942b4",
     "topChecksum": "87277937c8365d2c8c234451c74d9d7be8fa06560e960c907493a43e8f15e1c0",
     "usedSubmit": false,
     "type": "image/png",
     "size": 20999
+  },
+  "threeFeatureBottomRightPixel": [51, 102, 204, 255],
+  "canvasInteraction": {
+    "initialChecksum": "af569a7537fd3ffeb7fd181e10c9591f4fc34f0e3e4e3d89615778ec2920c390",
+    "zoomedChecksum": "60d27f2e246c541e36b808e8ed9f0685850cd81259e892f1906339a5488bd5bd",
+    "draggedChecksum": "c24b5e0386a055cddf9bacf4fec8264ab851ed05b708ae478a745a33e7879d2e",
+    "initialSourceWidth": 300,
+    "zoomedSourceWidth": 164.64349082820794,
+    "zoomedSourceX": 67.67825458589603,
+    "draggedSourceX": 31.737717488055956,
+    "orderAfterReorder": ["two.png", "three.png", "person.png"],
+    "reorderedSourceWidth": 164.64349082820794,
+    "selectedAfterReorder": 2
   },
   "mobile": {
     "viewportWidth": 375,

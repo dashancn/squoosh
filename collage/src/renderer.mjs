@@ -13,13 +13,23 @@ function canvasToPng(canvas) {
   });
 }
 
-function drawCover(context, bitmap, item) {
+export function calculateCoverCrop(bitmap, item, transform = {}) {
   const scale = Math.max(item.width / bitmap.width, item.height / bitmap.height);
-  const sourceWidth = item.width / scale;
-  const sourceHeight = item.height / scale;
-  const focal = item.focal || { x: 0.5, y: 0.5 };
-  const sourceX = (bitmap.width - sourceWidth) * focal.x;
-  const sourceY = (bitmap.height - sourceHeight) * focal.y;
+  const zoom = Math.max(1, Math.min(8, Number(transform.zoom) || 1));
+  const sourceWidth = item.width / scale / zoom;
+  const sourceHeight = item.height / scale / zoom;
+  const x = Math.max(0, Math.min(1, Number.isFinite(Number(transform.x)) ? Number(transform.x) : 0.5));
+  const y = Math.max(0, Math.min(1, Number.isFinite(Number(transform.y)) ? Number(transform.y) : 0.5));
+  return {
+    sourceX: (bitmap.width - sourceWidth) * x,
+    sourceY: (bitmap.height - sourceHeight) * y,
+    sourceWidth,
+    sourceHeight,
+  };
+}
+
+function drawCover(context, bitmap, item, transform) {
+  const { sourceX, sourceY, sourceWidth, sourceHeight } = calculateCoverCrop(bitmap, item, transform || item.focal);
   context.drawImage(
     bitmap,
     sourceX,
@@ -61,12 +71,12 @@ export async function createCollage(blobs, options = {}) {
     context.fillRect(0, 0, canvas.width, canvas.height);
     bitmaps.forEach((bitmap, index) => {
       const item = layout.items[index];
-      if (item.fit === 'cover') drawCover(context, bitmap, item);
+      if (item.fit === 'cover') drawCover(context, bitmap, item, options.transforms?.[index]);
       else context.drawImage(bitmap, item.x, item.y, item.width, item.height);
     });
 
     const blob = await canvasToPng(canvas);
-    return { blob, width: canvas.width, height: canvas.height };
+    return { blob, width: canvas.width, height: canvas.height, layout };
   } finally {
     bitmaps.forEach((bitmap) => bitmap.close());
   }

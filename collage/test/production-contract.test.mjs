@@ -15,7 +15,7 @@ test('独立拼图页面提供多图上传、三种模式和 PNG 预览下载', 
 
   assert.match(html, /data-i41-site="imgzip"/);
   assert.match(html, /id="files"[^>]*multiple/);
-  for (const mode of ['grid', 'vertical', 'horizontal', 'two-columns', 'two-rows', 'three-feature', 'four-grid']) {
+  for (const mode of ['grid', 'vertical', 'horizontal', 'two-columns', 'two-rows', 'three-feature', 'four-grid', 'left-stack-right-feature', 'top-feature-bottom-pair', 'bottom-feature-top-pair', 'asymmetric-mosaic']) {
     assert.match(html, new RegExp(`value="${mode}"`));
   }
   for (const id of ['ratio', 'spacing', 'background', 'preview', 'download', 'position-editor']) {
@@ -28,6 +28,9 @@ test('独立拼图页面提供多图上传、三种模式和 PNG 预览下载', 
   assert.match(source, /schedulePreview/);
   assert.match(source, /inputVersion/);
   assert.match(source, /focalXInput\.addEventListener\('input'/);
+  assert.match(source, /previewCanvas\.addEventListener\('wheel'/);
+  assert.match(source, /previewCanvas\.addEventListener\('pointerdown'/);
+  assert.match(source, /dataset\.action = 'reorder'/);
   assert.match(source, /modeInput\.addEventListener\('change'/);
   assert.match(source, /URL\.createObjectURL/);
   assert.match(html, /download="collage\.png"/);
