@@ -60,12 +60,26 @@ const inputFiles = await page.evaluate(async () => {
     makePng('#d33', 300, 500, 'PERSON'),
     makePng('#3a6', 300, 500, 'TWO'),
     makePng('#36c', 640, 360, 'THREE'),
+    makePng('#c63', 420, 300, 'FOUR'),
   ]);
 });
 
 await page.locator('#files').setInputFiles(
-  inputFiles.map((file) => ({ ...file, buffer: Buffer.from(file.buffer) })),
+  inputFiles.slice(0, 3).map((file) => ({ ...file, buffer: Buffer.from(file.buffer) })),
 );
+await page.waitForFunction(() => document.documentElement.dataset.state === 'complete');
+const afterInitial = await page.locator('.thumbnail-item').count();
+await page.locator('#add-images').setInputFiles({
+  ...inputFiles[3],
+  buffer: Buffer.from(inputFiles[3].buffer),
+});
+await page.waitForFunction(() => document.querySelectorAll('.thumbnail-item').length === 4 && document.documentElement.dataset.state === 'complete');
+const afterAdd = await page.locator('.thumbnail-item').count();
+const addPickerCleared = await page.locator('#add-images').evaluate((input) => input.files.length);
+await page.locator('[data-action="remove-image"]').last().click();
+await page.waitForFunction(() => document.querySelectorAll('.thumbnail-item').length === 3 && document.documentElement.dataset.state === 'complete');
+const afterRemove = await page.locator('.thumbnail-item').count();
+const imageManagement = { afterInitial, afterAdd, afterRemove, addPickerCleared };
 const results = [];
 for (const mode of ['grid', 'vertical', 'horizontal', 'two-columns', 'two-rows', 'three-feature', 'four-grid']) {
   await page.selectOption('#mode', mode);
@@ -108,30 +122,43 @@ await page.evaluate(() => {
     return original.apply(this, args);
   };
 });
-await page.locator('.thumbnail').first().click();
+await page.locator('.thumbnail').first().dispatchEvent('click');
 await page.fill('#focal-y', '50');
 await page.locator('#focal-y').dispatchEvent('input');
 await page.evaluate(() => { window.__sourceYs = []; });
-await page.click('#generate');
-await page.waitForFunction(() => document.documentElement.dataset.state === 'complete');
-const centerSourceY = await page.evaluate(() => window.__sourceYs[0]);
+await page.waitForFunction(() => document.documentElement.dataset.state === 'complete' && window.__sourceYs.length > 0);
+const center = await page.evaluate(async () => {
+  const url = document.querySelector('#download').href;
+  const bytes = await (await fetch(url)).arrayBuffer();
+  const digest = await crypto.subtle.digest('SHA-256', bytes);
+  return {
+    sourceY: window.__sourceYs[0],
+    url,
+    checksum: Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join(''),
+  };
+});
 await page.fill('#focal-y', '10');
 await page.locator('#focal-y').dispatchEvent('input');
 await page.evaluate(() => { window.__sourceYs = []; });
-await page.click('#generate');
-await page.waitForFunction(() => document.documentElement.dataset.state === 'complete');
-const focal = await page.evaluate(async (centerY) => {
+await page.waitForFunction((previousUrl) => document.documentElement.dataset.state === 'complete' && window.__sourceYs.length > 0 && document.querySelector('#download').href !== previousUrl, center.url);
+const focal = await page.evaluate(async (centerResult) => {
   const response = await fetch(document.querySelector('#download').href);
   const blob = await response.blob();
+  const digest = await crypto.subtle.digest('SHA-256', await blob.arrayBuffer());
   return {
     centerPercent: 50,
     topPercent: Number(document.querySelector('#focal-y').value),
-    centerSourceY: centerY,
+    centerSourceY: centerResult.sourceY,
     topSourceY: window.__sourceYs[0],
+    centerUrl: centerResult.url,
+    topUrl: document.querySelector('#download').href,
+    centerChecksum: centerResult.checksum,
+    topChecksum: Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join(''),
+    usedSubmit: false,
     type: blob.type,
     size: blob.size,
   };
-}, centerSourceY);
+}, center);
 
 await page.setViewportSize({ width: 375, height: 812 });
 const mobile = await page.evaluate(() => {
@@ -151,6 +178,7 @@ const evidence = {
   inputCount: await page.locator('#files').evaluate((input) => input.files.length),
   iframeCount: await page.locator('iframe').count(),
   results,
+  imageManagement,
   focal,
   mobile,
   pageErrors,

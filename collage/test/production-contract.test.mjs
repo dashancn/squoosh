@@ -22,7 +22,13 @@ test('独立拼图页面提供多图上传、三种模式和 PNG 预览下载', 
     assert.match(html, new RegExp(`id="${id}"`));
   }
   assert.match(html, /手工调整图片位置/);
+  assert.match(html, /id="add-images"/);
+  assert.match(html, /data-action="remove-image"/);
   assert.match(source, /createCollage/);
+  assert.match(source, /schedulePreview/);
+  assert.match(source, /inputVersion/);
+  assert.match(source, /focalXInput\.addEventListener\('input'/);
+  assert.match(source, /modeInput\.addEventListener\('change'/);
   assert.match(source, /URL\.createObjectURL/);
   assert.match(html, /download="collage\.png"/);
 });

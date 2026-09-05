@@ -220,8 +220,13 @@ input[type='color'] {
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 8px;
 }
+.thumbnail-item {
+  position: relative;
+  min-width: 0;
+}
 .thumbnail {
   position: relative;
+  width: 100%;
   min-height: 60px;
   padding: 3px;
   overflow: hidden;
@@ -249,6 +254,24 @@ input[type='color'] {
   background: rgba(20, 29, 48, 0.78);
   color: #fff;
   font-size: 0.7rem;
+}
+.remove-image {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  z-index: 1;
+  min-height: 28px;
+  padding: 3px 7px;
+  border: 1px solid rgba(255, 255, 255, 0.75);
+  border-radius: 7px;
+  background: rgba(24, 32, 50, 0.82);
+  font-size: 0.72rem;
+}
+.add-images-picker {
+  padding: 12px;
+  border: 1px dashed #9da9c4;
+  border-radius: 10px;
+  background: #f8f9fd;
 }
 .focal-controls {
   display: grid;

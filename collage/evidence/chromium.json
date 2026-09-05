@@ -75,11 +75,22 @@
       "file": "evidence/chromium-four-grid.png"
     }
   ],
+  "imageManagement": {
+    "afterInitial": 3,
+    "afterAdd": 4,
+    "afterRemove": 3,
+    "addPickerCleared": 0
+  },
   "focal": {
     "centerPercent": 50,
     "topPercent": 10,
     "centerSourceY": 100,
     "topSourceY": 20,
+    "centerUrl": "blob:http://127.0.0.1:44163/1fcb79f4-4df3-458b-9b65-0ce6fac287cd",
+    "topUrl": "blob:http://127.0.0.1:44163/004996f0-f338-4de8-911c-0a0ffa81c22f",
+    "centerChecksum": "ef7e17f42e6d89fc2e038cb068d48fea449487ac5cad439e0b6af1b63a1942b4",
+    "topChecksum": "87277937c8365d2c8c234451c74d9d7be8fa06560e960c907493a43e8f15e1c0",
+    "usedSubmit": false,
     "type": "image/png",
     "size": 20999
   },

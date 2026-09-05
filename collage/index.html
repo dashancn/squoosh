@@ -29,7 +29,7 @@
         <form id="controls" class="controls">
           <label class="file-picker">
             <span>选择图片</span>
-            <input id="files" type="file" accept="image/*" multiple required>
+            <input id="files" type="file" accept="image/*" multiple>
             <small id="file-summary">可一次选择多张 JPG、PNG、WebP 等浏览器支持的图片</small>
           </label>
 
@@ -71,6 +71,10 @@
               <p>先点选缩略图，再调整焦点；模板切换不会重置。</p>
             </div>
             <div id="thumbnail-list" class="thumbnail-list" role="list" aria-label="已选图片"></div>
+            <label class="add-images-picker">
+              <span>继续添加图片</span>
+              <input id="add-images" type="file" accept="image/*" multiple>
+            </label>
             <div class="focal-controls">
               <label>水平焦点 <output id="focal-x-value">50%</output>
                 <input id="focal-x" type="range" min="0" max="100" value="50">
@@ -86,7 +90,7 @@
             </div>
           </section>
 
-          <button id="generate" type="submit">生成 PNG</button>
+          <button id="generate" type="submit">立即刷新预览</button>
         </form>
 
         <section class="result" aria-labelledby="preview-title">
@@ -110,6 +114,13 @@
         <p>本工具基于 GoogleChromeLabs Squoosh 项目整理，依照 <a href="../LICENSE">Apache 2.0</a> 许可证提供，不提供任何担保。</p>
       </section>
     </main>
+
+    <template id="image-thumbnail-template">
+      <div class="thumbnail-item" role="listitem">
+        <button class="thumbnail" type="button"></button>
+        <button class="remove-image" type="button" data-action="remove-image">移除</button>
+      </div>
+    </template>
 
     <script type="module" src="./src/app.mjs"></script>
   </body>

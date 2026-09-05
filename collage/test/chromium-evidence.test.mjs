@@ -13,11 +13,18 @@ test('真实 Chromium 证据覆盖独立页面、多图上传与三种 PNG 模�
   assert.deepEqual(evidence.results.map((result) => result.mode), [
     'grid', 'vertical', 'horizontal', 'two-columns', 'two-rows', 'three-feature', 'four-grid',
   ]);
+  assert.equal(evidence.imageManagement.afterInitial, 3);
+  assert.equal(evidence.imageManagement.afterAdd, 4);
+  assert.equal(evidence.imageManagement.afterRemove, 3);
+  assert.equal(evidence.imageManagement.addPickerCleared, 0);
   assert.equal(evidence.focal.centerPercent, 50);
   assert.equal(evidence.focal.topPercent, 10);
   assert.ok(evidence.focal.topSourceY < evidence.focal.centerSourceY);
   assert.equal(evidence.focal.type, 'image/png');
   assert.ok(evidence.focal.size > 0);
+  assert.notEqual(evidence.focal.centerUrl, evidence.focal.topUrl);
+  assert.notEqual(evidence.focal.centerChecksum, evidence.focal.topChecksum);
+  assert.equal(evidence.focal.usedSubmit, false);
   assert.ok(evidence.mobile.editorVisible);
   assert.ok(evidence.mobile.sliderWidth >= 250);
   assert.ok(evidence.mobile.sliderRight <= evidence.mobile.viewportWidth);
