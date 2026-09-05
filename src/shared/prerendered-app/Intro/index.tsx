@@ -204,65 +204,64 @@ export default class Intro extends Component<Props, State> {
       <div class={style.intro}>
         <header class={style.siteHeader}>
           <div class={style.headerInner}>
-            <a class={style.brand} href="/" aria-label="i41 图片工具首页">
+            <a class={style.brand} href="/" aria-label="i41 图片压缩首页">
               <span aria-hidden="true">图</span>
-              i41 图片工具
+              i41 图片压缩
             </a>
             <nav class={style.toolNav} aria-label="图片工具导航">
               <a
                 class={`${style.toolLink} ${style.iPlanNav}`}
                 href="https://www.i41.cn?utm_source=imgzip&utm_medium=tool_referral&utm_campaign=ifangan&utm_content=ecosystem_nav"
-                target="_blank"
-                rel="noopener noreferrer"
+                data-tooltip="了解内容创作与业务增长方案"
               >
                 i方案
               </a>
               <a
                 class={style.toolLink}
                 href="https://tools.i41.cn"
-                target="_blank"
-                rel="noopener noreferrer"
+                data-tooltip="使用编码、格式化等开发工具"
               >
                 开发者工具
               </a>
-              <a class={style.currentTool} href="/" aria-current="page">
-                图片压缩
-              </a>
-              <a class={style.toolLink} href="/remove-background/">
+              <a
+                class={style.toolLink}
+                href="/remove-background/"
+                data-tooltip="在本地移除图片背景"
+              >
                 智能抠图
               </a>
-              <a class={style.toolLink} href="/collage/">
+              <a
+                class={style.toolLink}
+                href="/collage/"
+                data-tooltip="将多张图片拼成宫格或长图"
+              >
                 多图拼接
               </a>
               <a
                 class={style.toolLink}
                 href="https://pdf.i41.cn"
-                target="_blank"
-                rel="noopener noreferrer"
+                data-tooltip="处理、转换和整理 PDF 文件"
               >
                 PDF 工具
               </a>
               <a
                 class={style.toolLink}
                 href="https://watermark.i41.cn"
-                target="_blank"
-                rel="noopener noreferrer"
+                data-tooltip="为证件图片添加安全水印"
               >
                 证件水印
               </a>
               <a
                 class={style.toolLink}
                 href="https://clip.i41.cn"
-                target="_blank"
-                rel="noopener noreferrer"
+                data-tooltip="临时保存和分享文本内容"
               >
                 临时剪贴板
               </a>
               <a
                 class={`${style.toolLink} ${style.featuredTool}`}
                 href="https://idphoto.i41.cn"
-                target="_blank"
-                rel="noopener noreferrer"
+                data-tooltip="制作规范尺寸的证件照片"
               >
                 证件照
               </a>
@@ -282,11 +281,7 @@ export default class Intro extends Component<Props, State> {
             <strong>关注 i方案</strong>
             <span>获取内容创作、客户跟单、文生图与视频制作方案</span>
           </div>
-          <a
-            href="https://www.i41.cn?utm_source=imgzip&utm_medium=tool_referral&utm_campaign=ifangan&utm_content=promo_banner"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
+          <a href="https://www.i41.cn?utm_source=imgzip&utm_medium=tool_referral&utm_campaign=ifangan&utm_content=promo_banner">
             访问 i方案 <span aria-hidden="true">→</span>
           </a>
         </aside>
@@ -504,33 +499,34 @@ export default class Intro extends Component<Props, State> {
               />
             </svg>
             <div class={style.footerPadding}>
-              <footer class={style.footerItems}>
-                <a
-                  class={style.footerLink}
-                  href="https://github.com/GoogleChromeLabs/squoosh/blob/dev/README.md#privacy"
-                >
-                  隐私说明
-                </a>
-                <a
-                  class={style.footerLinkWithLogo}
-                  href="https://github.com/GoogleChromeLabs/squoosh"
-                >
-                  <img src={githubLogo} alt="" width="10" height="10" />
-                  GitHub 源码
-                </a>
-                <span>
-                  基于 GoogleChromeLabs Squoosh（Apache 2.0），由 i41
-                  免费实用工具维护
-                </span>
-                <a
-                  class={style.footerLink}
-                  href="https://www.i41.cn?utm_source=imgzip&utm_medium=tool_referral&utm_campaign=ifangan&utm_content=footer"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  访问 i方案
-                </a>
-              </footer>
+              <p class={style.footerTagline}>i41 免费实用工具</p>
+              <details class={style.footerDetails}>
+                <summary>隐私、许可与开源说明</summary>
+                <div class={style.footerItems}>
+                  <a
+                    class={style.footerLink}
+                    href="https://github.com/GoogleChromeLabs/squoosh/blob/dev/README.md#privacy"
+                  >
+                    隐私说明
+                  </a>
+                  <a
+                    class={style.footerLinkWithLogo}
+                    href="https://github.com/GoogleChromeLabs/squoosh"
+                  >
+                    <img src={githubLogo} alt="" width="10" height="10" />
+                    GitHub 源码
+                  </a>
+                  <span>
+                    基于 GoogleChromeLabs Squoosh（Apache 2.0），不提供任何担保
+                  </span>
+                  <a
+                    class={style.footerLink}
+                    href="https://www.i41.cn?utm_source=imgzip&utm_medium=tool_referral&utm_campaign=ifangan&utm_content=footer"
+                  >
+                    访问 i方案
+                  </a>
+                </div>
+              </details>
             </div>
           </div>
         </footer>

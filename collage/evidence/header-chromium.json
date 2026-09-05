@@ -3,46 +3,12 @@
   "desktop": [
     {
       "path": "/",
-      "header": {
-        "x": 0,
-        "y": 0,
-        "width": 1280,
-        "height": 64
-      },
-      "inner": {
-        "x": 88,
-        "y": 0,
-        "width": 1104,
-        "height": 64
-      },
-      "brand": {
-        "x": 88,
-        "y": 18,
-        "width": 150.25,
-        "height": 28
-      },
-      "nav": {
-        "x": 254.25,
-        "y": 13.859375,
-        "width": 762.65625,
-        "height": 36.265625
-      },
-      "privacyBadge": {
-        "x": 1032.90625,
-        "y": 15.640625,
-        "width": 159.09375,
-        "height": 32.71875
-      },
-      "banner": {
-        "x": 88,
-        "y": 83.1875,
-        "width": 1104,
-        "height": 71.515625
-      },
+      "width": 1280,
+      "brand": "i41 图片压缩",
+      "expectedBrand": "i41 图片压缩",
       "labels": [
         "i方案",
         "开发者工具",
-        "图片压缩",
         "智能抠图",
         "多图拼接",
         "PDF 工具",
@@ -50,135 +16,97 @@
         "临时剪贴板",
         "证件照"
       ],
-      "active": "图片压缩",
-      "iPlanStyle": {
-        "backgroundColor": "rgb(23, 105, 224)",
-        "color": "rgb(255, 255, 255)"
+      "currentPresent": false,
+      "targetBlankCount": 0,
+      "bannerPresent": true,
+      "detailsOpen": false,
+      "navWidth": 763,
+      "navScrollWidth": 763,
+      "scrollable": false,
+      "hoverOpacity": "1",
+      "focusTip": {
+        "opacity": "1",
+        "content": "\"了解内容创作与业务增长方案\"",
+        "position": "fixed",
+        "left": "640px",
+        "right": "136px",
+        "iPlanWidth": 102
       }
     },
     {
       "path": "/remove-background/",
-      "header": {
-        "x": 0,
-        "y": 0,
-        "width": 1280,
-        "height": 64
-      },
-      "inner": {
-        "x": 88,
-        "y": 0,
-        "width": 1104,
-        "height": 64
-      },
-      "brand": {
-        "x": 88,
-        "y": 18,
-        "width": 133.328125,
-        "height": 28
-      },
-      "nav": {
-        "x": 237.328125,
-        "y": 13.5,
-        "width": 797,
-        "height": 37
-      },
-      "privacyBadge": {
-        "x": 1050.328125,
-        "y": 16.5,
-        "width": 141.671875,
-        "height": 31
-      },
-      "banner": {
-        "x": 88,
-        "y": 80,
-        "width": 1104,
-        "height": 77.1875
-      },
+      "width": 1280,
+      "brand": "i41 智能抠图",
+      "expectedBrand": "i41 智能抠图",
       "labels": [
         "i方案",
         "开发者工具",
         "图片压缩",
-        "智能抠图",
         "多图拼接",
         "PDF 工具",
         "证件水印",
         "临时剪贴板",
         "证件照"
       ],
-      "active": "智能抠图",
-      "iPlanStyle": {
-        "backgroundColor": "rgb(23, 105, 224)",
-        "color": "rgb(255, 255, 255)"
+      "currentPresent": false,
+      "targetBlankCount": 0,
+      "bannerPresent": true,
+      "detailsOpen": false,
+      "navWidth": 797,
+      "navScrollWidth": 797,
+      "scrollable": false,
+      "hoverOpacity": "1",
+      "focusTip": {
+        "opacity": "1",
+        "content": "\"了解内容创作与业务增长方案\"",
+        "position": "fixed",
+        "left": "640px",
+        "right": "196px",
+        "iPlanWidth": 72
       }
     },
     {
       "path": "/collage/",
-      "header": {
-        "x": 0,
-        "y": 0,
-        "width": 1280,
-        "height": 64
-      },
-      "inner": {
-        "x": 88,
-        "y": 0,
-        "width": 1104,
-        "height": 64
-      },
-      "brand": {
-        "x": 88,
-        "y": 18,
-        "width": 138.078125,
-        "height": 28
-      },
-      "nav": {
-        "x": 242.078125,
-        "y": 14.5,
-        "width": 792.25,
-        "height": 35
-      },
-      "privacyBadge": {
-        "x": 1050.328125,
-        "y": 16.5,
-        "width": 141.671875,
-        "height": 31
-      },
-      "banner": {
-        "x": 88,
-        "y": 80,
-        "width": 1104,
-        "height": 77.1875
-      },
+      "width": 1280,
+      "brand": "i41 多图拼接",
+      "expectedBrand": "i41 多图拼接",
       "labels": [
         "i方案",
         "开发者工具",
         "图片压缩",
         "智能抠图",
-        "多图拼接",
         "PDF 工具",
         "证件水印",
         "临时剪贴板",
         "证件照"
       ],
-      "active": "多图拼接",
-      "iPlanStyle": {
-        "backgroundColor": "rgb(23, 105, 224)",
-        "color": "rgb(255, 255, 255)"
+      "currentPresent": false,
+      "targetBlankCount": 0,
+      "bannerPresent": true,
+      "detailsOpen": false,
+      "navWidth": 792,
+      "navScrollWidth": 792,
+      "scrollable": false,
+      "hoverOpacity": "1",
+      "focusTip": {
+        "opacity": "1",
+        "content": "\"了解内容创作与业务增长方案\"",
+        "position": "fixed",
+        "left": "640px",
+        "right": "196px",
+        "iPlanWidth": 72
       }
     }
   ],
   "mobile": [
     {
       "path": "/",
-      "headerHeight": 105.984375,
-      "navWidth": 343,
-      "navRight": 359,
-      "navScrollWidth": 748,
-      "privacyBadgeRight": 359,
+      "width": 375,
+      "brand": "i41 图片压缩",
+      "expectedBrand": "i41 图片压缩",
       "labels": [
         "i方案",
         "开发者工具",
-        "图片压缩",
         "智能抠图",
         "多图拼接",
         "PDF 工具",
@@ -186,47 +114,86 @@
         "临时剪贴板",
         "证件照"
       ],
-      "viewportWidth": 375
+      "currentPresent": false,
+      "targetBlankCount": 0,
+      "bannerPresent": true,
+      "detailsOpen": false,
+      "navWidth": 343,
+      "navScrollWidth": 713,
+      "scrollable": true,
+      "hoverOpacity": "1",
+      "focusTip": {
+        "opacity": "1",
+        "content": "\"了解内容创作与业务增长方案\"",
+        "position": "fixed",
+        "left": "12px",
+        "right": "12px",
+        "iPlanWidth": 102
+      }
     },
     {
       "path": "/remove-background/",
-      "headerHeight": 105,
-      "navWidth": 343,
-      "navRight": 359,
-      "navScrollWidth": 764,
-      "privacyBadgeRight": 359,
+      "width": 375,
+      "brand": "i41 智能抠图",
+      "expectedBrand": "i41 智能抠图",
       "labels": [
         "i方案",
         "开发者工具",
         "图片压缩",
-        "智能抠图",
         "多图拼接",
         "PDF 工具",
         "证件水印",
         "临时剪贴板",
         "证件照"
       ],
-      "viewportWidth": 375
+      "currentPresent": false,
+      "targetBlankCount": 0,
+      "bannerPresent": true,
+      "detailsOpen": false,
+      "navWidth": 343,
+      "navScrollWidth": 694,
+      "scrollable": true,
+      "hoverOpacity": "1",
+      "focusTip": {
+        "opacity": "1",
+        "content": "\"了解内容创作与业务增长方案\"",
+        "position": "fixed",
+        "left": "16px",
+        "right": "16px",
+        "iPlanWidth": 72
+      }
     },
     {
       "path": "/collage/",
-      "headerHeight": 103,
-      "navWidth": 343,
-      "navRight": 359,
-      "navScrollWidth": 723,
-      "privacyBadgeRight": 359,
+      "width": 375,
+      "brand": "i41 多图拼接",
+      "expectedBrand": "i41 多图拼接",
       "labels": [
         "i方案",
         "开发者工具",
         "图片压缩",
         "智能抠图",
-        "多图拼接",
         "PDF 工具",
         "证件水印",
         "临时剪贴板",
         "证件照"
       ],
-      "viewportWidth": 375
+      "currentPresent": false,
+      "targetBlankCount": 0,
+      "bannerPresent": true,
+      "detailsOpen": false,
+      "navWidth": 343,
+      "navScrollWidth": 662,
+      "scrollable": true,
+      "hoverOpacity": "1",
+      "focusTip": {
+        "opacity": "1",
+        "content": "\"了解内容创作与业务增长方案\"",
+        "position": "fixed",
+        "left": "16px",
+        "right": "16px",
+        "iPlanWidth": 72
+      }
     }
   ],
   "errors": []

@@ -559,6 +559,7 @@ button:disabled {
   scrollbar-width: thin;
 }
 .tool-nav a {
+  position: relative;
   padding: 8px 9px;
   border-radius: 8px;
   white-space: nowrap;
@@ -568,6 +569,10 @@ button:disabled {
   background: #1769e0;
 }
 .tool-nav a.i-plan-nav {
+  min-width: 72px;
+  padding-right: 15px;
+  padding-left: 15px;
+  text-align: center;
   color: white;
   background: #1769e0;
   font-weight: 800;
@@ -627,6 +632,46 @@ button:disabled {
   font-weight: 700;
   text-decoration: none;
 }
+[data-tooltip]::after {
+  content: attr(data-tooltip);
+  position: fixed;
+  top: 70px;
+  left: 50%;
+  z-index: 20;
+  width: min(420px, calc(100vw - 32px));
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: rgba(20, 38, 48, 0.96);
+  color: white;
+  font-size: 0.84rem;
+  line-height: 1.45;
+  text-align: center;
+  white-space: normal;
+  opacity: 0;
+  transform: translate(-50%, -4px);
+  pointer-events: none;
+  transition: opacity 160ms ease, transform 160ms ease;
+}
+[data-tooltip]:hover::after,
+[data-tooltip]:focus-visible::after {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+.footer-tagline {
+  margin: 0;
+  color: #25313d;
+  text-align: center;
+  font-weight: 800;
+}
+.notice details {
+  margin-top: 10px;
+}
+.notice summary {
+  cursor: pointer;
+  color: #3156d9;
+  text-align: center;
+  font-weight: 700;
+}
 @media (max-width: 760px) {
   .privacy-badge {
     margin-left: auto;
@@ -635,5 +680,18 @@ button:disabled {
     align-items: flex-start;
     flex-direction: column;
     width: calc(100% - 32px);
+  }
+  [data-tooltip]::after {
+    position: fixed;
+    top: auto;
+    right: 16px;
+    bottom: 16px;
+    left: 16px;
+    width: auto;
+    transform: translateY(4px);
+  }
+  [data-tooltip]:hover::after,
+  [data-tooltip]:focus-visible::after {
+    transform: translateY(0);
   }
 }

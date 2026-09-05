@@ -56,7 +56,7 @@ test('顶部导航使用约定来源链接且不使用下拉生态菜单', async
   );
 });
 
-test('三个图片工具页面共享完整顶部导航、当前项和本地处理徽章', async () => {
+test('三个图片工具页面以品牌标识当前工具，并从标准菜单中排除当前项', async () => {
   const [
     compressor,
     removeBackground,
@@ -72,11 +72,6 @@ test('三个图片工具页面共享完整顶部导航、当前项和本地处�
     read('remove-background/src/style.css'),
     read('collage/style.css'),
   ]);
-  const pages = [
-    [compressor, '图片压缩'],
-    [removeBackground, '智能抠图'],
-    [collage, '多图拼接'],
-  ];
   const navItems = [
     ['i方案', iPlanUrl('ecosystem_nav')],
     ['开发者工具', 'https://tools.i41.cn'],
@@ -88,45 +83,44 @@ test('三个图片工具页面共享完整顶部导航、当前项和本地处�
     ['临时剪贴板', 'https://clip.i41.cn'],
     ['证件照', 'https://idphoto.i41.cn'],
   ];
+  const pages = [
+    [compressor, 'i41 图片压缩', '图片压缩'],
+    [removeBackground, 'i41 智能抠图', '智能抠图'],
+    [collage, 'i41 多图拼接', '多图拼接'],
+  ];
 
-  for (const [source, activeLabel] of pages) {
+  for (const [source, brand, currentLabel] of pages) {
     const header = source.slice(
       source.indexOf('<header'),
       source.indexOf('</header>') + 9,
     );
-    assert.doesNotMatch(header, /<details|<summary|生态菜单|i41 生态/);
+    const nav = header.match(/<nav[\s\S]*?<\/nav>/)?.[0];
+    assert.ok(nav, '缺少图片工具导航');
+    assert.match(header, new RegExp(`>\\s*${brand}\\s*<\\/a>`));
     assert.match(header, /图片仅在本地处理/);
-    assert.match(header, />\s*i方案\s*<\/a>/);
-    let previous = -1;
-    for (const [label, url] of navItems) {
-      const index = header.indexOf(label);
-      assert.ok(index > previous, `${label} 应存在且顺序一致`);
-      previous = index;
+    assert.doesNotMatch(
+      header,
+      /aria-current|<details|<summary|生态菜单|i41 生态/,
+    );
+    assert.doesNotMatch(nav, new RegExp(`>\\s*${currentLabel}\\s*<\\/a>`));
+    assert.doesNotMatch(source, /target="_blank"|rel="noopener noreferrer"/);
+
+    const expectedItems = navItems.filter(([label]) => label !== currentLabel);
+    const anchors = [...nav.matchAll(/<a\b([^>]*)>\s*([^<]+)\s*<\/a>/g)];
+    assert.deepEqual(
+      anchors.map(([, , label]) => label.trim()),
+      expectedItems.map(([label]) => label),
+      `${currentLabel} 页菜单应保持全局顺序`,
+    );
+    for (const [index, [label, url]] of expectedItems.entries()) {
+      const attrs = anchors[index][1];
       const encodedUrl = url.replaceAll('&', '&amp;');
       assert.ok(
-        header.includes(`href="${url}"`) ||
-          header.includes(`href="${encodedUrl}"`),
+        attrs.includes(`href="${url}"`) ||
+          attrs.includes(`href="${encodedUrl}"`),
         `${label} URL 不正确`,
       );
-    }
-    const activePattern = new RegExp(
-      `aria-current="page"[^>]*>\\s*${activeLabel}\\s*<|>\\s*${activeLabel}\\s*<\\/a>[\\s\\S]{0,80}aria-current="page"`,
-    );
-    assert.match(header, activePattern);
-    for (const url of navItems
-      .map(([, url]) => url)
-      .filter((url) => url.startsWith('https://'))) {
-      const href = header.includes(`href="${url}"`)
-        ? url
-        : url.replaceAll('&', '&amp;');
-      const anchor = header.match(
-        new RegExp(
-          `<a[^>]*href="${href.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}"[^>]*>`,
-        ),
-      )?.[0];
-      assert.ok(anchor, `缺少 ${url} 链接`);
-      assert.match(anchor, /target="_blank"/);
-      assert.match(anchor, /rel="noopener noreferrer"/);
+      assert.match(attrs, /data-tooltip="[^\"]*[\u3400-\u9fff][^\"]*"/);
     }
   }
 
@@ -135,8 +129,38 @@ test('三个图片工具页面共享完整顶部导航、当前项和本地处�
     assert.match(css, /\.header-inner[\s\S]*max-width:\s*1104px/);
     assert.match(css, /\.privacy-badge|\.privacyBadge/);
     assert.match(css, /overflow-x:\s*auto/);
-    assert.match(css, /\.i-plan-nav|\.iPlanNav/);
+    assert.match(css, /\.i-plan-nav|\.iPlanNav[\s\S]*min-width:\s*72px/);
+    assert.match(
+      css,
+      /\.i-plan-nav|\.iPlanNav[\s\S]*padding:\s*[^;]*(?:14px|15px|16px)/,
+    );
     assert.match(css, /\.i-plan-nav|\.iPlanNav[\s\S]*background:\s*#1769e0/);
+    assert.match(
+      css,
+      /\[data-tooltip\]::after[\s\S]*content:\s*attr\(data-tooltip\)/,
+    );
+    assert.match(css, /\[data-tooltip\]:hover::after/);
+    assert.match(css, /\[data-tooltip\]:focus-visible::after/);
+    assert.match(
+      css,
+      /@media\s*\(max-width:[\s\S]*\[data-tooltip\]::after[\s\S]*(?:position:\s*fixed|width:\s*auto)/,
+    );
+  }
+});
+
+test('三个页面保留关注横幅并将隐私、许可与开源说明默认折叠', async () => {
+  const pages = await Promise.all([
+    read('src/shared/prerendered-app/Intro/index.tsx'),
+    read('remove-background/index.html'),
+    read('collage/index.html'),
+  ]);
+  for (const source of pages) {
+    assert.match(source, /关注 i方案/);
+    assert.match(
+      source,
+      /<details(?![^>]*\bopen\b)[^>]*>[\s\S]*?<summary>隐私、许可与开源说明<\/summary>/,
+    );
+    assert.match(source, /i41\s+免费实用工具/);
   }
 });
 
@@ -173,7 +197,7 @@ test('顶部生态导航提供独立智能抠图入口', async () => {
   const source = await read('src/shared/prerendered-app/Intro/index.tsx');
   assert.match(
     source,
-    /<a\s+class=\{style\.toolLink\}\s+href="\/remove-background\/">[\s\S]*?智能抠图[\s\S]*?<\/a>/,
+    /<a[\s\S]{0,200}href="\/remove-background\/"[\s\S]{0,200}>[\s\S]*?智能抠图[\s\S]*?<\/a>/,
   );
 });
 
@@ -181,7 +205,7 @@ test('顶部生态导航提供独立多图拼接入口', async () => {
   const source = await read('src/shared/prerendered-app/Intro/index.tsx');
   assert.match(
     source,
-    /<a\s+class=\{style\.toolLink\}\s+href="\/collage\/">[\s\S]*?多图拼接[\s\S]*?<\/a>/,
+    /<a[\s\S]{0,200}href="\/collage\/"[\s\S]{0,200}>[\s\S]*?多图拼接[\s\S]*?<\/a>/,
   );
 });
 

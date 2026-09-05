@@ -316,6 +316,21 @@
 .footer-padding {
   padding: 2em;
 }
+.footer-tagline {
+  margin: 0;
+  text-align: center;
+  font-weight: 700;
+}
+.footer-details {
+  width: min(72rem, 100%);
+  margin: 1.2rem auto 0;
+  text-align: center;
+}
+.footer-details summary {
+  cursor: pointer;
+  color: var(--deep-blue);
+  font-weight: 700;
+}
 
 .footer-items {
   display: grid;
@@ -492,9 +507,9 @@
 
 [data-tooltip]::after {
   content: attr(data-tooltip);
-  position: absolute;
-  top: calc(100% + 0.8rem);
-  right: 0;
+  position: fixed;
+  top: 70px;
+  left: 50%;
   width: min(42rem, calc(100vw - 2rem));
   box-sizing: border-box;
   background: rgba(20, 38, 48, 0.96);
@@ -507,7 +522,7 @@
   white-space: normal;
   box-shadow: 0 0.8rem 2.4rem rgba(0, 0, 0, 0.22);
   opacity: 0;
-  transform: translateY(-0.4rem);
+  transform: translate(-50%, -0.4rem);
   pointer-events: none;
   transition: opacity 180ms ease-in-out, transform 180ms ease-in-out;
   z-index: 5;
@@ -525,7 +540,7 @@
 [data-tooltip]:hover::after,
 [data-tooltip]:focus-visible::after {
   opacity: 1;
-  transform: translateY(0);
+  transform: translate(-50%, 0);
 }
 
 .demo-title {
@@ -627,6 +642,7 @@
 }
 .current-tool,
 .tool-link {
+  position: relative;
   padding: 8px 9px;
   border-radius: 8px;
   font-size: 1.3rem;
@@ -636,6 +652,10 @@
   background: #1769e0;
 }
 .i-plan-nav {
+  min-width: 72px;
+  padding-right: 15px;
+  padding-left: 15px;
+  text-align: center;
   color: white;
   background: #1769e0;
   font-weight: 800;

@@ -11,17 +11,16 @@
   <body>
     <header class="site-header">
       <div class="header-inner">
-        <a class="brand" href="/" aria-label="i41 图片工具首页"><span aria-hidden="true">图</span>i41 图片工具</a>
+        <a class="brand" href="/collage/" aria-label="i41 多图拼接首页"><span aria-hidden="true">图</span>i41 多图拼接</a>
         <nav class="tool-nav" aria-label="图片工具导航">
-          <a class="i-plan-nav" href="https://www.i41.cn?utm_source=imgzip&amp;utm_medium=tool_referral&amp;utm_campaign=ifangan&amp;utm_content=ecosystem_nav" target="_blank" rel="noopener noreferrer">i方案</a>
-          <a href="https://tools.i41.cn" target="_blank" rel="noopener noreferrer">开发者工具</a>
-          <a href="/">图片压缩</a>
-          <a href="/remove-background/">智能抠图</a>
-          <a href="/collage/" aria-current="page">多图拼接</a>
-          <a href="https://pdf.i41.cn" target="_blank" rel="noopener noreferrer">PDF 工具</a>
-          <a href="https://watermark.i41.cn" target="_blank" rel="noopener noreferrer">证件水印</a>
-          <a href="https://clip.i41.cn" target="_blank" rel="noopener noreferrer">临时剪贴板</a>
-          <a class="featured-tool" href="https://idphoto.i41.cn" target="_blank" rel="noopener noreferrer">证件照</a>
+          <a class="i-plan-nav" href="https://www.i41.cn?utm_source=imgzip&amp;utm_medium=tool_referral&amp;utm_campaign=ifangan&amp;utm_content=ecosystem_nav" data-tooltip="了解内容创作与业务增长方案">i方案</a>
+          <a href="https://tools.i41.cn" data-tooltip="使用编码、格式化等开发工具">开发者工具</a>
+          <a href="/" data-tooltip="压缩图片体积并对比画质">图片压缩</a>
+          <a href="/remove-background/" data-tooltip="在本地移除图片背景">智能抠图</a>
+          <a href="https://pdf.i41.cn" data-tooltip="处理、转换和整理 PDF 文件">PDF 工具</a>
+          <a href="https://watermark.i41.cn" data-tooltip="为证件图片添加安全水印">证件水印</a>
+          <a href="https://clip.i41.cn" data-tooltip="临时保存和分享文本内容">临时剪贴板</a>
+          <a class="featured-tool" href="https://idphoto.i41.cn" data-tooltip="制作规范尺寸的证件照片">证件照</a>
         </nav>
         <span class="privacy-badge"><span aria-hidden="true">🔒</span> 图片仅在本地处理</span>
       </div>
@@ -29,7 +28,7 @@
 
     <aside class="i-plan-banner" aria-label="关注 i方案">
       <div><strong>关注 i方案</strong><span>获取内容创作、客户跟单、文生图与视频制作方案</span></div>
-      <a href="https://www.i41.cn?utm_source=imgzip&amp;utm_medium=tool_referral&amp;utm_campaign=ifangan&amp;utm_content=promo_banner" target="_blank" rel="noopener noreferrer">访问 i方案 <span aria-hidden="true">→</span></a>
+      <a href="https://www.i41.cn?utm_source=imgzip&amp;utm_medium=tool_referral&amp;utm_campaign=ifangan&amp;utm_content=promo_banner">访问 i方案 <span aria-hidden="true">→</span></a>
     </aside>
 
     <main>
@@ -131,11 +130,14 @@
         </section>
       </section>
 
-      <section class="notice" aria-label="隐私与许可证说明">
-        <h2>隐私与许可证</h2>
-        <p>图片仅在浏览器本地处理，不会上传图片。本站仅进行匿名访问统计，不包含图片内容、文件名或永久标识。</p>
-        <p>本工具基于 GoogleChromeLabs Squoosh 项目整理，依照 <a href="../LICENSE">Apache 2.0</a> 许可证提供，不提供任何担保。</p>
-      </section>
+      <footer class="notice" aria-label="隐私与许可证说明">
+        <p class="footer-tagline">i41 免费实用工具</p>
+        <details>
+          <summary>隐私、许可与开源说明</summary>
+          <p>图片仅在浏览器本地处理，不会上传图片。本站仅进行匿名访问统计，不包含图片内容、文件名或永久标识。</p>
+          <p>本工具基于 GoogleChromeLabs Squoosh 项目整理，依照 <a href="../LICENSE">Apache 2.0</a> 许可证提供，不提供任何担保。</p>
+        </details>
+      </footer>
     </main>
 
     <template id="image-thumbnail-template">

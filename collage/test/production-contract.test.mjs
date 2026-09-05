@@ -48,13 +48,15 @@ test('页面完全独立，不使用 iframe、共享通道或自动跳转', asyn
   assert.doesNotMatch(combined, /<iframe|MessageChannel|postMessage|attachCollageChannel|location\.(?:assign|replace)|window\.location\s*=/i);
 });
 
-test('页面使用统一简洁顶部导航并标记当前多图拼接工具', async () => {
+test('页面使用统一简洁顶部导航并由品牌标识当前多图拼接工具', async () => {
   const html = await read('index.html');
-  assert.match(html, /<nav[^>]*aria-label="图片工具导航"/);
-  for (const [label, href] of requiredNav) {
-    assert.match(html, new RegExp(`href="${href}"[^>]*>[\\s\\S]*?${label}`));
+  assert.match(html, /<a class="brand"[^>]*>[\s\S]*?i41 多图拼接<\/a>/);
+  const nav = html.match(/<nav[^>]*aria-label="图片工具导航"[\s\S]*?<\/nav>/)?.[0];
+  assert.ok(nav);
+  for (const [label, href] of requiredNav.filter(([label]) => label !== '多图拼接')) {
+    assert.match(nav, new RegExp(`href="${href}"[^>]*>[\\s\\S]*?${label}`));
   }
-  assert.match(html, /aria-current="page"[^>]*>[\s\S]*?多图拼接/);
+  assert.doesNotMatch(nav, />\s*多图拼接\s*<\/a>|aria-current/);
 });
 
 test('页面准确说明本地处理、匿名统计和 Apache 2.0 许可证', async () => {
