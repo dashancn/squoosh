@@ -15,12 +15,13 @@ test('独立拼图页面提供多图上传、三种模式和 PNG 预览下载', 
 
   assert.match(html, /data-i41-site="imgzip"/);
   assert.match(html, /id="files"[^>]*multiple/);
-  for (const mode of ['grid', 'vertical', 'horizontal']) {
+  for (const mode of ['grid', 'vertical', 'horizontal', 'two-columns', 'two-rows', 'three-feature', 'four-grid']) {
     assert.match(html, new RegExp(`value="${mode}"`));
   }
-  for (const id of ['ratio', 'spacing', 'background', 'preview', 'download']) {
+  for (const id of ['ratio', 'spacing', 'background', 'preview', 'download', 'position-editor']) {
     assert.match(html, new RegExp(`id="${id}"`));
   }
+  assert.match(html, /手工调整图片位置/);
   assert.match(source, /createCollage/);
   assert.match(source, /URL\.createObjectURL/);
   assert.match(html, /download="collage\.png"/);

@@ -17,8 +17,9 @@ function drawCover(context, bitmap, item) {
   const scale = Math.max(item.width / bitmap.width, item.height / bitmap.height);
   const sourceWidth = item.width / scale;
   const sourceHeight = item.height / scale;
-  const sourceX = (bitmap.width - sourceWidth) / 2;
-  const sourceY = (bitmap.height - sourceHeight) / 2;
+  const focal = item.focal || { x: 0.5, y: 0.5 };
+  const sourceX = (bitmap.width - sourceWidth) * focal.x;
+  const sourceY = (bitmap.height - sourceHeight) * focal.y;
   context.drawImage(
     bitmap,
     sourceX,

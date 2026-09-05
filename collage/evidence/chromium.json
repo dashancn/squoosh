@@ -7,7 +7,7 @@
     {
       "mode": "grid",
       "type": "image/png",
-      "size": 14892,
+      "size": 13099,
       "width": 817,
       "height": 817,
       "previewVisible": true,
@@ -17,9 +17,9 @@
     {
       "mode": "vertical",
       "type": "image/png",
-      "size": 42344,
+      "size": 59421,
       "width": 640,
-      "height": 1941,
+      "height": 2528,
       "previewVisible": true,
       "downloadReady": true,
       "file": "evidence/chromium-vertical.png"
@@ -27,13 +27,67 @@
     {
       "mode": "horizontal",
       "type": "image/png",
-      "size": 26442,
-      "width": 1890,
+      "size": 22146,
+      "width": 1523,
       "height": 500,
       "previewVisible": true,
       "downloadReady": true,
       "file": "evidence/chromium-horizontal.png"
+    },
+    {
+      "mode": "two-columns",
+      "type": "image/png",
+      "size": 13099,
+      "width": 817,
+      "height": 817,
+      "previewVisible": true,
+      "downloadReady": true,
+      "file": "evidence/chromium-two-columns.png"
+    },
+    {
+      "mode": "two-rows",
+      "type": "image/png",
+      "size": 13099,
+      "width": 817,
+      "height": 817,
+      "previewVisible": true,
+      "downloadReady": true,
+      "file": "evidence/chromium-two-rows.png"
+    },
+    {
+      "mode": "three-feature",
+      "type": "image/png",
+      "size": 23265,
+      "width": 817,
+      "height": 800,
+      "previewVisible": true,
+      "downloadReady": true,
+      "file": "evidence/chromium-three-feature.png"
+    },
+    {
+      "mode": "four-grid",
+      "type": "image/png",
+      "size": 13099,
+      "width": 817,
+      "height": 817,
+      "previewVisible": true,
+      "downloadReady": true,
+      "file": "evidence/chromium-four-grid.png"
     }
   ],
+  "focal": {
+    "centerPercent": 50,
+    "topPercent": 10,
+    "centerSourceY": 100,
+    "topSourceY": 20,
+    "type": "image/png",
+    "size": 20999
+  },
+  "mobile": {
+    "viewportWidth": 375,
+    "editorVisible": true,
+    "sliderWidth": 309,
+    "sliderRight": 342
+  },
   "pageErrors": []
 }

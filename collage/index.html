@@ -22,7 +22,7 @@
       <section class="intro" aria-labelledby="page-title">
         <p class="eyebrow">本地多图工具</p>
         <h1 id="page-title">多图拼接</h1>
-        <p>选择多张图片，制作宫格、纵向长图或横向拼接。图片仅在浏览器本地处理，不会上传图片。</p>
+        <p>选择多张图片，使用 7 种模板拼接，并可手工调整图片位置。图片仅在浏览器本地处理，不会上传图片。</p>
       </section>
 
       <section class="workspace" aria-label="拼图工作区">
@@ -40,6 +40,10 @@
                 <option value="grid">宫格</option>
                 <option value="vertical">纵向长图</option>
                 <option value="horizontal">横向拼接</option>
+                <option value="two-columns">双列</option>
+                <option value="two-rows">双行</option>
+                <option value="three-feature">三图主视觉</option>
+                <option value="four-grid">四宫格</option>
               </select>
             </label>
             <label id="ratio-field">
@@ -60,6 +64,27 @@
               <input id="background" type="color" value="#ffffff">
             </label>
           </div>
+
+          <section id="position-editor" class="position-editor" hidden aria-labelledby="position-title">
+            <div>
+              <h2 id="position-title">手工调整图片位置</h2>
+              <p>先点选缩略图，再调整焦点；模板切换不会重置。</p>
+            </div>
+            <div id="thumbnail-list" class="thumbnail-list" role="list" aria-label="已选图片"></div>
+            <div class="focal-controls">
+              <label>水平焦点 <output id="focal-x-value">50%</output>
+                <input id="focal-x" type="range" min="0" max="100" value="50">
+              </label>
+              <label>垂直焦点 <output id="focal-y-value">50%</output>
+                <input id="focal-y" type="range" min="0" max="100" value="50">
+              </label>
+              <div class="focal-presets" aria-label="垂直焦点快捷设置">
+                <button type="button" data-focal-y="10">向上优先</button>
+                <button type="button" data-focal-y="50">居中</button>
+                <button type="button" data-focal-y="90">向下优先</button>
+              </div>
+            </div>
+          </section>
 
           <button id="generate" type="submit">生成 PNG</button>
         </form>

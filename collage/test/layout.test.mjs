@@ -54,6 +54,24 @@ test('horizontal strip preserves image ratios', () => {
   ]);
 });
 
+test('preset templates add common two, three and four image layouts', () => {
+  const two = calculateLayout(images.slice(0, 2), { mode: 'two-columns', spacing: 10 });
+  assert.equal(two.items.length, 2);
+  assert.ok(two.items.every((item) => item.fit === 'cover'));
+  const three = calculateLayout(images, { mode: 'three-feature', spacing: 10 });
+  assert.equal(three.items[0].height, three.height);
+  assert.equal(three.items[1].x, three.items[2].x);
+  const four = calculateLayout([...images, images[0]], { mode: 'four-grid', spacing: 10 });
+  assert.equal(four.items.length, 4);
+});
+
+test('cover crop accepts per-image focal positions', () => {
+  const layout = calculateLayout(images.slice(0, 1), {
+    mode: 'grid', ratio: '16:9', focalPoints: [{ x: 0.25, y: 0.1 }],
+  });
+  assert.deepEqual(layout.items[0].focal, { x: 0.25, y: 0.1 });
+});
+
 test('invalid values are normalized and output is clamped to safe canvas limits', () => {
   const layout = calculateLayout(
     [

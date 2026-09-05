@@ -57,7 +57,7 @@ const inputFiles = await page.evaluate(async () => {
       }, 'image/png');
     });
   return Promise.all([
-    makePng('#d33', 400, 300, 'ONE'),
+    makePng('#d33', 300, 500, 'PERSON'),
     makePng('#3a6', 300, 500, 'TWO'),
     makePng('#36c', 640, 360, 'THREE'),
   ]);
@@ -67,7 +67,7 @@ await page.locator('#files').setInputFiles(
   inputFiles.map((file) => ({ ...file, buffer: Buffer.from(file.buffer) })),
 );
 const results = [];
-for (const mode of ['grid', 'vertical', 'horizontal']) {
+for (const mode of ['grid', 'vertical', 'horizontal', 'two-columns', 'two-rows', 'three-feature', 'four-grid']) {
   await page.selectOption('#mode', mode);
   await page.fill('#spacing', '17');
   await page.locator('#background').evaluate((input) => {
@@ -99,12 +99,60 @@ for (const mode of ['grid', 'vertical', 'horizontal']) {
   results.push({ ...result, file });
 }
 
+await page.selectOption('#mode', 'grid');
+await page.evaluate(() => {
+  window.__sourceYs = [];
+  const original = CanvasRenderingContext2D.prototype.drawImage;
+  CanvasRenderingContext2D.prototype.drawImage = function (...args) {
+    if (args.length === 9) window.__sourceYs.push(args[2]);
+    return original.apply(this, args);
+  };
+});
+await page.locator('.thumbnail').first().click();
+await page.fill('#focal-y', '50');
+await page.locator('#focal-y').dispatchEvent('input');
+await page.evaluate(() => { window.__sourceYs = []; });
+await page.click('#generate');
+await page.waitForFunction(() => document.documentElement.dataset.state === 'complete');
+const centerSourceY = await page.evaluate(() => window.__sourceYs[0]);
+await page.fill('#focal-y', '10');
+await page.locator('#focal-y').dispatchEvent('input');
+await page.evaluate(() => { window.__sourceYs = []; });
+await page.click('#generate');
+await page.waitForFunction(() => document.documentElement.dataset.state === 'complete');
+const focal = await page.evaluate(async (centerY) => {
+  const response = await fetch(document.querySelector('#download').href);
+  const blob = await response.blob();
+  return {
+    centerPercent: 50,
+    topPercent: Number(document.querySelector('#focal-y').value),
+    centerSourceY: centerY,
+    topSourceY: window.__sourceYs[0],
+    type: blob.type,
+    size: blob.size,
+  };
+}, centerSourceY);
+
+await page.setViewportSize({ width: 375, height: 812 });
+const mobile = await page.evaluate(() => {
+  const editor = document.querySelector('#position-editor');
+  const slider = document.querySelector('#focal-y').getBoundingClientRect();
+  return {
+    viewportWidth: document.documentElement.clientWidth,
+    editorVisible: !editor.hidden && editor.getBoundingClientRect().height > 0,
+    sliderWidth: slider.width,
+    sliderRight: slider.right,
+  };
+});
+
 const evidence = {
   chromiumVersion: await browser.version(),
   path: new URL(page.url()).pathname,
   inputCount: await page.locator('#files').evaluate((input) => input.files.length),
   iframeCount: await page.locator('iframe').count(),
   results,
+  focal,
+  mobile,
   pageErrors,
 };
 const evidenceDir = join(repositoryRoot, 'collage/evidence');

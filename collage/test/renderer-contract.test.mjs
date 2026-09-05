@@ -15,6 +15,9 @@ test('renderer decodes Blob inputs sequentially, paints background, and exports 
   assert.match(source, /canvas\.toBlob/);
   assert.match(source, /image\/png/);
   assert.match(source, /bitmap\.close/);
+  assert.match(source, /focal/);
+  assert.match(source, /sourceX/);
+  assert.match(source, /sourceY/);
 });
 
 test('renderer rejects missing or invalid image inputs', async () => {
