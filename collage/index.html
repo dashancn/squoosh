@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="zh-CN" data-i41-site="imgzip-collage">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="在浏览器本地将多张图片制作成宫格、纵向长图或横向拼接 PNG。">
+    <title>多图拼接 - Squoosh 图片工具</title>
+    <link rel="stylesheet" href="./style.css">
+    <script src="https://stats.i41.cn/analytics.js" async></script>
+  </head>
+  <body>
+    <header class="site-header">
+      <a class="brand" href="/" aria-label="返回 Squoosh 图片压缩">Squoosh 图片工具</a>
+      <nav aria-label="图片工具导航">
+        <a href="/">图片压缩</a>
+        <a href="/remove-background/">智能抠图</a>
+        <a href="/collage/" aria-current="page">多图拼接</a>
+      </nav>
+    </header>
+
+    <main>
+      <section class="intro" aria-labelledby="page-title">
+        <p class="eyebrow">本地多图工具</p>
+        <h1 id="page-title">多图拼接</h1>
+        <p>选择多张图片，制作宫格、纵向长图或横向拼接。图片仅在浏览器本地处理，不会上传图片。</p>
+      </section>
+
+      <section class="workspace" aria-label="拼图工作区">
+        <form id="controls" class="controls">
+          <label class="file-picker">
+            <span>选择图片</span>
+            <input id="files" type="file" accept="image/*" multiple required>
+            <small id="file-summary">可一次选择多张 JPG、PNG、WebP 等浏览器支持的图片</small>
+          </label>
+
+          <div class="options">
+            <label>
+              <span>拼接方式</span>
+              <select id="mode">
+                <option value="grid">宫格</option>
+                <option value="vertical">纵向长图</option>
+                <option value="horizontal">横向拼接</option>
+              </select>
+            </label>
+            <label id="ratio-field">
+              <span>宫格比例</span>
+              <select id="ratio">
+                <option value="1:1">1:1</option>
+                <option value="4:3">4:3</option>
+                <option value="3:4">3:4</option>
+                <option value="16:9">16:9</option>
+              </select>
+            </label>
+            <label>
+              <span>图片间距</span>
+              <div class="number-input"><input id="spacing" type="number" min="0" max="500" value="16"><span>px</span></div>
+            </label>
+            <label>
+              <span>背景颜色</span>
+              <input id="background" type="color" value="#ffffff">
+            </label>
+          </div>
+
+          <button id="generate" type="submit">生成 PNG</button>
+        </form>
+
+        <section class="result" aria-labelledby="preview-title">
+          <div class="result-heading">
+            <div>
+              <h2 id="preview-title">预览</h2>
+              <output id="status" aria-live="polite">选择图片后生成拼图</output>
+            </div>
+            <a id="download" class="download" download="collage.png" hidden>下载 PNG</a>
+          </div>
+          <div class="preview-stage">
+            <p id="empty-preview">生成后将在这里显示完整预览</p>
+            <img id="preview" alt="拼图预览">
+          </div>
+        </section>
+      </section>
+
+      <section class="notice" aria-label="隐私与许可证说明">
+        <h2>隐私与许可证</h2>
+        <p>图片仅在浏览器本地处理，不会上传图片。本站仅进行匿名访问统计，不包含图片内容、文件名或永久标识。</p>
+        <p>本工具基于 GoogleChromeLabs Squoosh 项目整理，依照 <a href="../LICENSE">Apache 2.0</a> 许可证提供，不提供任何担保。</p>
+      </section>
+    </main>
+
+    <script type="module" src="./src/app.mjs"></script>
+  </body>
+</html>

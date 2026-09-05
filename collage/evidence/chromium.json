@@ -1,0 +1,39 @@
+{
+  "chromiumVersion": "151.0.7922.173",
+  "path": "/collage/",
+  "inputCount": 3,
+  "iframeCount": 0,
+  "results": [
+    {
+      "mode": "grid",
+      "type": "image/png",
+      "size": 14892,
+      "width": 817,
+      "height": 817,
+      "previewVisible": true,
+      "downloadReady": true,
+      "file": "evidence/chromium-grid.png"
+    },
+    {
+      "mode": "vertical",
+      "type": "image/png",
+      "size": 42344,
+      "width": 640,
+      "height": 1941,
+      "previewVisible": true,
+      "downloadReady": true,
+      "file": "evidence/chromium-vertical.png"
+    },
+    {
+      "mode": "horizontal",
+      "type": "image/png",
+      "size": 26442,
+      "width": 1890,
+      "height": 500,
+      "previewVisible": true,
+      "downloadReady": true,
+      "file": "evidence/chromium-horizontal.png"
+    }
+  ],
+  "pageErrors": []
+}

@@ -1,0 +1,9 @@
+{
+  "name": "squoosh-collage-tool",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test test/*.test.mjs",
+    "test:chromium": "node test/chromium.mjs"
+  }
+}
