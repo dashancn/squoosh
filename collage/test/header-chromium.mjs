@@ -41,9 +41,11 @@ for (const path of paths) {
       inner: box('header-inner'),
       brand: box('brand'),
       nav: box('tool-nav'),
-      ecosystem: box('ecosystem'),
+      privacyBadge: box('privacy-badge'),
+      banner: box('i-plan-banner'),
       labels: [...find('tool-nav').querySelectorAll('a')].map((link) => link.textContent.trim()),
       active: find('tool-nav').querySelector('[aria-current="page"]')?.textContent.trim(),
+      iPlanStyle: { backgroundColor: getComputedStyle(find('i-plan-nav')).backgroundColor, color: getComputedStyle(find('i-plan-nav')).color },
     };
   }, path));
 }
@@ -56,8 +58,9 @@ for (const path of paths) {
     const find = (name) => [...document.querySelectorAll('*')].find((element) => element.className && String(element.className).split(' ').some((className) => className.includes(name)));
     const header = find('site-header').getBoundingClientRect();
     const nav = find('tool-nav').getBoundingClientRect();
-    const ecosystem = find('ecosystem').getBoundingClientRect();
-    return { path: currentPath, headerHeight: header.height, navWidth: nav.width, navRight: nav.right, ecosystemRight: ecosystem.right, viewportWidth: document.documentElement.clientWidth };
+    const privacyBadge = find('privacy-badge').getBoundingClientRect();
+    const labels = [...find('tool-nav').querySelectorAll('a')].map((link) => link.textContent.trim());
+    return { path: currentPath, headerHeight: header.height, navWidth: nav.width, navRight: nav.right, navScrollWidth: find('tool-nav').scrollWidth, privacyBadgeRight: privacyBadge.right, labels, viewportWidth: document.documentElement.clientWidth };
   }, path));
 }
 const evidence = { chromiumVersion: await browser.version(), desktop, mobile, errors };
@@ -67,4 +70,6 @@ console.log(JSON.stringify(evidence, null, 2));
 await browser.close();
 await new Promise((resolve) => server.close(resolve));
 const reference = desktop[0];
-if (errors.length || desktop.some((entry) => Math.abs(entry.header.height - 64) > 1 || entry.inner.x !== reference.inner.x || entry.brand.x !== reference.brand.x || entry.labels.join('|') !== '图片压缩|智能抠图|多图拼接') || mobile.some((entry) => entry.navRight > entry.viewportWidth || entry.ecosystemRight > entry.viewportWidth || entry.headerHeight < 64)) process.exitCode = 1;
+const expectedLabels = 'i方案|开发者工具|图片压缩|智能抠图|多图拼接|PDF 工具|证件水印|临时剪贴板|证件照';
+const expectedActive = { '/': '图片压缩', '/remove-background/': '智能抠图', '/collage/': '多图拼接' };
+if (errors.length || desktop.some((entry) => Math.abs(entry.header.height - 64) > 1 || entry.inner.x !== reference.inner.x || entry.brand.x !== reference.brand.x || entry.banner.x !== reference.inner.x || entry.banner.width !== reference.inner.width || entry.labels.join('|') !== expectedLabels || entry.active !== expectedActive[entry.path] || entry.iPlanStyle.backgroundColor !== 'rgb(23, 105, 224)' || entry.iPlanStyle.color !== 'rgb(255, 255, 255)') || mobile.some((entry) => entry.navRight > entry.viewportWidth || entry.privacyBadgeRight > entry.viewportWidth || entry.headerHeight < 64 || entry.labels.join('|') !== expectedLabels || entry.navScrollWidth <= entry.navWidth)) process.exitCode = 1;

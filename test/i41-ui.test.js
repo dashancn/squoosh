@@ -46,27 +46,17 @@ test('移除旧 Google Analytics 及内容尺寸和 PWA 统计调用', async () 
   assert.doesNotMatch(runtime, /eventCategory:\s*'pwa-install'/);
 });
 
-test('顶部生态导航包含完整 i41 工具链接并标记生态导航来源', async () => {
+test('顶部导航使用约定来源链接且不使用下拉生态菜单', async () => {
   const source = await read('src/shared/prerendered-app/Intro/index.tsx');
-  for (const [label, url] of [
-    ['开发者工具', 'https://tools.i41.cn'],
-    ['证件照', 'https://idphoto.i41.cn'],
-    ['PDF 工具', 'https://pdf.i41.cn'],
-    ['证件水印', 'https://watermark.i41.cn'],
-    ['临时剪贴板', 'https://clip.i41.cn'],
-    ['访问 i方案', iPlanUrl('ecosystem_nav')],
-  ]) {
-    assert.ok(source.includes(`href="${url}"`), `缺少 ${label}`);
-    assert.match(source, new RegExp(`>\\s*${label}\\s*<`));
-  }
-  assert.match(
-    source,
-    /证件水印工具支持为身份证、营业执照和合同截图添加用途水印/,
+  assert.ok(source.includes(`href="${iPlanUrl('ecosystem_nav')}"`));
+  assert.match(source, />\s*i方案\s*</);
+  assert.doesNotMatch(
+    source.slice(source.indexOf('<header'), source.indexOf('</header>')),
+    /<details|<summary/,
   );
-  assert.match(source, /客户端加密、自动过期、读取次数限制和阅后即焚/);
 });
 
-test('三个图片工具页面共享同一顶部导航结构、顺序和生态链接', async () => {
+test('三个图片工具页面共享完整顶部导航、当前项和本地处理徽章', async () => {
   const [
     compressor,
     removeBackground,
@@ -82,70 +72,101 @@ test('三个图片工具页面共享同一顶部导航结构、顺序和生态�
     read('remove-background/src/style.css'),
     read('collage/style.css'),
   ]);
-  const sources = [compressor, removeBackground, collage];
-  const orderedLabels = [
-    'i41 图片工具',
-    '图片压缩',
-    '智能抠图',
-    '多图拼接',
-    'i41 生态',
-    '开发者工具',
-    '证件照',
-    'PDF 工具',
-    '证件水印',
-    '临时剪贴板',
-    '访问 i方案',
+  const pages = [
+    [compressor, '图片压缩'],
+    [removeBackground, '智能抠图'],
+    [collage, '多图拼接'],
   ];
-  for (const source of sources) {
+  const navItems = [
+    ['i方案', iPlanUrl('ecosystem_nav')],
+    ['开发者工具', 'https://tools.i41.cn'],
+    ['图片压缩', '/'],
+    ['智能抠图', '/remove-background/'],
+    ['多图拼接', '/collage/'],
+    ['PDF 工具', 'https://pdf.i41.cn'],
+    ['证件水印', 'https://watermark.i41.cn'],
+    ['临时剪贴板', 'https://clip.i41.cn'],
+    ['证件照', 'https://idphoto.i41.cn'],
+  ];
+
+  for (const [source, activeLabel] of pages) {
     const header = source.slice(
       source.indexOf('<header'),
       source.indexOf('</header>') + 9,
     );
+    assert.doesNotMatch(header, /<details|<summary|生态菜单|i41 生态/);
+    assert.match(header, /图片仅在本地处理/);
+    assert.match(header, />\s*i方案\s*<\/a>/);
     let previous = -1;
-    for (const label of orderedLabels) {
+    for (const [label, url] of navItems) {
       const index = header.indexOf(label);
       assert.ok(index > previous, `${label} 应存在且顺序一致`);
       previous = index;
-    }
-    for (const className of [
-      'site-header',
-      'header-inner',
-      'brand',
-      'tool-nav',
-      'ecosystem',
-      'ecosystem-menu',
-    ]) {
-      assert.match(source, new RegExp(className.replace('-', '[A-Z-]?'), 'i'));
-    }
-    for (const url of [
-      'https://tools.i41.cn',
-      'https://idphoto.i41.cn',
-      'https://pdf.i41.cn',
-      'https://watermark.i41.cn',
-      'https://clip.i41.cn',
-      iPlanUrl('ecosystem_nav'),
-    ]) {
+      const encodedUrl = url.replaceAll('&', '&amp;');
       assert.ok(
-        source.includes(
-          `href="${url.replaceAll(
-            '&',
-            source === compressor ? '&' : '&amp;',
-          )}"`,
-        ) || source.includes(`href="${url}"`),
-        `缺少 ${url}`,
+        header.includes(`href="${url}"`) ||
+          header.includes(`href="${encodedUrl}"`),
+        `${label} URL 不正确`,
       );
     }
-    assert.match(source, /target="_blank"/);
-    assert.match(source, /rel="noopener noreferrer"/);
+    const activePattern = new RegExp(
+      `aria-current="page"[^>]*>\\s*${activeLabel}\\s*<|>\\s*${activeLabel}\\s*<\\/a>[\\s\\S]{0,80}aria-current="page"`,
+    );
+    assert.match(header, activePattern);
+    for (const url of navItems
+      .map(([, url]) => url)
+      .filter((url) => url.startsWith('https://'))) {
+      const href = header.includes(`href="${url}"`)
+        ? url
+        : url.replaceAll('&', '&amp;');
+      const anchor = header.match(
+        new RegExp(
+          `<a[^>]*href="${href.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}"[^>]*>`,
+        ),
+      )?.[0];
+      assert.ok(anchor, `缺少 ${url} 链接`);
+      assert.match(anchor, /target="_blank"/);
+      assert.match(anchor, /rel="noopener noreferrer"/);
+    }
   }
+
   for (const css of [compressorCss, removeCss, collageCss]) {
     assert.match(css, /\.site-header[\s\S]*height:\s*64px/);
-    assert.match(css, /\.header-inner[\s\S]*max-width:\s*1120px/);
-    assert.match(css, /position:\s*sticky/);
+    assert.match(css, /\.header-inner[\s\S]*max-width:\s*1104px/);
+    assert.match(css, /\.privacy-badge|\.privacyBadge/);
+    assert.match(css, /overflow-x:\s*auto/);
+    assert.match(css, /\.i-plan-nav|\.iPlanNav/);
+    assert.match(css, /\.i-plan-nav|\.iPlanNav[\s\S]*background:\s*#1769e0/);
   }
-  assert.match(compressor, /aria-current="page"[\s\S]*图片压缩/);
-  assert.match(removeBackground, /aria-current="page"[^>]*>智能抠图/);
-  assert.match(collage, /aria-current="page"[^>]*>多图拼接/);
+});
+
+test('三个页面在导航后、主工具内容前显示同款 i方案横幅', async () => {
+  const pages = await Promise.all([
+    read('src/shared/prerendered-app/Intro/index.tsx'),
+    read('remove-background/index.html'),
+    read('collage/index.html'),
+  ]);
+  for (const source of pages) {
+    assert.match(source, /关注 i方案/);
+    assert.match(source, /获取内容创作、客户跟单、文生图与视频制作方案/);
+    assert.ok(
+      source.includes(`href="${iPlanUrl('promo_banner')}"`) ||
+        source.includes(
+          `href="${iPlanUrl('promo_banner').replaceAll('&', '&amp;')}"`,
+        ),
+    );
+    assert.match(source, /访问 i方案\s*(?:<[^>]+>)*\s*→/);
+    assert.ok(source.indexOf('</header>') < source.indexOf('关注 i方案'));
+    const toolStart = Math.min(
+      ...['class={style.main}', 'class="intro"', 'class="workspace"']
+        .map((marker) => source.indexOf(marker))
+        .filter((index) => index >= 0),
+    );
+    assert.ok(
+      source.indexOf('关注 i方案') < toolStart,
+      '横幅应位于主工具内容前',
+    );
+  }
 });
 
 test('顶部生态导航提供独立智能抠图入口', async () => {
@@ -223,8 +244,8 @@ test('进入编辑器前提示编解码资源缓存状态', async () => {
     '缓存提示应位于透明背景区',
   );
   assert.ok(
-    source.indexOf('iPlanBanner') > source.indexOf('demosContainer'),
-    'i方案引导应位于蓝色背景区',
+    source.indexOf('iPlanBanner') < source.indexOf('main'),
+    'i方案引导应位于导航后和主工具区前',
   );
   assert.match(css, /\.i-plan-banner[\s\S]*margin:\s*2rem auto/);
   assert.match(css, /\.i-plan-banner[\s\S]*font-size:\s*1\.15rem/);

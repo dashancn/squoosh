@@ -10,31 +10,51 @@
         "height": 64
       },
       "inner": {
-        "x": 80,
+        "x": 88,
         "y": 0,
-        "width": 1120,
+        "width": 1104,
         "height": 64
       },
       "brand": {
-        "x": 80,
-        "y": 18.890625,
-        "width": 114.25,
-        "height": 26.203125
+        "x": 88,
+        "y": 18,
+        "width": 150.25,
+        "height": 28
       },
       "nav": {
-        "x": 222.25,
-        "y": 11.53125,
-        "width": 879.359375,
-        "height": 40.921875
+        "x": 254.25,
+        "y": 13.859375,
+        "width": 762.65625,
+        "height": 36.265625
       },
-      "ecosystem": {
-        "x": 1129.609375,
-        "y": 19.515625,
-        "width": 70.390625,
-        "height": 24.953125
+      "privacyBadge": {
+        "x": 1032.90625,
+        "y": 15.640625,
+        "width": 159.09375,
+        "height": 32.71875
       },
-      "labels": ["图片压缩", "智能抠图", "多图拼接"],
-      "active": "图片压缩"
+      "banner": {
+        "x": 88,
+        "y": 83.1875,
+        "width": 1104,
+        "height": 71.515625
+      },
+      "labels": [
+        "i方案",
+        "开发者工具",
+        "图片压缩",
+        "智能抠图",
+        "多图拼接",
+        "PDF 工具",
+        "证件水印",
+        "临时剪贴板",
+        "证件照"
+      ],
+      "active": "图片压缩",
+      "iPlanStyle": {
+        "backgroundColor": "rgb(23, 105, 224)",
+        "color": "rgb(255, 255, 255)"
+      }
     },
     {
       "path": "/remove-background/",
@@ -45,31 +65,51 @@
         "height": 64
       },
       "inner": {
-        "x": 80,
+        "x": 88,
         "y": 0,
-        "width": 1120,
+        "width": 1104,
         "height": 64
       },
       "brand": {
-        "x": 80,
-        "y": 21.5,
-        "width": 97.328125,
-        "height": 21
+        "x": 88,
+        "y": 18,
+        "width": 133.328125,
+        "height": 28
       },
       "nav": {
-        "x": 205.328125,
-        "y": 12.5,
-        "width": 901.34375,
-        "height": 39
+        "x": 237.328125,
+        "y": 13.5,
+        "width": 797,
+        "height": 37
       },
-      "ecosystem": {
-        "x": 1134.671875,
-        "y": 21.5,
-        "width": 65.328125,
-        "height": 21
+      "privacyBadge": {
+        "x": 1050.328125,
+        "y": 16.5,
+        "width": 141.671875,
+        "height": 31
       },
-      "labels": ["图片压缩", "智能抠图", "多图拼接"],
-      "active": "智能抠图"
+      "banner": {
+        "x": 88,
+        "y": 80,
+        "width": 1104,
+        "height": 77.1875
+      },
+      "labels": [
+        "i方案",
+        "开发者工具",
+        "图片压缩",
+        "智能抠图",
+        "多图拼接",
+        "PDF 工具",
+        "证件水印",
+        "临时剪贴板",
+        "证件照"
+      ],
+      "active": "智能抠图",
+      "iPlanStyle": {
+        "backgroundColor": "rgb(23, 105, 224)",
+        "color": "rgb(255, 255, 255)"
+      }
     },
     {
       "path": "/collage/",
@@ -80,56 +120,112 @@
         "height": 64
       },
       "inner": {
-        "x": 80,
+        "x": 88,
         "y": 0,
-        "width": 1120,
+        "width": 1104,
         "height": 64
       },
       "brand": {
-        "x": 80,
-        "y": 20.5,
-        "width": 102.078125,
-        "height": 23
+        "x": 88,
+        "y": 18,
+        "width": 138.078125,
+        "height": 28
       },
       "nav": {
-        "x": 210.078125,
-        "y": 13.5,
-        "width": 896.59375,
-        "height": 37
+        "x": 242.078125,
+        "y": 14.5,
+        "width": 792.25,
+        "height": 35
       },
-      "ecosystem": {
-        "x": 1134.671875,
-        "y": 21.5,
-        "width": 65.328125,
-        "height": 21
+      "privacyBadge": {
+        "x": 1050.328125,
+        "y": 16.5,
+        "width": 141.671875,
+        "height": 31
       },
-      "labels": ["图片压缩", "智能抠图", "多图拼接"],
-      "active": "多图拼接"
+      "banner": {
+        "x": 88,
+        "y": 80,
+        "width": 1104,
+        "height": 77.1875
+      },
+      "labels": [
+        "i方案",
+        "开发者工具",
+        "图片压缩",
+        "智能抠图",
+        "多图拼接",
+        "PDF 工具",
+        "证件水印",
+        "临时剪贴板",
+        "证件照"
+      ],
+      "active": "多图拼接",
+      "iPlanStyle": {
+        "backgroundColor": "rgb(23, 105, 224)",
+        "color": "rgb(255, 255, 255)"
+      }
     }
   ],
   "mobile": [
     {
       "path": "/",
-      "headerHeight": 98.125,
+      "headerHeight": 105.984375,
       "navWidth": 343,
       "navRight": 359,
-      "ecosystemRight": 359,
+      "navScrollWidth": 748,
+      "privacyBadgeRight": 359,
+      "labels": [
+        "i方案",
+        "开发者工具",
+        "图片压缩",
+        "智能抠图",
+        "多图拼接",
+        "PDF 工具",
+        "证件水印",
+        "临时剪贴板",
+        "证件照"
+      ],
       "viewportWidth": 375
     },
     {
       "path": "/remove-background/",
-      "headerHeight": 91,
+      "headerHeight": 105,
       "navWidth": 343,
       "navRight": 359,
-      "ecosystemRight": 359,
+      "navScrollWidth": 764,
+      "privacyBadgeRight": 359,
+      "labels": [
+        "i方案",
+        "开发者工具",
+        "图片压缩",
+        "智能抠图",
+        "多图拼接",
+        "PDF 工具",
+        "证件水印",
+        "临时剪贴板",
+        "证件照"
+      ],
       "viewportWidth": 375
     },
     {
       "path": "/collage/",
-      "headerHeight": 91,
+      "headerHeight": 103,
       "navWidth": 343,
       "navRight": 359,
-      "ecosystemRight": 359,
+      "navScrollWidth": 723,
+      "privacyBadgeRight": 359,
+      "labels": [
+        "i方案",
+        "开发者工具",
+        "图片压缩",
+        "智能抠图",
+        "多图拼接",
+        "PDF 工具",
+        "证件水印",
+        "临时剪贴板",
+        "证件照"
+      ],
       "viewportWidth": 375
     }
   ],

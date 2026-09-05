@@ -599,3 +599,77 @@
     display: none;
   }
 }
+
+/* Shared i41 image-tools navigation tokens. */
+.header-inner {
+  max-width: 1104px;
+  gap: 16px;
+}
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.brand span {
+  display: inline-grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 7px;
+  background: #1769e0;
+  color: white;
+  font-size: 1.4rem;
+}
+.tool-nav {
+  gap: 4px;
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+.current-tool,
+.tool-link {
+  padding: 8px 9px;
+  border-radius: 8px;
+  font-size: 1.3rem;
+}
+.current-tool {
+  color: white;
+  background: #1769e0;
+}
+.i-plan-nav {
+  color: white;
+  background: #1769e0;
+  font-weight: 800;
+  border-radius: 999px;
+}
+.current-tool {
+  color: #1769e0;
+  background: #edf5ff;
+}
+.featured-tool {
+  color: #1769e0;
+  background: #edf5ff;
+}
+.privacy-badge {
+  flex: none;
+  padding: 6px 10px;
+  border: 1px solid #b9e6ca;
+  border-radius: 999px;
+  background: #effbf3;
+  color: #167143;
+  font-size: 1.2rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.i-plan-banner {
+  box-sizing: border-box;
+  width: min(1104px, calc(100% - 4rem));
+  margin: 1.6rem auto;
+}
+@media (max-width: 760px) {
+  .privacy-badge {
+    margin-left: auto;
+  }
+  .i-plan-banner {
+    width: calc(100% - 3.2rem);
+  }
+}
