@@ -13,6 +13,7 @@ const requiredNav = [
 test('独立拼图页面提供多图上传、三种模式和 PNG 预览下载', async () => {
   const [html, source] = await Promise.all([read('index.html'), read('src/app.mjs')]);
 
+  assert.match(html, /data-i41-site="imgzip"/);
   assert.match(html, /id="files"[^>]*multiple/);
   for (const mode of ['grid', 'vertical', 'horizontal']) {
     assert.match(html, new RegExp(`value="${mode}"`));

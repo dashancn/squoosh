@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { calculateLayout, MAX_EDGE } from '../src/layout.mjs';
+import { calculateLayout, MAX_EDGE, MAX_OUTPUT_PIXELS } from '../src/layout.mjs';
 
 const images = [
   { width: 400, height: 300 },
@@ -63,8 +63,41 @@ test('invalid values are normalized and output is clamped to safe canvas limits'
     ],
     { mode: 'vertical', spacing: -100 },
   );
-  assert.equal(Math.max(layout.width, layout.height), MAX_EDGE);
+  assert.ok(Math.max(layout.width, layout.height) <= MAX_EDGE);
+  assert.ok(layout.width * layout.height <= MAX_OUTPUT_PIXELS);
   assert.ok(layout.scale < 1);
   assert.throws(() => calculateLayout([], {}), /At least one image/);
   assert.throws(() => calculateLayout(images, { mode: 'diagonal' }), /Unsupported collage mode/);
+});
+
+test('output permits exactly 36 MP and rejects neither pixel nor edge boundary', () => {
+  const layout = calculateLayout([{ width: 6000, height: 6000 }], {
+    mode: 'vertical',
+    targetWidth: 6000,
+  });
+  assert.deepEqual({ width: layout.width, height: layout.height }, { width: 6000, height: 6000 });
+  assert.equal(layout.width * layout.height, MAX_OUTPUT_PIXELS);
+});
+
+test('output above 36 MP is scaled to at most 36 MP', () => {
+  const layout = calculateLayout([{ width: 6001, height: 6000 }], {
+    mode: 'vertical',
+    targetWidth: 6001,
+  });
+  assert.ok(layout.width * layout.height <= MAX_OUTPUT_PIXELS);
+  assert.ok(layout.scale < 1);
+});
+
+test('output permits a 10000px edge and scales an edge above 10000px', () => {
+  const boundary = calculateLayout([{ width: 10000, height: 1000 }], {
+    mode: 'horizontal',
+    targetHeight: 1000,
+  });
+  assert.equal(boundary.width, MAX_EDGE);
+  const exceeded = calculateLayout([{ width: 10001, height: 1000 }], {
+    mode: 'horizontal',
+    targetHeight: 1000,
+  });
+  assert.ok(Math.max(exceeded.width, exceeded.height) <= MAX_EDGE);
+  assert.ok(exceeded.scale < 1);
 });

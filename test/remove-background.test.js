@@ -89,3 +89,17 @@ test('生产构建接入 /remove-background/ 且保留独立入口', async () =>
   const config = await read('remove-background/vite.config.js');
   assert.match(config, /build\/remove-background/);
 });
+
+test('抠图生产构建包含 AGPL 许可证并提供本站精确源代码链接', async () => {
+  const html = await read('remove-background/index.html');
+  assert.match(html, /href="\.\/LICENSE-AGPL\.md"/);
+  assert.match(
+    html,
+    /href="https:\/\/github\.com\/dashancn\/squoosh\/tree\/feat\/independent-image-tools"/,
+  );
+  assert.match(html, /本站修改后的完整源代码/);
+
+  const config = await read('remove-background/vite.config.js');
+  assert.match(config, /LICENSE-AGPL\.md/);
+  assert.match(config, /writeBundle/);
+});

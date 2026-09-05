@@ -1,4 +1,5 @@
 import { calculateLayout } from './layout.mjs';
+import { validateFiles, validateDecodedImage } from './limits.mjs';
 
 function canvasToPng(canvas) {
   return new Promise((resolve, reject) => {
@@ -32,16 +33,22 @@ function drawCover(context, bitmap, item) {
 }
 
 export async function createCollage(blobs, options = {}) {
-  if (
-    !Array.isArray(blobs) ||
-    blobs.length === 0 ||
-    blobs.some((blob) => !(blob instanceof Blob))
-  ) {
-    throw new Error('At least one image Blob is required');
-  }
+  validateFiles(blobs);
 
-  const bitmaps = await Promise.all(blobs.map((blob) => createImageBitmap(blob)));
+  const bitmaps = [];
+  let decodedPixels = 0;
   try {
+    for (const blob of blobs) {
+      const bitmap = await createImageBitmap(blob);
+      try {
+        decodedPixels = validateDecodedImage(bitmap, decodedPixels);
+      } catch (error) {
+        bitmap.close();
+        throw error;
+      }
+      bitmaps.push(bitmap);
+    }
+
     const layout = calculateLayout(bitmaps, options);
     const canvas = document.createElement('canvas');
     canvas.width = layout.width;

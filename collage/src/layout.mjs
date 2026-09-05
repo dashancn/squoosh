@@ -1,4 +1,5 @@
-export const MAX_EDGE = 12000;
+export const MAX_EDGE = 10000;
+export const MAX_OUTPUT_PIXELS = 36_000_000;
 
 function parseRatio(value) {
   if (typeof value === 'number' && Number.isFinite(value) && value > 0) return value;
@@ -7,18 +8,22 @@ function parseRatio(value) {
 }
 
 function clampLayout(layout) {
-  const scale = Math.min(1, MAX_EDGE / Math.max(layout.width, layout.height));
+  const edgeScale = MAX_EDGE / Math.max(layout.width, layout.height);
+  const pixelScale = Math.sqrt(MAX_OUTPUT_PIXELS / (layout.width * layout.height));
+  const scale = Math.min(1, edgeScale, pixelScale);
   if (scale === 1) return layout;
+  const width = Math.max(1, Math.floor(layout.width * scale));
+  const height = Math.max(1, Math.floor(layout.height * scale));
   return {
-    width: Math.max(1, Math.round(layout.width * scale)),
-    height: Math.max(1, Math.round(layout.height * scale)),
-    scale,
+    width,
+    height,
+    scale: Math.min(width / layout.width, height / layout.height),
     items: layout.items.map((item) => ({
       ...item,
-      x: Math.round(item.x * scale),
-      y: Math.round(item.y * scale),
-      width: Math.max(1, Math.round(item.width * scale)),
-      height: Math.max(1, Math.round(item.height * scale)),
+      x: Math.floor(item.x * scale),
+      y: Math.floor(item.y * scale),
+      width: Math.max(1, Math.floor(item.width * scale)),
+      height: Math.max(1, Math.floor(item.height * scale)),
     })),
   };
 }
