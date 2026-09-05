@@ -54,9 +54,11 @@ a {
 .tool-nav {
   display: flex;
   align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
   gap: 8px;
   flex: 1;
-  overflow-x: auto;
+  margin-left: auto;
 }
 
 .tool-nav a {
@@ -555,8 +557,6 @@ button:disabled {
 }
 .tool-nav {
   gap: 4px;
-  overflow-x: auto;
-  scrollbar-width: thin;
 }
 .tool-nav a {
   position: relative;
@@ -569,6 +569,9 @@ button:disabled {
   background: #1769e0;
 }
 .tool-nav a.i-plan-nav {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   min-width: 72px;
   padding-right: 15px;
   padding-left: 15px;
@@ -576,16 +579,13 @@ button:disabled {
   color: white;
   background: #1769e0;
   font-weight: 800;
-  border-radius: 999px;
+  border-radius: 9px;
 }
 .tool-nav a[aria-current='page'] {
   color: #1769e0;
   background: #edf5ff;
 }
-.tool-nav a.featured-tool:not([aria-current='page']) {
-  color: #1769e0;
-  background: #edf5ff;
-}
+
 .privacy-badge {
   flex: none;
   padding: 6px 10px;

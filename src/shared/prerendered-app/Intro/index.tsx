@@ -259,7 +259,7 @@ export default class Intro extends Component<Props, State> {
                 临时剪贴板
               </a>
               <a
-                class={`${style.toolLink} ${style.featuredTool}`}
+                class={style.toolLink}
                 href="https://idphoto.i41.cn"
                 data-tooltip="制作规范尺寸的证件照片"
               >

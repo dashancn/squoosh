@@ -43,8 +43,11 @@ a {
 .tool-nav {
   display: flex;
   align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
   gap: 8px;
   flex: 1;
+  margin-left: auto;
 }
 .tool-nav a {
   padding: 9px 12px;
@@ -284,7 +287,6 @@ fieldset label {
   .tool-nav {
     order: 3;
     flex-basis: 100%;
-    overflow-x: auto;
   }
   .ecosystem {
     margin-left: auto;
@@ -320,8 +322,6 @@ fieldset label {
 }
 .tool-nav {
   gap: 4px;
-  overflow-x: auto;
-  scrollbar-width: thin;
 }
 .tool-nav a {
   position: relative;
@@ -334,6 +334,9 @@ fieldset label {
   background: #1769e0;
 }
 .tool-nav a.i-plan-nav {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   min-width: 72px;
   padding-right: 15px;
   padding-left: 15px;
@@ -341,16 +344,13 @@ fieldset label {
   color: white;
   background: #1769e0;
   font-weight: 800;
-  border-radius: 999px;
+  border-radius: 9px;
 }
 .tool-nav a[aria-current='page'] {
   color: #1769e0;
   background: #edf5ff;
 }
-.tool-nav a.featured-tool:not([aria-current='page']) {
-  color: #1769e0;
-  background: #edf5ff;
-}
+
 .privacy-badge {
   flex: none;
   padding: 6px 10px;

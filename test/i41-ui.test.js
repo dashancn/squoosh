@@ -103,6 +103,7 @@ test('三个图片工具页面以品牌标识当前工具，并从标准菜单�
       /aria-current|<details|<summary|生态菜单|i41 生态/,
     );
     assert.doesNotMatch(nav, new RegExp(`>\\s*${currentLabel}\\s*<\\/a>`));
+    assert.doesNotMatch(nav, /featured-tool|featuredTool/);
     assert.doesNotMatch(source, /target="_blank"|rel="noopener noreferrer"/);
 
     const expectedItems = navItems.filter(([label]) => label !== currentLabel);
@@ -128,13 +129,23 @@ test('三个图片工具页面以品牌标识当前工具，并从标准菜单�
     assert.match(css, /\.site-header[\s\S]*height:\s*64px/);
     assert.match(css, /\.header-inner[\s\S]*max-width:\s*1104px/);
     assert.match(css, /\.privacy-badge|\.privacyBadge/);
-    assert.match(css, /overflow-x:\s*auto/);
+    assert.doesNotMatch(css, /overflow-x:\s*(?:auto|scroll)/);
+    assert.match(
+      css,
+      /\.tool-nav|\.toolNav[\s\S]*margin-left:\s*auto[\s\S]*justify-content:\s*flex-end[\s\S]*flex-wrap:\s*wrap/,
+    );
     assert.match(css, /\.i-plan-nav|\.iPlanNav[\s\S]*min-width:\s*72px/);
     assert.match(
       css,
       /\.i-plan-nav|\.iPlanNav[\s\S]*padding:\s*[^;]*(?:14px|15px|16px)/,
     );
     assert.match(css, /\.i-plan-nav|\.iPlanNav[\s\S]*background:\s*#1769e0/);
+    assert.match(css, /\.i-plan-nav|\.iPlanNav[\s\S]*border-radius:\s*9px/);
+    assert.match(
+      css,
+      /\.i-plan-nav|\.iPlanNav[\s\S]*display:\s*(?:inline-)?flex[\s\S]*align-items:\s*center[\s\S]*justify-content:\s*center/,
+    );
+    assert.doesNotMatch(css, /\.featured-tool|\.featuredTool/);
     assert.match(
       css,
       /\[data-tooltip\]::after[\s\S]*content:\s*attr\(data-tooltip\)/,

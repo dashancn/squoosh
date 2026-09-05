@@ -408,9 +408,11 @@
 .tool-nav {
   display: flex;
   align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
   gap: 8px;
   flex: 1;
-  overflow-x: auto;
+  margin-left: auto;
 }
 
 .current-tool,
@@ -637,8 +639,6 @@
 }
 .tool-nav {
   gap: 4px;
-  overflow-x: auto;
-  scrollbar-width: thin;
 }
 .current-tool,
 .tool-link {
@@ -652,6 +652,9 @@
   background: #1769e0;
 }
 .i-plan-nav {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   min-width: 72px;
   padding-right: 15px;
   padding-left: 15px;
@@ -659,16 +662,13 @@
   color: white;
   background: #1769e0;
   font-weight: 800;
-  border-radius: 999px;
+  border-radius: 9px;
 }
 .current-tool {
   color: #1769e0;
   background: #edf5ff;
 }
-.featured-tool {
-  color: #1769e0;
-  background: #edf5ff;
-}
+
 .privacy-badge {
   flex: none;
   padding: 6px 10px;
