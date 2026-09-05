@@ -66,6 +66,38 @@ test('顶部生态导航包含完整 i41 工具链接并标记生态导航来源
   assert.match(source, /客户端加密、自动过期、读取次数限制和阅后即焚/);
 });
 
+test('顶部生态导航明确标记当前工具为图片压缩', async () => {
+  const [source, css] = await Promise.all([
+    read('src/shared/prerendered-app/Intro/index.tsx'),
+    read('src/shared/prerendered-app/Intro/style.css'),
+  ]);
+  assert.match(
+    source,
+    /<nav class=\{style\.headerActions\} aria-label="图片工具导航">/,
+  );
+  assert.match(
+    source,
+    /<span class=\{style\.currentTool\} aria-current="page">\s*图片压缩\s*<\/span>/,
+  );
+  assert.match(css, /\.current-tool/);
+});
+
+test('顶部生态导航提供独立智能抠图入口', async () => {
+  const source = await read('src/shared/prerendered-app/Intro/index.tsx');
+  assert.match(
+    source,
+    /<a\s+class=\{style\.toolLink\}\s+href="\/remove-background\/">[\s\S]*?智能抠图[\s\S]*?<\/a>/,
+  );
+});
+
+test('顶部生态导航提供独立多图拼接入口', async () => {
+  const source = await read('src/shared/prerendered-app/Intro/index.tsx');
+  assert.match(
+    source,
+    /<a\s+class=\{style\.toolLink\}\s+href="\/collage\/">[\s\S]*?多图拼接[\s\S]*?<\/a>/,
+  );
+});
+
 test('首页浅黄色促销横幅使用独立 UTM 标记', async () => {
   const [source, css] = await Promise.all([
     read('src/shared/prerendered-app/Intro/index.tsx'),

@@ -380,6 +380,7 @@
   }
 }
 
+.current-tool,
 .tool-link,
 .i-plan-btn,
 .install-btn {
@@ -397,6 +398,13 @@
     padding: 0.45em 0.7em;
     font-size: 1.3rem;
   }
+}
+
+.current-tool {
+  background: var(--white);
+  color: var(--deep-blue);
+  box-shadow: inset 0 0 0 2px var(--deep-blue);
+  font-weight: 700;
 }
 
 .tool-link,

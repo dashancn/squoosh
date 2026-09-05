@@ -460,7 +460,16 @@ export default class Intro extends Component<Props, State> {
             </div>
           </div>
         </footer>
-        <div class={style.headerActions}>
+        <nav class={style.headerActions} aria-label="图片工具导航">
+          <span class={style.currentTool} aria-current="page">
+            图片压缩
+          </span>
+          <a class={style.toolLink} href="/remove-background/">
+            智能抠图
+          </a>
+          <a class={style.toolLink} href="/collage/">
+            多图拼接
+          </a>
           <a
             class={style.toolLink}
             href="https://tools.i41.cn"
@@ -520,7 +529,7 @@ export default class Intro extends Component<Props, State> {
               安装应用
             </button>
           )}
-        </div>
+        </nav>
       </div>
     );
   }
