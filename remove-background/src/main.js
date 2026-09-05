@@ -1,4 +1,5 @@
 import { removeBackground } from '@imgly/background-removal';
+import { decodeAndValidateRemovalInput } from './input-limits.js';
 
 const fileInput = document.querySelector('#file-input');
 const fileName = document.querySelector('#file-name');
@@ -97,6 +98,8 @@ startButton.addEventListener('click', async () => {
   setProgress(1, '正在准备图片…');
 
   try {
+    await decodeAndValidateRemovalInput(input);
+    if (version !== selectedVersion) return;
     const foreground = await removeBackground(input, {
       publicPath: new URL('./imgly/', location.href).href,
       model: 'isnet_quint8',

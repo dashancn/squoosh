@@ -82,6 +82,16 @@ test('抠图固定使用同源 isnet_quint8 资源', async () => {
   assert.ok(resources['/onnxruntime-web/ort-wasm-simd-threaded.wasm']);
 });
 
+test('调用抠图模型前会校验编码大小并安全解码检查尺寸', async () => {
+  const source = await read('remove-background/src/main.js');
+  assert.match(source, /decodeAndValidateRemovalInput\(input\)/);
+  assert.ok(
+    source.indexOf('decodeAndValidateRemovalInput(input)') <
+      source.indexOf('removeBackground(input'),
+    '输入限制必须在 removeBackground 前执行',
+  );
+});
+
 test('生产构建接入 /remove-background/ 且保留独立入口', async () => {
   const packageJson = JSON.parse(await read('package.json'));
   assert.match(packageJson.scripts.build, /build:remove-background/);

@@ -64,3 +64,12 @@ test('独立构建脚本会将页面复制到 /collage/ 且不依赖主应用状
   assert.match(buildScript, /source.*index\.html[\s\S]*destination.*index\.html/);
   assert.doesNotMatch(buildScript, /src\/client|src\/features|rollup/);
 });
+
+test('完整构建会发布根 Apache 许可证供拼图相对链接访问', async () => {
+  const packageJson = JSON.parse(await read('../package.json'));
+  assert.match(packageJson.scripts.build, /build:license/);
+  assert.ok(packageJson.scripts['build:license']);
+
+  const html = await read('index.html');
+  assert.match(html, /href="\.\.\/LICENSE"/);
+});
