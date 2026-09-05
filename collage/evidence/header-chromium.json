@@ -1,0 +1,137 @@
+{
+  "chromiumVersion": "151.0.7922.173",
+  "desktop": [
+    {
+      "path": "/",
+      "header": {
+        "x": 0,
+        "y": 0,
+        "width": 1280,
+        "height": 64
+      },
+      "inner": {
+        "x": 80,
+        "y": 0,
+        "width": 1120,
+        "height": 64
+      },
+      "brand": {
+        "x": 80,
+        "y": 18.890625,
+        "width": 114.25,
+        "height": 26.203125
+      },
+      "nav": {
+        "x": 222.25,
+        "y": 11.53125,
+        "width": 879.359375,
+        "height": 40.921875
+      },
+      "ecosystem": {
+        "x": 1129.609375,
+        "y": 19.515625,
+        "width": 70.390625,
+        "height": 24.953125
+      },
+      "labels": ["图片压缩", "智能抠图", "多图拼接"],
+      "active": "图片压缩"
+    },
+    {
+      "path": "/remove-background/",
+      "header": {
+        "x": 0,
+        "y": 0,
+        "width": 1280,
+        "height": 64
+      },
+      "inner": {
+        "x": 80,
+        "y": 0,
+        "width": 1120,
+        "height": 64
+      },
+      "brand": {
+        "x": 80,
+        "y": 21.5,
+        "width": 97.328125,
+        "height": 21
+      },
+      "nav": {
+        "x": 205.328125,
+        "y": 12.5,
+        "width": 901.34375,
+        "height": 39
+      },
+      "ecosystem": {
+        "x": 1134.671875,
+        "y": 21.5,
+        "width": 65.328125,
+        "height": 21
+      },
+      "labels": ["图片压缩", "智能抠图", "多图拼接"],
+      "active": "智能抠图"
+    },
+    {
+      "path": "/collage/",
+      "header": {
+        "x": 0,
+        "y": 0,
+        "width": 1280,
+        "height": 64
+      },
+      "inner": {
+        "x": 80,
+        "y": 0,
+        "width": 1120,
+        "height": 64
+      },
+      "brand": {
+        "x": 80,
+        "y": 20.5,
+        "width": 102.078125,
+        "height": 23
+      },
+      "nav": {
+        "x": 210.078125,
+        "y": 13.5,
+        "width": 896.59375,
+        "height": 37
+      },
+      "ecosystem": {
+        "x": 1134.671875,
+        "y": 21.5,
+        "width": 65.328125,
+        "height": 21
+      },
+      "labels": ["图片压缩", "智能抠图", "多图拼接"],
+      "active": "多图拼接"
+    }
+  ],
+  "mobile": [
+    {
+      "path": "/",
+      "headerHeight": 98.125,
+      "navWidth": 343,
+      "navRight": 359,
+      "ecosystemRight": 359,
+      "viewportWidth": 375
+    },
+    {
+      "path": "/remove-background/",
+      "headerHeight": 91,
+      "navWidth": 343,
+      "navRight": 359,
+      "ecosystemRight": 359,
+      "viewportWidth": 375
+    },
+    {
+      "path": "/collage/",
+      "headerHeight": 91,
+      "navWidth": 343,
+      "navRight": 359,
+      "ecosystemRight": 359,
+      "viewportWidth": 375
+    }
+  ],
+  "errors": []
+}

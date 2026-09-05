@@ -22,18 +22,25 @@ a {
 }
 
 .site-header {
+  box-sizing: border-box;
   position: sticky;
   top: 0;
   z-index: 5;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 24px;
+  height: 64px;
   min-height: 64px;
-  padding: 10px max(20px, calc((100vw - 1120px) / 2));
   border-bottom: 1px solid #dfe4ee;
   background: rgba(255, 255, 255, 0.96);
   backdrop-filter: blur(12px);
+}
+
+.header-inner {
+  width: calc(100% - 40px);
+  max-width: 1120px;
+  height: 64px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 28px;
 }
 
 .brand {
@@ -44,14 +51,15 @@ a {
   white-space: nowrap;
 }
 
-nav {
+.tool-nav {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
+  flex: 1;
   overflow-x: auto;
 }
 
-nav a {
+.tool-nav a {
   padding: 9px 12px;
   border-radius: 9px;
   color: #59647a;
@@ -61,13 +69,45 @@ nav a {
   white-space: nowrap;
 }
 
-nav a:hover {
+.tool-nav a:hover {
   background: #f0f3f9;
   color: #172033;
 }
-nav a[aria-current='page'] {
+.tool-nav a[aria-current='page'] {
   background: #e9edff;
   color: #2949c7;
+}
+
+.ecosystem {
+  position: relative;
+  white-space: nowrap;
+}
+.ecosystem summary {
+  cursor: pointer;
+  list-style: none;
+  font-weight: 700;
+}
+.ecosystem-menu {
+  position: absolute;
+  right: 0;
+  top: 34px;
+  width: 180px;
+  padding: 8px;
+  display: grid;
+  gap: 2px;
+  background: white;
+  border: 1px solid #dbe2ea;
+  border-radius: 12px;
+  box-shadow: 0 14px 30px #26364a24;
+}
+.ecosystem-menu a {
+  padding: 9px 10px;
+  color: #172033;
+  text-decoration: none;
+  border-radius: 7px;
+}
+.ecosystem-menu a:hover {
+  background: #f0f4f8;
 }
 
 main {
@@ -448,14 +488,23 @@ button:disabled {
 }
 
 @media (max-width: 760px) {
-  .site-header {
-    align-items: flex-start;
-    flex-direction: column;
-    gap: 5px;
-    padding-block: 10px;
+  .site-header,
+  .header-inner {
+    height: auto;
+    min-height: 64px;
   }
-  nav {
-    width: 100%;
+  .header-inner {
+    width: calc(100% - 32px);
+    padding: 10px 0;
+    flex-wrap: wrap;
+    gap: 10px 16px;
+  }
+  .tool-nav {
+    order: 3;
+    flex-basis: 100%;
+  }
+  .ecosystem {
+    margin-left: auto;
   }
   main {
     padding-top: 32px;

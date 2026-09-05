@@ -202,6 +202,78 @@ export default class Intro extends Component<Props, State> {
   ) {
     return (
       <div class={style.intro}>
+        <header class={style.siteHeader}>
+          <div class={style.headerInner}>
+            <a class={style.brand} href="/" aria-label="i41 图片工具首页">
+              i41 图片工具
+            </a>
+            <nav class={style.toolNav} aria-label="图片工具导航">
+              <a class={style.currentTool} href="/" aria-current="page">
+                图片压缩
+              </a>
+              <a class={style.toolLink} href="/remove-background/">
+                智能抠图
+              </a>
+              <a class={style.toolLink} href="/collage/">
+                多图拼接
+              </a>
+            </nav>
+            <details class={style.ecosystem}>
+              <summary>i41 生态</summary>
+              <div class={style.ecosystemMenu}>
+                <a
+                  href="https://tools.i41.cn"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  开发者工具
+                </a>
+                <a
+                  href="https://idphoto.i41.cn"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  证件照
+                </a>
+                <a
+                  href="https://pdf.i41.cn"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  PDF 工具
+                </a>
+                <a
+                  href="https://watermark.i41.cn"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  data-tooltip="证件水印工具支持为身份证、营业执照和合同截图添加用途水印，图片仅在浏览器本地处理。"
+                >
+                  证件水印
+                </a>
+                <a
+                  href="https://clip.i41.cn"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  data-tooltip="临时剪贴板支持客户端加密、自动过期、读取次数限制和阅后即焚，适合跨设备传递临时文本。"
+                >
+                  临时剪贴板
+                </a>
+                <a
+                  href="https://www.i41.cn?utm_source=imgzip&utm_medium=tool_referral&utm_campaign=ifangan&utm_content=ecosystem_nav"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  访问 i方案
+                </a>
+              </div>
+            </details>
+            {beforeInstallEvent && (
+              <button class={style.installBtn} onClick={this.onInstallClick}>
+                安装应用
+              </button>
+            )}
+          </div>
+        </header>
         <input
           class={style.hide}
           ref={linkRef(this, 'fileInput')}
@@ -460,76 +532,6 @@ export default class Intro extends Component<Props, State> {
             </div>
           </div>
         </footer>
-        <nav class={style.headerActions} aria-label="图片工具导航">
-          <span class={style.currentTool} aria-current="page">
-            图片压缩
-          </span>
-          <a class={style.toolLink} href="/remove-background/">
-            智能抠图
-          </a>
-          <a class={style.toolLink} href="/collage/">
-            多图拼接
-          </a>
-          <a
-            class={style.toolLink}
-            href="https://tools.i41.cn"
-            target="_blank"
-            rel="noopener noreferrer"
-            data-tooltip="开发者工具箱汇集编码转换、格式化、加密、网络、文本和图片等常用在线工具，强调快速、易用和浏览器端处理。"
-          >
-            开发者工具
-          </a>
-          <a
-            class={style.toolLink}
-            href="https://idphoto.i41.cn"
-            target="_blank"
-            rel="noopener noreferrer"
-            data-tooltip="证件照工作室是一款浏览器端证件照制作工具，支持本地智能抠图、背景换色、常用证件尺寸和 300DPI 多图拼版，照片无需上传到业务服务器。"
-          >
-            证件照
-          </a>
-          <a
-            class={style.toolLink}
-            href="https://pdf.i41.cn"
-            target="_blank"
-            rel="noopener noreferrer"
-            data-tooltip="PDF 工具箱提供合并、拆分、压缩、转换、编辑、OCR 和发票拼版等浏览器端 PDF 处理能力。"
-          >
-            PDF 工具
-          </a>
-          <a
-            class={style.toolLink}
-            href="https://watermark.i41.cn"
-            target="_blank"
-            rel="noopener noreferrer"
-            data-tooltip="证件水印工具支持为身份证、营业执照和合同截图添加用途水印，图片仅在浏览器本地处理。"
-          >
-            证件水印
-          </a>
-          <a
-            class={style.toolLink}
-            href="https://clip.i41.cn"
-            target="_blank"
-            rel="noopener noreferrer"
-            data-tooltip="临时剪贴板支持客户端加密、自动过期、读取次数限制和阅后即焚，适合跨设备传递临时文本。"
-          >
-            临时剪贴板
-          </a>
-          <a
-            class={style.iPlanBtn}
-            href="https://www.i41.cn?utm_source=imgzip&utm_medium=tool_referral&utm_campaign=ifangan&utm_content=ecosystem_nav"
-            target="_blank"
-            rel="noopener noreferrer"
-            data-tooltip="i方案是一套面向本地实体商家、内容运营人员和营销服务团队的智能内容工作平台。"
-          >
-            访问 i方案
-          </a>
-          {beforeInstallEvent && (
-            <button class={style.installBtn} onClick={this.onInstallClick}>
-              安装应用
-            </button>
-          )}
-        </nav>
       </div>
     );
   }

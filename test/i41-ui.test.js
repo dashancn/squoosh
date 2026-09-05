@@ -66,20 +66,86 @@ test('顶部生态导航包含完整 i41 工具链接并标记生态导航来源
   assert.match(source, /客户端加密、自动过期、读取次数限制和阅后即焚/);
 });
 
-test('顶部生态导航明确标记当前工具为图片压缩', async () => {
-  const [source, css] = await Promise.all([
+test('三个图片工具页面共享同一顶部导航结构、顺序和生态链接', async () => {
+  const [
+    compressor,
+    removeBackground,
+    collage,
+    compressorCss,
+    removeCss,
+    collageCss,
+  ] = await Promise.all([
     read('src/shared/prerendered-app/Intro/index.tsx'),
+    read('remove-background/index.html'),
+    read('collage/index.html'),
     read('src/shared/prerendered-app/Intro/style.css'),
+    read('remove-background/src/style.css'),
+    read('collage/style.css'),
   ]);
-  assert.match(
-    source,
-    /<nav class=\{style\.headerActions\} aria-label="图片工具导航">/,
-  );
-  assert.match(
-    source,
-    /<span class=\{style\.currentTool\} aria-current="page">\s*图片压缩\s*<\/span>/,
-  );
-  assert.match(css, /\.current-tool/);
+  const sources = [compressor, removeBackground, collage];
+  const orderedLabels = [
+    'i41 图片工具',
+    '图片压缩',
+    '智能抠图',
+    '多图拼接',
+    'i41 生态',
+    '开发者工具',
+    '证件照',
+    'PDF 工具',
+    '证件水印',
+    '临时剪贴板',
+    '访问 i方案',
+  ];
+  for (const source of sources) {
+    const header = source.slice(
+      source.indexOf('<header'),
+      source.indexOf('</header>') + 9,
+    );
+    let previous = -1;
+    for (const label of orderedLabels) {
+      const index = header.indexOf(label);
+      assert.ok(index > previous, `${label} 应存在且顺序一致`);
+      previous = index;
+    }
+    for (const className of [
+      'site-header',
+      'header-inner',
+      'brand',
+      'tool-nav',
+      'ecosystem',
+      'ecosystem-menu',
+    ]) {
+      assert.match(source, new RegExp(className.replace('-', '[A-Z-]?'), 'i'));
+    }
+    for (const url of [
+      'https://tools.i41.cn',
+      'https://idphoto.i41.cn',
+      'https://pdf.i41.cn',
+      'https://watermark.i41.cn',
+      'https://clip.i41.cn',
+      iPlanUrl('ecosystem_nav'),
+    ]) {
+      assert.ok(
+        source.includes(
+          `href="${url.replaceAll(
+            '&',
+            source === compressor ? '&' : '&amp;',
+          )}"`,
+        ) || source.includes(`href="${url}"`),
+        `缺少 ${url}`,
+      );
+    }
+    assert.match(source, /target="_blank"/);
+    assert.match(source, /rel="noopener noreferrer"/);
+  }
+  for (const css of [compressorCss, removeCss, collageCss]) {
+    assert.match(css, /\.site-header[\s\S]*height:\s*64px/);
+    assert.match(css, /\.header-inner[\s\S]*max-width:\s*1120px/);
+    assert.match(css, /position:\s*sticky/);
+  }
+  assert.match(compressor, /aria-current="page"[\s\S]*图片压缩/);
+  assert.match(removeBackground, /aria-current="page"[^>]*>智能抠图/);
+  assert.match(collage, /aria-current="page"[^>]*>多图拼接/);
 });
 
 test('顶部生态导航提供独立智能抠图入口', async () => {

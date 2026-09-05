@@ -89,6 +89,7 @@ export function calculateLayout(images, options = {}) {
   const spacing = Math.max(0, Number(options.spacing) || 0);
   const mode = options.mode || 'grid';
   if (mode === 'grid') return fixedGrid(images, options, Math.max(1, Math.min(images.length, Math.round(Number(options.columns) || Math.ceil(Math.sqrt(images.length))))));
+  if (mode === 'nine-grid') return fixedGrid(images, options, 3);
   if (mode === 'two-columns') return fixedGrid(images, options, Math.min(2, images.length));
   if (mode === 'two-rows') return fixedGrid(images, options, Math.max(1, Math.ceil(images.length / 2)), Math.min(2, images.length));
   if (mode === 'four-grid') return fixedGrid(images, options, Math.min(2, images.length));
@@ -102,7 +103,7 @@ export function calculateLayout(images, options = {}) {
       { x: cellWidth + spacing, y: 0, width: cellWidth, height: upperHeight, fit: 'cover', focal: focalAt(options, 1) },
       { x: cellWidth + spacing, y: upperHeight + spacing, width: cellWidth, height: lowerHeight, fit: 'cover', focal: focalAt(options, 2) },
     ];
-    for (let index = 3; index < images.length; index += 1) items.push({ x: (index - 2) * (cellWidth + spacing), y: 0, width: cellWidth, height: cellHeight * 2, fit: 'cover', focal: focalAt(options, index) });
+    for (let index = 3; index < images.length; index += 1) items.push({ x: (index - 1) * (cellWidth + spacing), y: 0, width: cellWidth, height: cellHeight * 2, fit: 'cover', focal: focalAt(options, index) });
     return clampLayout({ width: (images.length - 1) * cellWidth + (images.length - 2) * spacing, height: cellHeight * 2, scale: 1, items });
   }
   if (['left-stack-right-feature', 'top-feature-bottom-pair', 'bottom-feature-top-pair'].includes(mode)) return images.length < 3 ? fixedGrid(images, options, images.length) : decorativeLayout(images, options, mode);

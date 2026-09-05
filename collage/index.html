@@ -10,12 +10,25 @@
   </head>
   <body>
     <header class="site-header">
-      <a class="brand" href="/" aria-label="返回 Squoosh 图片压缩">Squoosh 图片工具</a>
-      <nav aria-label="图片工具导航">
-        <a href="/">图片压缩</a>
-        <a href="/remove-background/">智能抠图</a>
-        <a href="/collage/" aria-current="page">多图拼接</a>
-      </nav>
+      <div class="header-inner">
+        <a class="brand" href="/" aria-label="i41 图片工具首页">i41 图片工具</a>
+        <nav class="tool-nav" aria-label="图片工具导航">
+          <a href="/">图片压缩</a>
+          <a href="/remove-background/">智能抠图</a>
+          <a href="/collage/" aria-current="page">多图拼接</a>
+        </nav>
+        <details class="ecosystem">
+          <summary>i41 生态</summary>
+          <div class="ecosystem-menu">
+            <a href="https://tools.i41.cn" target="_blank" rel="noopener noreferrer">开发者工具</a>
+            <a href="https://idphoto.i41.cn" target="_blank" rel="noopener noreferrer">证件照</a>
+            <a href="https://pdf.i41.cn" target="_blank" rel="noopener noreferrer">PDF 工具</a>
+            <a href="https://watermark.i41.cn" target="_blank" rel="noopener noreferrer">证件水印</a>
+            <a href="https://clip.i41.cn" target="_blank" rel="noopener noreferrer">临时剪贴板</a>
+            <a href="https://www.i41.cn?utm_source=imgzip&amp;utm_medium=tool_referral&amp;utm_campaign=ifangan&amp;utm_content=ecosystem_nav" target="_blank" rel="noopener noreferrer">访问 i方案</a>
+          </div>
+        </details>
+      </div>
     </header>
 
     <main>
@@ -38,6 +51,7 @@
               <span>拼接方式</span>
               <select id="mode">
                 <option value="grid">宫格</option>
+                <option value="nine-grid">九宫格</option>
                 <option value="vertical">纵向长图</option>
                 <option value="horizontal">横向拼接</option>
                 <option value="two-columns">双列</option>

@@ -16,15 +16,24 @@ a {
   color: inherit;
 }
 .site-header {
+  box-sizing: border-box;
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  height: 64px;
   min-height: 64px;
-  padding: 0 5vw;
+  background: rgba(255, 255, 255, 0.96);
+  border-bottom: 1px solid #dfe4ee;
+  backdrop-filter: blur(12px);
+}
+.header-inner {
+  width: calc(100% - 40px);
+  max-width: 1120px;
+  height: 64px;
+  margin: 0 auto;
   display: flex;
   align-items: center;
   gap: 28px;
-  background: #fff;
-  border-bottom: 1px solid #e2e7ee;
-  position: relative;
-  z-index: 2;
 }
 .brand {
   font-weight: 800;
@@ -246,15 +255,24 @@ fieldset label {
   font-size: 1rem;
 }
 @media (max-width: 760px) {
-  .site-header {
-    padding: 14px 5vw;
+  .site-header,
+  .header-inner {
+    height: auto;
+    min-height: 64px;
+  }
+  .header-inner {
+    width: calc(100% - 32px);
+    padding: 10px 0;
     flex-wrap: wrap;
-    gap: 12px;
+    gap: 10px 16px;
   }
   .tool-nav {
     order: 3;
     flex-basis: 100%;
     overflow-x: auto;
+  }
+  .ecosystem {
+    margin-left: auto;
   }
   .tool-panel {
     grid-template-columns: 1fr;

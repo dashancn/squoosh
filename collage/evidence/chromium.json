@@ -15,6 +15,16 @@
       "file": "evidence/chromium-grid.png"
     },
     {
+      "mode": "nine-grid",
+      "type": "image/png",
+      "size": 9051,
+      "width": 1234,
+      "height": 400,
+      "previewVisible": true,
+      "downloadReady": true,
+      "file": "evidence/chromium-nine-grid.png"
+    },
+    {
       "mode": "vertical",
       "type": "image/png",
       "size": 59421,
@@ -121,13 +131,86 @@
     "afterRemove": 3,
     "addPickerCleared": 0
   },
+  "nineGrid": {
+    "width": 1234,
+    "height": 1234,
+    "cellCount": 9,
+    "cells": [
+      {
+        "left": 585.203125,
+        "top": 16.84375,
+        "width": 158.6875,
+        "height": 158.6875
+      },
+      {
+        "left": 750.640625,
+        "top": 16.84375,
+        "width": 158.6875,
+        "height": 158.6875
+      },
+      {
+        "left": 916.09375,
+        "top": 16.84375,
+        "width": 158.6875,
+        "height": 158.6875
+      },
+      {
+        "left": 585.203125,
+        "top": 182.28125,
+        "width": 158.6875,
+        "height": 158.6875
+      },
+      {
+        "left": 750.640625,
+        "top": 182.28125,
+        "width": 158.6875,
+        "height": 158.6875
+      },
+      {
+        "left": 916.09375,
+        "top": 182.28125,
+        "width": 158.6875,
+        "height": 158.6875
+      },
+      {
+        "left": 585.203125,
+        "top": 347.734375,
+        "width": 158.6875,
+        "height": 158.6875
+      },
+      {
+        "left": 750.640625,
+        "top": 347.734375,
+        "width": 158.6875,
+        "height": 158.6875
+      },
+      {
+        "left": 916.09375,
+        "top": 347.734375,
+        "width": 158.6875,
+        "height": 158.6875
+      }
+    ],
+    "pixels": [
+      [221, 51, 51, 255],
+      [51, 170, 102, 255],
+      [51, 102, 204, 255],
+      [204, 102, 51, 255],
+      [170, 51, 204, 255],
+      [0, 153, 153, 255],
+      [153, 102, 0, 255],
+      [102, 0, 153, 255],
+      [51, 51, 51, 255]
+    ],
+    "size": 45048
+  },
   "focal": {
     "centerPercent": 50,
     "topPercent": 10,
     "centerSourceY": 100,
     "topSourceY": 20,
-    "centerUrl": "blob:http://127.0.0.1:42581/996b6e77-2a69-4b25-8f95-8a47199586eb",
-    "topUrl": "blob:http://127.0.0.1:42581/e61d2cb8-6c20-4b18-aea9-4536ee6545ed",
+    "centerUrl": "blob:http://127.0.0.1:38867/ff40a3df-d9c4-4e87-8df8-c2fe8e8619fb",
+    "topUrl": "blob:http://127.0.0.1:38867/230c8303-7581-457e-af97-6e468e522ee4",
     "centerChecksum": "ef7e17f42e6d89fc2e038cb068d48fea449487ac5cad439e0b6af1b63a1942b4",
     "topChecksum": "87277937c8365d2c8c234451c74d9d7be8fa06560e960c907493a43e8f15e1c0",
     "usedSubmit": false,
@@ -136,7 +219,7 @@
   },
   "threeFeatureBottomRightPixel": [51, 102, 204, 255],
   "canvasInteraction": {
-    "initialChecksum": "af569a7537fd3ffeb7fd181e10c9591f4fc34f0e3e4e3d89615778ec2920c390",
+    "initialChecksum": "2c362245e8707ed4c4559bdde572615b10ba6a611278c292038641fa4c562841",
     "zoomedChecksum": "60d27f2e246c541e36b808e8ed9f0685850cd81259e892f1906339a5488bd5bd",
     "draggedChecksum": "c24b5e0386a055cddf9bacf4fec8264ab851ed05b708ae478a745a33e7879d2e",
     "initialSourceWidth": 300,

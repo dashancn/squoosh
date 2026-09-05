@@ -25,6 +25,23 @@ test('grid creates requested aspect-ratio cells with spacing', () => {
   });
 });
 
+test('nine-grid uses three columns and only enough rows for chosen images', () => {
+  const nineImages = Array.from({ length: 9 }, (_, index) => ({ width: 200 + index, height: 150 + index }));
+  const exact = calculateLayout(nineImages, {
+    mode: 'nine-grid', ratio: '1:1', cellWidth: 100, spacing: 10,
+  });
+  assert.deepEqual({ width: exact.width, height: exact.height }, { width: 320, height: 320 });
+  assert.equal(exact.items.length, 9);
+  assert.deepEqual(exact.items.at(-1), { x: 220, y: 220, width: 100, height: 100, fit: 'cover' });
+
+  const partial = calculateLayout(nineImages.slice(0, 5), {
+    mode: 'nine-grid', ratio: '1:1', cellWidth: 100, spacing: 10,
+  });
+  assert.deepEqual({ width: partial.width, height: partial.height }, { width: 320, height: 210 });
+  assert.equal(partial.items.length, 5);
+  assert.deepEqual(partial.items.at(-1), { x: 110, y: 110, width: 100, height: 100, fit: 'cover' });
+});
+
 test('vertical strip preserves image ratios', () => {
   const layout = calculateLayout(images, {
     mode: 'vertical',
@@ -73,6 +90,31 @@ test('three-feature divides an odd-spaced side column through the exact canvas b
   const lower = layout.items[2];
   assert.equal(upper.y + upper.height + 17, lower.y);
   assert.equal(lower.y + lower.height, layout.height);
+});
+
+test('three-feature appends extra images after its fixed three-image template without overlap', () => {
+  const source = [...images, images[0], images[1]];
+  const layout = calculateLayout(source, {
+    mode: 'three-feature', ratio: '1:1', cellWidth: 100, spacing: 17,
+  });
+  assert.deepEqual(layout.items.map(({ x, y, width, height }) => [x, y, width, height]), [
+    [0, 0, 100, 200],
+    [117, 0, 100, 92],
+    [117, 109, 100, 91],
+    [234, 0, 100, 200],
+    [351, 0, 100, 200],
+  ]);
+  assert.equal(layout.width, 451);
+  for (let first = 0; first < layout.items.length; first += 1) {
+    for (let second = first + 1; second < layout.items.length; second += 1) {
+      const a = layout.items[first];
+      const b = layout.items[second];
+      const overlaps = a.x < b.x + b.width && a.x + a.width > b.x
+        && a.y < b.y + b.height && a.y + a.height > b.y;
+      assert.equal(overlaps, false, `items ${first} and ${second} overlap`);
+    }
+  }
+  assert.equal(layout.items.at(-1).x + layout.items.at(-1).width, layout.width);
 });
 
 test('decorative templates cover their canvas and fall back without enough images', () => {

@@ -61,6 +61,11 @@ const inputFiles = await page.evaluate(async () => {
     makePng('#3a6', 300, 500, 'TWO'),
     makePng('#36c', 640, 360, 'THREE'),
     makePng('#c63', 420, 300, 'FOUR'),
+    makePng('#a3c', 360, 360, 'FIVE'),
+    makePng('#099', 360, 360, 'SIX'),
+    makePng('#960', 360, 360, 'SEVEN'),
+    makePng('#609', 360, 360, 'EIGHT'),
+    makePng('#333', 360, 360, 'NINE'),
   ]);
 });
 
@@ -80,8 +85,48 @@ await page.locator('[data-action="remove-image"]').last().click();
 await page.waitForFunction(() => document.querySelectorAll('.thumbnail-item').length === 3 && document.documentElement.dataset.state === 'complete');
 const afterRemove = await page.locator('.thumbnail-item').count();
 const imageManagement = { afterInitial, afterAdd, afterRemove, addPickerCleared };
+await page.locator('#files').setInputFiles(
+  inputFiles.map((file) => ({ ...file, buffer: Buffer.from(file.buffer) })),
+);
+await page.selectOption('#mode', 'nine-grid');
+await page.fill('#spacing', '17');
+await page.waitForFunction(() => document.querySelectorAll('.preview-cell').length === 9 && document.documentElement.dataset.state === 'complete');
+const nineGrid = await page.evaluate(async () => {
+  const preview = document.querySelector('#preview');
+  const cells = [...document.querySelectorAll('.preview-cell')].map((cell) => {
+    const rect = cell.getBoundingClientRect();
+    return { left: rect.left, top: rect.top, width: rect.width, height: rect.height };
+  });
+  const blob = await (await fetch(document.querySelector('#download').href)).blob();
+  const bitmap = await createImageBitmap(blob);
+  const canvas = document.createElement('canvas');
+  canvas.width = bitmap.width;
+  canvas.height = bitmap.height;
+  const context = canvas.getContext('2d');
+  context.drawImage(bitmap, 0, 0);
+  const spacing = 17;
+  const cellWidth = (bitmap.width - spacing * 2) / 3;
+  const cellHeight = (bitmap.height - spacing * 2) / 3;
+  const pixels = [];
+  for (let row = 0; row < 3; row += 1) {
+    for (let column = 0; column < 3; column += 1) {
+      pixels.push(Array.from(context.getImageData(
+        Math.floor(column * (cellWidth + spacing) + cellWidth / 2),
+        Math.floor(row * (cellHeight + spacing) + cellHeight / 2), 1, 1,
+      ).data));
+    }
+  }
+  bitmap.close();
+  return { width: preview.naturalWidth, height: preview.naturalHeight, cellCount: cells.length, cells, pixels, size: blob.size, bytes: Array.from(new Uint8Array(await blob.arrayBuffer())) };
+});
+await writeFile(join(repositoryRoot, 'collage/evidence/chromium-nine-grid.png'), Buffer.from(nineGrid.bytes));
+delete nineGrid.bytes;
+await page.locator('#files').setInputFiles(
+  inputFiles.slice(0, 3).map((file) => ({ ...file, buffer: Buffer.from(file.buffer) })),
+);
+await page.waitForFunction(() => document.querySelectorAll('.thumbnail-item').length === 3 && document.documentElement.dataset.state === 'complete');
 const results = [];
-for (const mode of ['grid', 'vertical', 'horizontal', 'two-columns', 'two-rows', 'three-feature', 'four-grid', 'left-stack-right-feature', 'top-feature-bottom-pair', 'bottom-feature-top-pair', 'asymmetric-mosaic']) {
+for (const mode of ['grid', 'nine-grid', 'vertical', 'horizontal', 'two-columns', 'two-rows', 'three-feature', 'four-grid', 'left-stack-right-feature', 'top-feature-bottom-pair', 'bottom-feature-top-pair', 'asymmetric-mosaic']) {
   await page.selectOption('#mode', mode);
   await page.fill('#spacing', '17');
   await page.locator('#background').evaluate((input) => {
@@ -255,6 +300,7 @@ const evidence = {
   iframeCount: await page.locator('iframe').count(),
   results,
   imageManagement,
+  nineGrid,
   focal,
   threeFeatureBottomRightPixel,
   canvasInteraction,

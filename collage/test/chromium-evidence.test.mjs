@@ -11,9 +11,15 @@ test('真实 Chromium 证据覆盖独立页面、多图上传与三种 PNG 模�
   assert.equal(evidence.inputCount, 3);
   assert.equal(evidence.iframeCount, 0);
   assert.deepEqual(evidence.results.map((result) => result.mode), [
-    'grid', 'vertical', 'horizontal', 'two-columns', 'two-rows', 'three-feature', 'four-grid',
+    'grid', 'nine-grid', 'vertical', 'horizontal', 'two-columns', 'two-rows', 'three-feature', 'four-grid',
     'left-stack-right-feature', 'top-feature-bottom-pair', 'bottom-feature-top-pair', 'asymmetric-mosaic',
   ]);
+  assert.equal(evidence.nineGrid.cellCount, 9);
+  assert.equal(evidence.nineGrid.width, evidence.nineGrid.height);
+  assert.ok(evidence.nineGrid.size > 0);
+  assert.equal(new Set(evidence.nineGrid.cells.map((cell) => Math.round(cell.left))).size, 3);
+  assert.equal(new Set(evidence.nineGrid.cells.map((cell) => Math.round(cell.top))).size, 3);
+  assert.equal(new Set(evidence.nineGrid.pixels.map((pixel) => pixel.join(','))).size, 9);
   assert.deepEqual(evidence.threeFeatureBottomRightPixel, [51, 102, 204, 255]);
   assert.ok(evidence.canvasInteraction.zoomedSourceWidth < evidence.canvasInteraction.initialSourceWidth);
   assert.notEqual(evidence.canvasInteraction.initialChecksum, evidence.canvasInteraction.zoomedChecksum);
