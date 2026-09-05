@@ -102,6 +102,27 @@ test('三个图片工具导航在桌面和窄屏均换行右对齐且 tooltip �
           );
         }
 
+        if (pathname === '/') {
+          const homepage = await page.evaluate(() => ({
+            hasUpload: Boolean(document.querySelector('input[type="file"]')),
+            hasDemos: Boolean(document.querySelector('[class*="demos"]')),
+            hasInfo: Boolean(document.querySelector('[class*="info_"]')),
+            hasCompactBenefits: Boolean(
+              document.querySelector('[class*="compact-benefits"]'),
+            ),
+            pageHeight: document.documentElement.scrollHeight,
+          }));
+          assert.equal(homepage.hasUpload, true, `${width}px 上传入口不可用`);
+          assert.equal(homepage.hasDemos, false, `${width}px 仍显示示例列表`);
+          assert.equal(homepage.hasInfo, false, `${width}px 仍显示大型信息区`);
+          assert.equal(
+            homepage.hasCompactBenefits,
+            true,
+            `${width}px 缺少紧凑说明`,
+          );
+          assert.ok(homepage.pageHeight < 1400, `${width}px 首页仍然过长`);
+        }
+
         const firstItem = page
           .locator('nav[aria-label="图片工具导航"] a')
           .first();

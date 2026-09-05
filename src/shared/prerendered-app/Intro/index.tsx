@@ -1,56 +1,12 @@
 import { h, Component } from 'preact';
 
 import { linkRef } from 'shared/prerendered-app/util';
-import '../../custom-els/loading-spinner';
-import logo from 'url:./imgs/logo.svg';
 import githubLogo from 'url:./imgs/github-logo.svg';
-import largePhoto from 'url:./imgs/demos/demo-large-photo.jpg';
-import artwork from 'url:./imgs/demos/demo-artwork.jpg';
-import deviceScreen from 'url:./imgs/demos/demo-device-screen.png';
-import largePhotoIcon from 'url:./imgs/demos/icon-demo-large-photo.jpg';
-import artworkIcon from 'url:./imgs/demos/icon-demo-artwork.jpg';
-import deviceScreenIcon from 'url:./imgs/demos/icon-demo-device-screen.jpg';
-import smallSectionAsset from 'url:./imgs/info-content/small.svg';
-import simpleSectionAsset from 'url:./imgs/info-content/simple.svg';
-import secureSectionAsset from 'url:./imgs/info-content/secure.svg';
-import logoIcon from 'url:./imgs/demos/icon-demo-logo.png';
 import logoWithText from 'data-url-text:./imgs/logo-with-text.svg';
 import * as style from './style.css';
 import type SnackBarElement from 'shared/custom-els/snack-bar';
 import 'shared/custom-els/snack-bar';
 import { startBlobs } from './blob-anim/meta';
-import SlideOnScroll from './SlideOnScroll';
-
-const demos = [
-  {
-    description: '大尺寸照片',
-    size: '2.8MB',
-    filename: 'photo.jpg',
-    url: largePhoto,
-    iconUrl: largePhotoIcon,
-  },
-  {
-    description: '插画作品',
-    size: '2.9MB',
-    filename: 'art.jpg',
-    url: artwork,
-    iconUrl: artworkIcon,
-  },
-  {
-    description: '设备截图',
-    size: '1.6MB',
-    filename: 'pixel3.png',
-    url: deviceScreen,
-    iconUrl: deviceScreenIcon,
-  },
-  {
-    description: 'SVG 图标',
-    size: '13KB',
-    filename: 'squoosh.svg',
-    url: logo,
-    iconUrl: logoIcon,
-  },
-] as const;
 
 const blobAnimImport =
   !__PRERENDER__ && matchMedia('(prefers-reduced-motion: reduce)').matches
@@ -73,7 +29,6 @@ interface Props {
   showSnack?: SnackBarElement['showSnackbar'];
 }
 interface State {
-  fetchingDemoIndex?: number;
   beforeInstallEvent?: BeforeInstallPromptEvent;
   showBlobSVG: boolean;
 }
@@ -137,19 +92,6 @@ export default class Intro extends Component<Props, State> {
     this.fileInput!.click();
   };
 
-  private onDemoClick = async (index: number, event: Event) => {
-    try {
-      this.setState({ fetchingDemoIndex: index });
-      const demo = demos[index];
-      const blob = await fetch(demo.url).then((r) => r.blob());
-      const file = new File([blob], demo.filename, { type: blob.type });
-      this.props.onFile!(file);
-    } catch (err) {
-      this.setState({ fetchingDemoIndex: undefined });
-      this.props.showSnack!('无法加载示例图片');
-    }
-  };
-
   private onBeforeInstallPromptEvent = (event: BeforeInstallPromptEvent) => {
     // Don't show the mini-infobar on mobile
     event.preventDefault();
@@ -196,10 +138,7 @@ export default class Intro extends Component<Props, State> {
     this.props.onFile!(new File([blob], 'image.unknown'));
   };
 
-  render(
-    {}: Props,
-    { fetchingDemoIndex, beforeInstallEvent, showBlobSVG }: State,
-  ) {
+  render({}: Props, { beforeInstallEvent, showBlobSVG }: State) {
     return (
       <div class={style.intro}>
         <header class={style.siteHeader}>
@@ -266,9 +205,6 @@ export default class Intro extends Component<Props, State> {
                 证件照
               </a>
             </nav>
-            <span class={style.privacyBadge}>
-              <span aria-hidden="true">🔒</span> 图片仅在本地处理
-            </span>
             {beforeInstallEvent && (
               <button class={style.installBtn} onClick={this.onInstallClick}>
                 安装应用
@@ -363,141 +299,23 @@ export default class Intro extends Component<Props, State> {
             编解码资源已缓存，可以直接开始图片处理。
           </span>
         </p>
-        <div class={style.demosContainer}>
-          <svg viewBox="0 0 1920 140" class={style.topWave}>
-            <path
-              d="M1920 0l-107 28c-106 29-320 85-533 93-213 7-427-36-640-50s-427 0-533 7L0 85v171h1920z"
-              class={style.subWave}
-            />
-            <path
-              d="M0 129l64-26c64-27 192-81 320-75 128 5 256 69 384 64 128-6 256-80 384-91s256 43 384 70c128 26 256 26 320 26h64v96H0z"
-              class={style.mainWave}
-            />
-          </svg>
-          <div class={style.contentPadding}>
-            <p class={style.demoTitle}>
-              也可以<strong>试试</strong>这些示例：
-            </p>
-            <ul class={style.demos}>
-              {demos.map((demo, i) => (
-                <li>
-                  <button
-                    class="unbutton"
-                    onClick={(event) => this.onDemoClick(i, event)}
-                  >
-                    <div class={style.demoContainer}>
-                      <div class={style.demoIconContainer}>
-                        <img
-                          class={style.demoIcon}
-                          src={demo.iconUrl}
-                          alt={demo.description}
-                        />
-                        {fetchingDemoIndex === i && (
-                          <div class={style.demoLoader}>
-                            <loading-spinner />
-                          </div>
-                        )}
-                      </div>
-                      <div class={style.demoSize}>{demo.size}</div>
-                    </div>
-                  </button>
-                </li>
-              ))}
-            </ul>
+        <section class={style.compactBenefits} aria-label="图片压缩特点">
+          <div>
+            <h2>更小</h2>
+            <p>在尽量保持画质的同时减小文件体积。</p>
           </div>
-        </div>
-
-        <div class={style.bottomWave}>
-          <svg viewBox="0 0 1920 79" class={style.topWave}>
-            <path
-              d="M0 59l64-11c64-11 192-34 320-43s256-5 384 4 256 23 384 34 256 21 384 14 256-30 320-41l64-11v94H0z"
-              class={style.infoWave}
-            />
-          </svg>
-        </div>
-
-        <section class={style.info}>
-          <div class={style.infoContainer}>
-            <SlideOnScroll>
-              <div class={style.infoContent}>
-                <div class={style.infoTextWrapper}>
-                  <h2 class={style.infoTitle}>更小</h2>
-                  <p class={style.infoCaption}>
-                    图片越小，网页加载越快。Squoosh
-                    可以在尽量保持高画质的同时，显著减小文件体积。
-                  </p>
-                </div>
-                <div class={style.infoImgWrapper}>
-                  <img
-                    class={style.infoImg}
-                    src={smallSectionAsset}
-                    alt="一张 1.4MB 大图被压缩成 80KB 小图的示意图"
-                    width="536"
-                    height="522"
-                  />
-                </div>
-              </div>
-            </SlideOnScroll>
+          <div>
+            <h2>简单</h2>
+            <p>打开图片、对比效果、调整参数并保存。</p>
           </div>
-        </section>
-
-        <section class={style.info}>
-          <div class={style.infoContainer}>
-            <SlideOnScroll>
-              <div class={style.infoContent}>
-                <div class={style.infoTextWrapper}>
-                  <h2 class={style.infoTitle}>简单</h2>
-                  <p class={style.infoCaption}>
-                    打开图片，对比压缩前后的效果，然后立即保存。想进一步减小体积？还可以手动调整压缩参数。
-                  </p>
-                </div>
-                <div class={style.infoImgWrapper}>
-                  <img
-                    class={style.infoImg}
-                    src={simpleSectionAsset}
-                    alt="展示多种压缩选项和缩小后图片的网格示意图"
-                    width="538"
-                    height="384"
-                  />
-                </div>
-              </div>
-            </SlideOnScroll>
-          </div>
-        </section>
-
-        <section class={style.info}>
-          <div class={style.infoContainer}>
-            <SlideOnScroll>
-              <div class={style.infoContent}>
-                <div class={style.infoTextWrapper}>
-                  <h2 class={style.infoTitle}>安全</h2>
-                  <p class={style.infoCaption}>
-                    担心隐私？图片不会离开你的设备，Squoosh
-                    的压缩处理都在浏览器本地完成。
-                  </p>
-                </div>
-                <div class={style.infoImgWrapper}>
-                  <img
-                    class={style.infoImg}
-                    src={secureSectionAsset}
-                    alt="带有禁止符号的云朵示意图"
-                    width="498"
-                    height="333"
-                  />
-                </div>
-              </div>
-            </SlideOnScroll>
+          <div>
+            <h2>本地处理</h2>
+            <p>压缩在浏览器本地完成，图片不会离开你的设备。</p>
           </div>
         </section>
 
         <footer class={style.footer}>
           <div class={style.footerContainer}>
-            <svg viewBox="0 0 1920 79" class={style.topWave}>
-              <path
-                d="M0 59l64-11c64-11 192-34 320-43s256-5 384 4 256 23 384 34 256 21 384 14 256-30 320-41l64-11v94H0z"
-                class={style.footerWave}
-              />
-            </svg>
             <div class={style.footerPadding}>
               <p class={style.footerTagline}>i41 免费实用工具</p>
               <details class={style.footerDetails}>

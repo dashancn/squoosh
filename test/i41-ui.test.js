@@ -97,7 +97,11 @@ test('三个图片工具页面以品牌标识当前工具，并从标准菜单�
     const nav = header.match(/<nav[\s\S]*?<\/nav>/)?.[0];
     assert.ok(nav, '缺少图片工具导航');
     assert.match(header, new RegExp(`>\\s*${brand}\\s*<\\/a>`));
-    assert.match(header, /图片仅在本地处理/);
+    if (currentLabel === '图片压缩') {
+      assert.doesNotMatch(header, /图片仅在本地处理/);
+    } else {
+      assert.match(header, /图片仅在本地处理/);
+    }
     assert.doesNotMatch(
       header,
       /aria-current|<details|<summary|生态菜单|i41 生态/,
@@ -125,10 +129,18 @@ test('三个图片工具页面以品牌标识当前工具，并从标准菜单�
     }
   }
 
-  for (const css of [compressorCss, removeCss, collageCss]) {
+  for (const [css, currentLabel] of [
+    [compressorCss, '图片压缩'],
+    [removeCss, '智能抠图'],
+    [collageCss, '多图拼接'],
+  ]) {
     assert.match(css, /\.site-header[\s\S]*height:\s*64px/);
     assert.match(css, /\.header-inner[\s\S]*max-width:\s*1104px/);
-    assert.match(css, /\.privacy-badge|\.privacyBadge/);
+    if (currentLabel === '图片压缩') {
+      assert.doesNotMatch(css, /\.privacy-badge|\.privacyBadge/);
+    } else {
+      assert.match(css, /\.privacy-badge|\.privacyBadge/);
+    }
     assert.doesNotMatch(css, /overflow-x:\s*(?:auto|scroll)/);
     assert.match(
       css,
@@ -157,6 +169,40 @@ test('三个图片工具页面以品牌标识当前工具，并从标准菜单�
       /@media\s*\(max-width:[\s\S]*\[data-tooltip\]::after[\s\S]*(?:position:\s*fixed|width:\s*auto)/,
     );
   }
+});
+
+test('图片压缩首页在上传入口后只保留紧凑价值说明和折叠页脚', async () => {
+  const source = await read('src/shared/prerendered-app/Intro/index.tsx');
+  const header = source.slice(
+    source.indexOf('<header'),
+    source.indexOf('</header>'),
+  );
+
+  assert.doesNotMatch(header, /图片仅在本地处理|privacyBadge/);
+  assert.match(source, /class=\{style\.loadImg\}/);
+  assert.match(source, /class=\{style\.codecStatus\}/);
+  assert.match(source, /class=\{style\.compactBenefits\}/);
+  assert.match(source, /更小/);
+  assert.match(source, /简单/);
+  assert.match(source, /本地处理/);
+  assert.ok(source.indexOf('loadImg') < source.indexOf('codecStatus'));
+  assert.ok(source.indexOf('codecStatus') < source.indexOf('compactBenefits'));
+  assert.ok(source.indexOf('compactBenefits') < source.indexOf('<footer'));
+  assert.doesNotMatch(source, /demosContainer|class=\{style\.demos\}/);
+  assert.doesNotMatch(source, /SlideOnScroll/);
+  assert.doesNotMatch(
+    source,
+    /smallSectionAsset|simpleSectionAsset|secureSectionAsset/,
+  );
+  assert.doesNotMatch(source, /fetchingDemoIndex|onDemoClick/);
+  assert.doesNotMatch(source, /图片越小，网页加载越快/);
+  assert.doesNotMatch(source, /class=\{style\.info\}|class=\{style\.topWave\}/);
+  assert.match(
+    source,
+    /<details(?![^>]*\bopen\b)[^>]*>[\s\S]*?<summary>隐私、许可与开源说明<\/summary>/,
+  );
+  assert.match(source, /图片[^。]*不会离开[^。]*设备|浏览器本地完成/);
+  assert.match(source, /GoogleChromeLabs[\s\S]*Apache 2\.0/);
 });
 
 test('三个页面保留关注横幅并将隐私、许可与开源说明默认折叠', async () => {
@@ -275,8 +321,8 @@ test('进入编辑器前提示编解码资源缓存状态', async () => {
   assert.match(source, /编解码资源已缓存/);
   assert.match(source, /首次使用需要加载编解码资源/);
   assert.ok(
-    source.indexOf('codecStatus') < source.indexOf('demosContainer'),
-    '缓存提示应位于透明背景区',
+    source.indexOf('codecStatus') < source.indexOf('compactBenefits'),
+    '缓存提示应位于紧凑说明前',
   );
   assert.ok(
     source.indexOf('iPlanBanner') < source.indexOf('main'),
