@@ -289,18 +289,26 @@ button:disabled {
   color: #1769e0;
 }
 @media (max-width: 700px) {
+  .site-header {
+    height: auto;
+  }
   .header-inner {
-    display: block;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 12px;
+    padding-block: 10px;
   }
   .brand {
-    margin-bottom: 8px;
-  }
-  .tool-nav {
-    margin-left: 0;
+    margin-right: auto;
   }
   .privacy-badge {
-    display: block;
-    margin-top: 8px;
+    margin-left: auto;
+  }
+  .tool-nav {
+    flex-basis: 100%;
+    margin-left: 0;
+    justify-content: flex-end;
   }
   .i-plan-banner {
     margin: 16px;

@@ -164,6 +164,34 @@ test('all four image pages link converter in global order and omit their current
   }
 });
 
+test('converter mobile header contains menu before the i方案 banner', async () => {
+  const [html, css] = await Promise.all([
+    read('heic-converter/index.html'),
+    read('heic-converter/style.css'),
+  ]);
+  assert.ok(html.indexOf('</header>') < html.indexOf('class="i-plan-banner"'));
+  assert.doesNotMatch(
+    css,
+    /@media\s*\(max-width:\s*700px\)[\s\S]*?\.header-inner\s*\{[^}]*display:\s*block/,
+  );
+  assert.match(
+    css,
+    /@media\s*\(max-width:\s*700px\)[\s\S]*?\.site-header\s*\{[^}]*height:\s*auto/,
+  );
+  assert.match(
+    css,
+    /@media\s*\(max-width:\s*700px\)[\s\S]*?\.header-inner\s*\{[^}]*display:\s*flex[^}]*flex-wrap:\s*wrap/,
+  );
+  assert.match(
+    css,
+    /@media\s*\(max-width:\s*700px\)[\s\S]*?\.tool-nav\s*\{[^}]*flex-basis:\s*100%[^}]*justify-content:\s*flex-end/,
+  );
+  assert.match(
+    css,
+    /@media\s*\(max-width:\s*700px\)[\s\S]*?\.privacy-badge\s*\{[^}]*margin-left:\s*auto/,
+  );
+});
+
 test('root build registers route-specific converter build', async () => {
   const pkg = JSON.parse(await read('package.json'));
   assert.equal(
