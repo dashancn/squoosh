@@ -1,4 +1,4 @@
-import { classifyFile, hasWebpSignature, validateBatch, validateDimensions, outputFilename, encoderOptions, VersionOwner, readinessMessage, CACHE_KEY } from './core.mjs';
+import { classifyFile, hasWebpSignature, validateBatch, validateDimensions, outputFilename, encoderOptions, cyclicIndex, VersionOwner, readinessMessage, CACHE_KEY } from './core.mjs';
 import { HeicWorkerClient } from './heic-worker-client.mjs';
 
 const $ = (id) => document.getElementById(id);
@@ -7,6 +7,7 @@ const owner = new VersionOwner();
 let heicWorker = new HeicWorkerClient({ onProgress: (message) => $('status').textContent = message });
 let selected = [], results = [];
 let converting = false;
+let lightboxIndex = -1, lightboxReturnFocus = null, touchStartX = null, touchStartY = null;
 function resetHeicWorker() {
   heicWorker.terminate();
   heicWorker = new HeicWorkerClient({ onProgress: (message) => $('status').textContent = message });
@@ -24,7 +25,17 @@ format.addEventListener('change', () => {
 });
 
 function release(items) { for (const item of items) if (item.url) URL.revokeObjectURL(item.url); }
-function resetResults() { release(results); results = []; renderResults(); }
+function closeLightbox({ restoreFocus = true } = {}) {
+  const dialog = $('lightbox');
+  if (dialog.hidden) return;
+  dialog.hidden = true;
+  document.body.classList.remove('lightbox-open');
+  $('lightbox-image').removeAttribute('src');
+  lightboxIndex = -1;
+  if (restoreFocus && lightboxReturnFocus?.isConnected) lightboxReturnFocus.focus();
+  lightboxReturnFocus = null;
+}
+function resetResults() { closeLightbox({ restoreFocus: false }); release(results); results = []; renderResults(); }
 function bytes(n) { return n < 1024 * 1024 ? `${(n / 1024).toFixed(1)} KiB` : `${(n / 1024 / 1024).toFixed(2)} MiB`; }
 function renderSelection() {
   const container = $('selection'); container.replaceChildren();
@@ -40,7 +51,10 @@ function renderResults() {
   $('results').replaceChildren();
   for (const [index, item] of results.entries()) {
     const card = document.createElement('article'); card.className = 'result'; card.dataset.index = index;
-    const image = document.createElement('img'); image.alt = `${item.name} 转换预览`; image.src = item.url;
+    const preview = document.createElement('button'); preview.className = 'result-preview'; preview.type = 'button'; preview.setAttribute('aria-label', `放大查看 ${item.name}`);
+    const image = document.createElement('img'); image.alt = `${item.name} 转换预览`; image.src = item.url; image.draggable = false;
+    const hint = document.createElement('span'); hint.className = 'result-preview-hint'; hint.textContent = '点击放大'; preview.append(image, hint);
+    preview.addEventListener('click', () => openLightbox(index, preview));
     const info = document.createElement('div');
     const title = document.createElement('h3'); title.textContent = item.name;
     const dimensions = document.createElement('p'); dimensions.textContent = `${item.width} × ${item.height}`;
@@ -49,12 +63,82 @@ function renderResults() {
     const actions = document.createElement('div'); actions.className = 'result-actions';
     const download = document.createElement('a'); download.className = 'download'; download.href = item.url; download.download = item.name; download.textContent = '下载';
     const remove = document.createElement('button'); remove.className = 'remove'; remove.type = 'button'; remove.textContent = '移除';
-    remove.addEventListener('click', () => { URL.revokeObjectURL(results[index].url); results.splice(index, 1); renderResults(); });
-    actions.append(download, remove); card.append(image, info, actions);
+    remove.addEventListener('click', () => removeResult(index));
+    actions.append(download, remove); card.append(preview, info, actions);
     $('results').append(card);
   }
   $('download-all').disabled = converting || !results.length; $('clear').disabled = converting || !results.length;
 }
+function updateLightbox() {
+  const item = results[lightboxIndex];
+  if (!item) { closeLightbox({ restoreFocus: false }); return; }
+  $('lightbox-title').textContent = item.name;
+  $('lightbox-count').textContent = `${lightboxIndex + 1} / ${results.length}`;
+  $('lightbox-dimensions').textContent = `${item.width} × ${item.height}`;
+  $('lightbox-image').src = item.url;
+  $('lightbox-image').alt = `${item.name} 大图预览`;
+  $('lightbox-download').href = item.url;
+  $('lightbox-download').download = item.name;
+  const single = results.length < 2;
+  $('lightbox-prev').hidden = single;
+  $('lightbox-next').hidden = single;
+}
+function openLightbox(index, trigger) {
+  if (!results[index]) return;
+  lightboxIndex = index;
+  lightboxReturnFocus = trigger;
+  updateLightbox();
+  $('lightbox').hidden = false;
+  document.body.classList.add('lightbox-open');
+  $('lightbox-close').focus();
+}
+function moveLightbox(delta) {
+  if ($('lightbox').hidden || results.length < 2) return;
+  lightboxIndex = cyclicIndex(lightboxIndex, delta, results.length);
+  updateLightbox();
+}
+function removeResult(index) {
+  const viewing = !$('lightbox').hidden;
+  const removed = results[index];
+  if (!removed) return;
+  results.splice(index, 1);
+  URL.revokeObjectURL(removed.url);
+  if (viewing) {
+    if (!results.length) closeLightbox({ restoreFocus: false });
+    else {
+      if (index < lightboxIndex) lightboxIndex -= 1;
+      else if (index === lightboxIndex) lightboxIndex = Math.min(index, results.length - 1);
+      updateLightbox();
+    }
+  }
+  renderResults();
+}
+$('lightbox-close').addEventListener('click', () => closeLightbox());
+$('lightbox-prev').addEventListener('click', () => moveLightbox(-1));
+$('lightbox-next').addEventListener('click', () => moveLightbox(1));
+$('lightbox-remove').addEventListener('click', () => removeResult(lightboxIndex));
+$('lightbox').addEventListener('click', (event) => { if (event.target === $('lightbox')) closeLightbox(); });
+$('lightbox-image').addEventListener('dragstart', (event) => event.preventDefault());
+$('lightbox-image').addEventListener('touchstart', (event) => { const touch = event.touches[0]; touchStartX = touch?.clientX ?? null; touchStartY = touch?.clientY ?? null; }, { passive: true });
+$('lightbox-image').addEventListener('touchend', (event) => {
+  const touch = event.changedTouches[0];
+  if (touchStartX === null || !touch) return;
+  const dx = touch.clientX - touchStartX, dy = touch.clientY - touchStartY;
+  if (Math.abs(dx) >= 50 && Math.abs(dx) > Math.abs(dy)) moveLightbox(dx < 0 ? 1 : -1);
+  touchStartX = touchStartY = null;
+}, { passive: true });
+document.addEventListener('keydown', (event) => {
+  if ($('lightbox').hidden) return;
+  if (event.key === 'Escape') { event.preventDefault(); closeLightbox(); }
+  else if (event.key === 'ArrowLeft') { event.preventDefault(); moveLightbox(-1); }
+  else if (event.key === 'ArrowRight') { event.preventDefault(); moveLightbox(1); }
+  else if (event.key === 'Tab') {
+    const controls = [...$('lightbox').querySelectorAll('button:not([hidden]), a[href]')];
+    const first = controls[0], last = controls.at(-1);
+    if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+    else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+  }
+});
 async function signatures(file) {
   const head = new Uint8Array(await file.slice(0, 12).arrayBuffer());
   const brand = new TextDecoder().decode(head.subarray(8, 12)).replace('\0', ' ').trim();

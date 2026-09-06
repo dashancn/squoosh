@@ -43,6 +43,11 @@ export function encoderOptions(format, quality, background) {
   return { type: 'image/jpeg', quality: quality / 100, background };
 }
 
+export function cyclicIndex(index, delta, length) {
+  if (length < 1) return -1;
+  return ((index + delta) % length + length) % length;
+}
+
 export class VersionOwner {
   #version = 0;
   next() { this.#version += 1; return this.#version; }

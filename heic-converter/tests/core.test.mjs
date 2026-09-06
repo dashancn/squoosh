@@ -9,6 +9,7 @@ import {
   VersionOwner,
   readinessMessage,
   CACHE_KEY,
+  cyclicIndex,
 } from '../src/core.mjs';
 
 const MiB = 1024 * 1024;
@@ -59,4 +60,10 @@ test('readiness cache advisory requires a successful HEIC conversion marker', ()
   const marked = { getItem: (key) => key === CACHE_KEY ? '1' : null };
   assert.match(readinessMessage(empty), /首次.*3\.0 MB.*0\.8 MB/);
   assert.match(readinessMessage(marked), /曾成功加载/);
+});
+
+test('cyclicIndex wraps lightbox navigation at both ends', () => {
+  assert.equal(cyclicIndex(1, 1, 2), 0);
+  assert.equal(cyclicIndex(0, -1, 2), 1);
+  assert.equal(cyclicIndex(0, 4, 1), 0);
 });
