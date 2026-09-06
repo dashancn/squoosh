@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { HeicWorkerClient } from '../src/heic-worker-client.mjs';
+import { handleHeicWorkerMessage } from '../src/heic-worker-handler.mjs';
 
 class FakeWorker {
   static instances = [];
@@ -80,4 +81,25 @@ test('inspect returns dimensions obtained before pixel display allocation', asyn
   const worker = FakeWorker.instances[0];
   worker.emit({ id: worker.messages[0].id, type: 'result', isHeic: true, width: 4032, height: 3024 });
   assert.deepEqual(await promise, { isHeic: true, width: 4032, height: 3024 });
+});
+
+test('oversized decoded dimensions are rejected before ImageData or OffscreenCanvas allocation', async () => {
+  const allocations = [];
+  const messages = [];
+  await handleHeicWorkerMessage(
+    { id: 7, operation: 'convert', file: { name: 'huge.heic', arrayBuffer: async () => new ArrayBuffer(12) } },
+    {
+      isHeicBytes: () => true,
+      decodeHeic: async (_buffer, validate) => {
+        validate(100_000, 100_000);
+        allocations.push('ImageData');
+      },
+      validateDimensions: () => { throw new Error('图片像素尺寸过大'); },
+      createCanvas: () => { allocations.push('OffscreenCanvas'); },
+      postMessage: (message) => messages.push(message),
+    },
+  );
+  assert.deepEqual(allocations, []);
+  assert.equal(messages.at(-1).type, 'error');
+  assert.match(messages.at(-1).error, /像素尺寸过大/);
 });

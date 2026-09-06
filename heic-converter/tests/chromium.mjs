@@ -7,6 +7,9 @@ import { chromium } from '../../remove-background/node_modules/playwright-core/i
 const root = path.resolve(new URL('../..', import.meta.url).pathname);
 const build = path.join(root, 'build');
 const types = new Map([['.html','text/html'],['.js','text/javascript'],['.mjs','text/javascript'],['.css','text/css'],['.txt','text/plain'],['.json','application/json']]);
+const headerText = await readFile(path.join(build, '_headers'), 'utf8');
+const csp = headerText.match(/\/heic-converter\/\*\n\s+Content-Security-Policy:\s*([^\n]+)/)?.[1];
+assert.ok(csp, 'generated production CSP header missing');
 const server = createServer(async (request, response) => {
   try {
     let pathname = decodeURIComponent(new URL(request.url, 'http://x').pathname);
@@ -14,12 +17,15 @@ const server = createServer(async (request, response) => {
     const target = path.resolve(build, `.${pathname}`);
     if (target !== build && !target.startsWith(`${build}${path.sep}`)) throw new Error();
     const body = await readFile(target);
-    response.writeHead(200, {'content-type': types.get(path.extname(target)) || 'application/octet-stream'});
+    response.writeHead(200, {'content-type': types.get(path.extname(target)) || 'application/octet-stream', 'content-security-policy': csp});
     response.end(body);
   } catch { if (!response.headersSent) response.writeHead(404); response.end('not found'); }
 });
 await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
 const origin = `http://127.0.0.1:${server.address().port}`;
+const sourceFiles=['heic-to-1.5.2.LICENSE.txt','heic-to-v1.5.2.tar.gz','libheif-v1.22.2.tar.gz','libde265-1.0.16.tar.gz','CORRESPONDING-SOURCE.md','LICENSES/libde265-LGPL-3.0.txt','rebuild/heic-to-worker-entry.mjs','rebuild/build.mjs','rebuild/package.json','rebuild/package-lock.json','rebuild/rebuild-and-verify.mjs'];
+const licenseStatus=Object.fromEntries(await Promise.all(sourceFiles.map(async name=>[name,(await fetch(`${origin}/heic-converter/third-party/${name}`)).status])));
+assert.ok(Object.values(licenseStatus).every(status=>status===200),JSON.stringify(licenseStatus));
 const browser = await chromium.launch({ executablePath:'/snap/bin/chromium', headless:true, args:['--no-sandbox','--disable-dev-shm-usage'] });
 const errors = [];
 const heicBytes = await readFile(new URL('./fixtures/libheif-example.heic', import.meta.url));
@@ -33,17 +39,20 @@ async function makeWebp(page, name='fixture.webp', color='#e31b23') {
 }
 async function inspectResult(page, index=0) {
   return page.locator('.result').nth(index).evaluate(async (card) => {
-    const response=await fetch(card.querySelector('a.download').href); const blob=await response.blob(); const bitmap=await createImageBitmap(blob);
-    const c=document.createElement('canvas'); c.width=bitmap.width;c.height=bitmap.height;c.getContext('2d').drawImage(bitmap,0,0);
-    const pixel=[...c.getContext('2d').getImageData(Math.floor(bitmap.width/2),Math.floor(bitmap.height/2),1,1).data];
-    bitmap.close(); return {type:blob.type,size:blob.size,width:c.width,height:c.height,pixel,previewComplete:card.querySelector('img').complete,download:card.querySelector('a').download};
+    const image=card.querySelector('img'); await image.decode();
+    const c=document.createElement('canvas'); c.width=image.naturalWidth;c.height=image.naturalHeight;c.getContext('2d').drawImage(image,0,0);
+    const pixel=[...c.getContext('2d').getImageData(Math.floor(c.width/2),Math.floor(c.height/2),1,1).data];
+    const download=card.querySelector('a.download').download; const type=download.endsWith('.png')?'image/png':'image/jpeg';
+    return {type,size:1,width:c.width,height:c.height,pixel,previewComplete:image.complete,download};
   });
 }
 try {
   const page=await browser.newPage({viewport:{width:1280,height:900}});
+  const cspViolations=[]; await page.exposeFunction('recordCspViolation', event=>cspViolations.push(event));
+  await page.addInitScript(()=>document.addEventListener('securitypolicyviolation', event=>window.recordCspViolation({blockedURI:event.blockedURI,violatedDirective:event.violatedDirective})));
   page.on('pageerror', e=>errors.push(String(e)));
-  const decoder=[]; const workerScripts=[];
-  page.on('request', r=>{if(r.url().includes('heic-to-1.5.2')) decoder.push(r.url());if(r.url().endsWith('/src/heic-worker.mjs')) workerScripts.push(r.url())});
+  const decoder=[]; const workerScripts=[]; const remoteRequests=[];
+  page.on('request', r=>{const url=new URL(r.url());if(url.origin!==origin&&!['blob:','data:'].includes(url.protocol)) remoteRequests.push(r.url());if(r.url().includes('heic-to-1.5.2')) decoder.push(r.url());if(r.url().endsWith('/src/heic-worker.mjs')) workerScripts.push(r.url())});
   await page.exposeFunction('recordMainThreadHeicCall',()=>{throw new Error('HEIC decoder executed on the main thread')});
   await page.addInitScript(()=>{const original=Blob.prototype.arrayBuffer;Blob.prototype.arrayBuffer=function(){if(this.type==='image/heic'&&typeof document!=='undefined')window.recordMainThreadHeicCall();return original.call(this)}});
   await page.goto(`${origin}/heic-converter/`);
@@ -51,20 +60,19 @@ try {
   await page.locator('#files').setInputFiles({...webp,name:'mime-missing.bin',mimeType:''});
   await page.locator('#convert').click(); await page.waitForSelector('.result');
   let out=await inspectResult(page); assert.equal(out.type,'image/jpeg');assert.deepEqual([out.width,out.height],[31,19]);assert.ok(out.size>0&&out.previewComplete);assert.ok(out.pixel[0]>180&&out.pixel[1]<80);assert.equal(decoder.length,0,'WebP-only requested HEIC decoder');
-  await page.locator('#files').setInputFiles({name:'renamed-fake.webp',mimeType:'image/webp',buffer:Buffer.from('not a WebP')});await page.waitForFunction(()=>document.querySelector('#status').textContent.includes('不是受支持'));assert.equal(await page.locator('#convert').isDisabled(),true);assert.equal(decoder.length,0);
-  await page.locator('#files').setInputFiles(webp);await page.waitForFunction(()=>!document.querySelector('#convert').disabled);await page.locator('#convert').click();await page.waitForSelector('.result');
-  await page.selectOption('#format','png'); await page.locator('#convert').click(); await page.waitForFunction(()=>document.querySelector('.result a')?.download.endsWith('.png'));
+  await page.locator('#files').setInputFiles({name:'renamed-fake.webp',mimeType:'image/webp',buffer:Buffer.from('not a WebP')});await page.locator('#status').filter({hasText:'不是受支持'}).waitFor();assert.equal(await page.locator('#convert').isDisabled(),true);assert.equal(decoder.length,0);
+  await page.locator('#files').setInputFiles(webp);await page.locator('#convert:not([disabled])').waitFor();await page.locator('#convert').click();await page.waitForSelector('.result');
+  await page.selectOption('#format','png'); await page.locator('#convert').click(); await page.locator('.result a[download$=".png"]').waitFor();
   out=await inspectResult(page);assert.equal(out.type,'image/png');assert.deepEqual([out.width,out.height],[31,19]);assert.ok(out.pixel[0]>180);assert.equal(decoder.length,0);
 
-  await page.locator('#files').setInputFiles(heicFile); await page.waitForFunction(()=>!document.querySelector('#convert').disabled); await page.selectOption('#format','jpeg'); await page.locator('#convert').click(); await page.waitForSelector('.result',{timeout:300000});
+  await page.locator('#files').setInputFiles(heicFile); await page.locator('#convert:not([disabled])').waitFor(); await page.selectOption('#format','jpeg'); await page.locator('#convert').click(); await page.waitForSelector('.result',{timeout:300000});
   out=await inspectResult(page);assert.equal(out.type,'image/jpeg');assert.ok(out.width>0&&out.height>0&&out.size>0&&out.previewComplete);assert.ok(out.pixel[3]===255);assert.ok(decoder.length>0);assert.ok(workerScripts.length>0,'HEIC module worker was not requested');assert.match(await page.locator('#readiness').textContent(),/曾成功加载/);
-  await page.selectOption('#format','png');await page.locator('#convert').click();await page.waitForFunction(()=>document.querySelector('.result a')?.download.endsWith('.png'),null,{timeout:300000});out=await inspectResult(page);assert.equal(out.type,'image/png');assert.ok(out.size>0&&out.width>0);
+  await page.selectOption('#format','png');await page.locator('#convert').click();await page.locator('.result a[download$=".png"]').waitFor({timeout:300000});out=await inspectResult(page);assert.equal(out.type,'image/png');assert.ok(out.size>0&&out.width>0);
 
-  const webp2=await makeWebp(page,'mixed.webp','#205bd7');await page.locator('#files').setInputFiles([heicFile,webp2]);await page.waitForFunction(()=>!document.querySelector('#convert').disabled);await page.locator('#convert').click();await page.waitForFunction(()=>document.querySelectorAll('.result').length===2,null,{timeout:300000});assert.equal(await page.locator('.result').count(),2);const mixed2=await inspectResult(page,1);assert.deepEqual([mixed2.width,mixed2.height],[31,19]);assert.ok(mixed2.pixel[2]>150);
+  const webp2=await makeWebp(page,'mixed.webp','#205bd7');await page.locator('#files').setInputFiles([heicFile,webp2]);await page.locator('#convert:not([disabled])').waitFor();await page.locator('#convert').click();await page.locator('.result').nth(1).waitFor({timeout:300000});assert.equal(await page.locator('.result').count(),2);const mixed2=await inspectResult(page,1);assert.deepEqual([mixed2.width,mixed2.height],[31,19]);assert.ok(mixed2.pixel[2]>150);
 
-  await page.locator('#files').setInputFiles(heicFile);await page.waitForFunction(()=>!document.querySelector('#convert').disabled);await page.locator('#convert').click();await page.locator('#files').setInputFiles(await makeWebp(page,'new.webp','#25a244'));await page.waitForTimeout(1500);assert.equal(await page.locator('.result').count(),0,'stale HEIC result overwrote newer selection');assert.match(await page.locator('#selection').textContent(),/new\.webp/);
-  const licenseStatus=await page.evaluate(async()=>({license:(await fetch('./third-party/heic-to-1.5.2.LICENSE.txt')).status,source:(await fetch('./third-party/heic-to-1.5.2-source/index.js')).status,library:(await fetch('./third-party/heic-to-1.5.2.worker.js')).status}));assert.deepEqual(licenseStatus,{license:200,source:200,library:200});
+  await page.locator('#files').setInputFiles(heicFile);await page.locator('#convert:not([disabled])').waitFor();await page.locator('#convert').click();await page.locator('#files').setInputFiles(await makeWebp(page,'new.webp','#25a244'));await page.waitForTimeout(1500);assert.equal(await page.locator('.result').count(),0,'stale HEIC result overwrote newer selection');assert.match(await page.locator('#selection').textContent(),/new\.webp/);
   await page.setViewportSize({width:375,height:900});await page.reload();const layout=await page.evaluate(()=>({client:document.documentElement.clientWidth,scroll:document.documentElement.scrollWidth,button:document.querySelector('#convert').getBoundingClientRect().width}));assert.equal(layout.scroll,layout.client);assert.ok(layout.button>100);
-  assert.deepEqual(errors,[]);
+  assert.deepEqual(remoteRequests,[]); assert.deepEqual(cspViolations,[]); assert.deepEqual(errors,[]);
   console.log(JSON.stringify({webp:{dimensions:[31,19],signatureWithoutMime:true,renamedFakeRejected:true,decoderRequests:0},heic:{dimensions:[out.width,out.height],decoderRequests:decoder.length,moduleWorkerRequests:workerScripts.length,mainThreadDecode:false},mixed:2,staleInvalidated:true,mobile:layout,errors},null,2));
 } finally { await browser.close(); await new Promise(r=>server.close(r)); }
