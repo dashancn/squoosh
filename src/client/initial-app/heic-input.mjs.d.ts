@@ -20,6 +20,7 @@ export class CompressorHeicInput {
     setNotice?(notice: HeicNotice | undefined | null): void;
     FileClass?: typeof File;
     storage?: Storage;
+    decodePng?(buffer: ArrayBuffer): Promise<void>;
   });
   select(file: File): Promise<void>;
   cancel(): void;

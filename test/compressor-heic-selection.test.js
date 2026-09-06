@@ -52,6 +52,7 @@ test('signature-valid HEIC is inspected then lazily converted to a PNG File', as
   const calls = [];
   const notices = [];
   const opened = [];
+  let terminated = 0;
   const worker = {
     inspect: async (file) => {
       calls.push(['inspect', file.name]);
@@ -60,17 +61,20 @@ test('signature-valid HEIC is inspected then lazily converted to a PNG File', as
     convert: async (file) => {
       calls.push(['convert', file.name]);
       return {
-        buffer: Uint8Array.from([137, 80, 78, 71]).buffer,
+        buffer: Uint8Array.from([137, 80, 78, 71, 13, 10, 26, 10]).buffer,
         mimeType: 'image/png',
       };
     },
-    terminate() {},
+    terminate() {
+      terminated += 1;
+    },
   };
   const input = new CompressorHeicInput({
     createWorkerClient: () => worker,
     openFile: (file) => opened.push(file),
     setNotice: (notice) => notices.push(notice),
     FileClass: File,
+    decodePng: async () => {},
   });
   await input.select(heic('family.photo.HEIF'));
   assert.deepEqual(calls, [
@@ -82,17 +86,21 @@ test('signature-valid HEIC is inspected then lazily converted to a PNG File', as
   assert.equal(opened[0].type, 'image/png');
   assert.match(notices.at(-1).message, /HEIC.*PNG.*元数据|HEIC.*PNG.*EXIF/);
   assert.equal(notices.at(-1).kind, 'success');
+  assert.equal(terminated, 1);
 });
 
 test('failed HEIC conversion reports an actionable error and does not open editor', async () => {
   const notices = [];
   const opened = [];
+  let terminated = 0;
   const worker = {
     inspect: async () => ({ isHeic: true, width: 20, height: 20 }),
     convert: async () => {
       throw new Error('decoder crashed');
     },
-    terminate() {},
+    terminate() {
+      terminated += 1;
+    },
   };
   const input = new CompressorHeicInput({
     createWorkerClient: () => worker,
@@ -103,6 +111,79 @@ test('failed HEIC conversion reports an actionable error and does not open edito
   assert.deepEqual(opened, []);
   assert.equal(notices.at(-1).kind, 'error');
   assert.match(notices.at(-1).message, /HEIC 解码失败.*文件|内存/);
+  assert.doesNotMatch(notices.at(-1).message, /decoder crashed/);
+  assert.equal(terminated, 1);
+});
+
+test('stale HEIC completion does not terminate a newer worker', async () => {
+  const oldConversion = deferred();
+  let oldTerminated = 0;
+  let newTerminated = 0;
+  const oldWorker = {
+    inspect: async () => ({ isHeic: true, width: 20, height: 20 }),
+    convert: () => oldConversion.promise,
+    terminate: () => {
+      oldTerminated += 1;
+    },
+  };
+  const newWorker = {
+    inspect: async () => ({ isHeic: true, width: 20, height: 20 }),
+    convert: async () => ({
+      buffer: Uint8Array.from([137, 80, 78, 71, 13, 10, 26, 10]).buffer,
+      mimeType: 'image/png',
+    }),
+    terminate: () => {
+      newTerminated += 1;
+    },
+  };
+  let creations = 0;
+  const input = new CompressorHeicInput({
+    createWorkerClient: () => (creations++ === 0 ? oldWorker : newWorker),
+    openFile: () => {},
+    FileClass: File,
+    decodePng: async () => {},
+  });
+  const oldSelection = input.select(heic('old.heic'));
+  await new Promise((resolve) => setImmediate(resolve));
+  await input.select(heic('new.heic'));
+  oldConversion.resolve({
+    buffer: Uint8Array.from([137, 80, 78, 71, 13, 10, 26, 10]).buffer,
+    mimeType: 'image/png',
+  });
+  await oldSelection;
+  assert.equal(oldTerminated, 1);
+  assert.equal(newTerminated, 1);
+});
+
+test('worker output must be a decodable PNG before a File is constructed', async () => {
+  const notices = [];
+  let filesConstructed = 0;
+  class CountingFile extends File {
+    constructor(...args) {
+      filesConstructed += 1;
+      super(...args);
+    }
+  }
+  const input = new CompressorHeicInput({
+    createWorkerClient: () => ({
+      inspect: async () => ({ isHeic: true, width: 20, height: 20 }),
+      convert: async () => ({
+        buffer: Uint8Array.from([137, 80, 78, 71, 13, 10, 26, 10]).buffer,
+        mimeType: 'image/png',
+      }),
+      terminate() {},
+    }),
+    openFile: () => {},
+    setNotice: (notice) => notices.push(notice),
+    FileClass: CountingFile,
+    decodePng: async () => {
+      throw new Error('invalid image bytes');
+    },
+  });
+  await input.select(heic());
+  assert.equal(filesConstructed, 0);
+  assert.equal(notices.at(-1).kind, 'error');
+  assert.doesNotMatch(notices.at(-1).message, /invalid image bytes/);
 });
 
 test('a newer ordinary selection cancels ownership and stale HEIC never opens editor', async () => {

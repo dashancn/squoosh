@@ -62,6 +62,19 @@ export class HeicWorkerClient {
 
   async convert(file) {
     const { buffer, mimeType } = await this.request('convert', file);
+    if (
+      mimeType !== 'image/png' ||
+      !(buffer instanceof ArrayBuffer) ||
+      buffer.byteLength < 8
+    )
+      throw new Error('HEIC worker 未返回有效 PNG');
+    const signature = new Uint8Array(buffer, 0, 8);
+    if (
+      ![137, 80, 78, 71, 13, 10, 26, 10].every(
+        (value, index) => signature[index] === value,
+      )
+    )
+      throw new Error('HEIC worker 未返回有效 PNG');
     return { buffer, mimeType };
   }
 

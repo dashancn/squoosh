@@ -48,3 +48,19 @@ test('converter build keeps one HEIC runtime and exposes it without initial comp
   assert.match(buildScript, /heic-to-1\.5\.2\.worker\.js/);
   assert.doesNotMatch(swCache, /heic-to|heic-worker/);
 });
+
+test('generated root headers protect the compressor while permitting HEIC workers', async () => {
+  const headers = await read('build/_headers');
+  const root = headers.split('\n/heic-converter/*')[0];
+  assert.match(root, /Content-Security-Policy:/);
+  assert.match(root, /default-src 'self'/);
+  assert.match(root, /script-src 'self' 'unsafe-eval'/);
+  assert.match(root, /worker-src 'self' blob:/);
+  assert.match(root, /img-src 'self' data: blob:/);
+  assert.match(root, /font-src 'self' data:/);
+  assert.match(root, /style-src 'self' 'unsafe-inline'/);
+  assert.match(root, /connect-src 'self' blob:/);
+  assert.match(root, /Cross-Origin-Embedder-Policy: require-corp/);
+  assert.match(root, /Cross-Origin-Opener-Policy: same-origin/);
+  assert.match(root, /Cross-Origin-Resource-Policy: same-origin/);
+});

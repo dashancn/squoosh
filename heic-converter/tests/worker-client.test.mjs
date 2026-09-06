@@ -65,13 +65,65 @@ test('HEIC worker client relays progress and returns transferred conversion byte
   worker.emit({
     id,
     type: 'result',
-    buffer: new Uint8Array([1, 2, 3]).buffer,
+    buffer: new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]).buffer,
     mimeType: 'image/png',
   });
   const result = await promise;
   assert.deepEqual(progress, ['decoding']);
-  assert.deepEqual([...new Uint8Array(result.buffer)], [1, 2, 3]);
+  assert.deepEqual(
+    [...new Uint8Array(result.buffer)],
+    [137, 80, 78, 71, 13, 10, 26, 10],
+  );
   assert.equal(result.mimeType, 'image/png');
+});
+
+test('HEIC worker client rejects non-PNG MIME and bytes from the worker', async () => {
+  for (const response of [
+    {
+      buffer: new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]).buffer,
+      mimeType: 'image/jpeg',
+    },
+    { buffer: new Uint8Array([1, 2, 3]).buffer, mimeType: 'image/png' },
+    { buffer: 'not-an-array-buffer', mimeType: 'image/png' },
+  ]) {
+    FakeWorker.instances = [];
+    const client = new HeicWorkerClient({ WorkerClass: FakeWorker });
+    const promise = client.convert({ name: 'photo.heic' });
+    const worker = FakeWorker.instances[0];
+    worker.emit({ id: worker.messages[0].id, type: 'result', ...response });
+    await assert.rejects(promise, /PNG/);
+    client.terminate();
+  }
+});
+
+test('worker conversion only returns a verified image/png payload', async () => {
+  const messages = [];
+  await handleHeicWorkerMessage(
+    {
+      id: 9,
+      operation: 'convert',
+      file: { name: 'photo.heic', arrayBuffer: async () => new ArrayBuffer(12) },
+    },
+    {
+      isHeicBytes: () => true,
+      inspectHeic: () => ({ width: 1, height: 1 }),
+      decodeHeic: async () => ({ width: 1, height: 1 }),
+      validateDimensions: () => {},
+      createCanvas: () => ({
+        width: 1,
+        height: 1,
+        getContext: () => ({ putImageData() {} }),
+        convertToBlob: async () => ({
+          type: 'image/jpeg',
+          arrayBuffer: async () => new Uint8Array([1, 2, 3]).buffer,
+        }),
+      }),
+      postMessage: (message) => messages.push(message),
+    },
+  );
+  assert.equal(messages.at(-1).type, 'error');
+  assert.match(messages.at(-1).error, /PNG/);
+  assert.equal(messages.some((message) => message.type === 'result'), false);
 });
 
 test('terminating the HEIC worker rejects pending work and next request uses a fresh worker', async () => {

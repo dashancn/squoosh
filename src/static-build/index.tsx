@@ -75,8 +75,7 @@ const toOutput: Output = {
         purpose: 'maskable',
       },
     ],
-    description:
-      '直接在浏览器中压缩、转换并对比不同编码格式的图片。',
+    description: '直接在浏览器中压缩、转换并对比不同编码格式的图片。',
     lang: 'zh-CN',
     categories: ['photo', 'productivity', 'utilities'],
     screenshots,
@@ -102,10 +101,14 @@ const toOutput: Output = {
     #/c/*
     #  Cache-Control: max-age=31536000
 
-    # COOP+COEP for WebAssembly threads.
+    # Security headers and COOP+COEP for workers and WebAssembly.
     /*
+      Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline' https://stats.i41.cn https://static.cloudflareinsights.com; worker-src 'self' blob:; img-src 'self' data: blob:; font-src 'self' data:; style-src 'self' 'unsafe-inline'; connect-src 'self' blob: https://stats.i41.cn https://cloudflareinsights.com; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'
       Cross-Origin-Embedder-Policy: require-corp
       Cross-Origin-Opener-Policy: same-origin
+      Cross-Origin-Resource-Policy: same-origin
+      Referrer-Policy: no-referrer
+      X-Content-Type-Options: nosniff
   `,
 };
 

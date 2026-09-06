@@ -29,10 +29,19 @@ export async function handleHeicWorkerMessage(data, dependencies) {
     if (!context) throw new Error('浏览器无法创建后台画布');
     context.putImageData(imageData, 0, 0);
     const blob = await canvas.convertToBlob({ type: 'image/png' });
+    if (blob.type !== 'image/png') throw new Error('浏览器未生成有效 PNG');
     const output = await blob.arrayBuffer();
+    const signature = new Uint8Array(output, 0, Math.min(8, output.byteLength));
+    if (
+      output.byteLength < 8 ||
+      ![137, 80, 78, 71, 13, 10, 26, 10].every(
+        (value, index) => signature[index] === value,
+      )
+    )
+      throw new Error('浏览器未生成有效 PNG');
     canvas.width = 1;
     canvas.height = 1;
-    postMessage({ id, type: 'result', buffer: output, mimeType: blob.type }, [
+    postMessage({ id, type: 'result', buffer: output, mimeType: 'image/png' }, [
       output,
     ]);
   } catch (error) {

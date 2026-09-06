@@ -4,6 +4,7 @@ export const MAX_HEIC_EDGE = 10_000;
 export const HEIC_CACHE_KEY = 'i41-compressor-heic-success-v1';
 
 const HEIC_BRANDS = new Set(['mif1', 'msf1', 'heic', 'heix', 'hevc', 'hevx']);
+const PNG_SIGNATURE = [137, 80, 78, 71, 13, 10, 26, 10];
 
 export function hasHeicFtypSignature(bytes) {
   if (bytes.length < 12) return false;
@@ -21,6 +22,18 @@ export function hasHeicFtypSignature(bytes) {
 export function pngFilenameFor(name) {
   const dot = name.lastIndexOf('.');
   return `${dot > 0 ? name.slice(0, dot) : name}.png`;
+}
+
+export function hasPngSignature(buffer) {
+  if (!(buffer instanceof ArrayBuffer) || buffer.byteLength < PNG_SIGNATURE.length)
+    return false;
+  const bytes = new Uint8Array(buffer, 0, PNG_SIGNATURE.length);
+  return PNG_SIGNATURE.every((value, index) => bytes[index] === value);
+}
+
+async function decodePng(buffer) {
+  const bitmap = await createImageBitmap(new Blob([buffer], { type: 'image/png' }));
+  bitmap.close();
 }
 
 export function validateHeicFileSize(size) {
@@ -45,7 +58,7 @@ function friendlyHeicError(error) {
   if (/超时/.test(message)) return 'HEIC 解码超时，请保持页面打开后重试';
   if (/memory|内存|allocation/i.test(message))
     return 'HEIC 解码内存不足，请关闭其他页面或换用更小的图片';
-  return `HEIC 解码失败，请检查文件或可用内存后重试（${message}）`;
+  return 'HEIC 解码失败，请检查文件或可用内存后重试';
 }
 
 export class CompressorHeicInput {
@@ -55,12 +68,14 @@ export class CompressorHeicInput {
     setNotice = () => {},
     FileClass = globalThis.File,
     storage = globalThis.localStorage,
+    decodePng: decodePngOutput = decodePng,
   }) {
     this.createWorkerClient = createWorkerClient;
     this.openFile = openFile;
     this.setNotice = setNotice;
     this.FileClass = FileClass;
     this.storage = storage;
+    this.decodePng = decodePngOutput;
     this.worker = undefined;
     this.version = 0;
   }
@@ -69,6 +84,7 @@ export class CompressorHeicInput {
     const version = ++this.version;
     if (this.worker) this.worker.terminate();
     this.worker = undefined;
+    let worker;
     try {
       const head = new Uint8Array(await file.slice(0, 12).arrayBuffer());
       if (version !== this.version) return;
@@ -95,7 +111,7 @@ export class CompressorHeicInput {
           ? '正在后台准备 HEIC 解码；资源曾成功加载，本次可能从浏览器缓存快速开始。请保持页面打开。'
           : '正在后台加载 HEIC 解码资源；首次约 3.0 MB 原始资源（约 0.8 MB 压缩传输），耗时取决于网络，请保持页面打开。',
       });
-      const worker = await this.createWorkerClient((message) => {
+      worker = await this.createWorkerClient((message) => {
         if (version === this.version)
           this.setNotice({ kind: 'loading', message });
       });
@@ -110,8 +126,12 @@ export class CompressorHeicInput {
       validateHeicDimensions(inspection.width, inspection.height);
       const { buffer, mimeType } = await worker.convert(file);
       if (version !== this.version) return;
+      if (mimeType !== 'image/png' || !hasPngSignature(buffer))
+        throw new Error('HEIC worker 未返回有效 PNG');
+      await this.decodePng(buffer);
+      if (version !== this.version) return;
       const output = new this.FileClass([buffer], pngFilenameFor(file.name), {
-        type: mimeType || 'image/png',
+        type: 'image/png',
       });
       this.storage?.setItem?.(HEIC_CACHE_KEY, '1');
       this.setNotice({
@@ -122,7 +142,13 @@ export class CompressorHeicInput {
       this.openFile(output);
     } catch (error) {
       if (version !== this.version) return;
+      console.error('HEIC conversion failed', error);
       this.setNotice({ kind: 'error', message: friendlyHeicError(error) });
+    } finally {
+      if (worker && this.worker === worker) {
+        worker.terminate();
+        this.worker = undefined;
+      }
     }
   }
 
