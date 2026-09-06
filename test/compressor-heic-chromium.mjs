@@ -162,6 +162,60 @@ try {
     await page.locator('aside[role=status]').textContent(),
     /LGPL-3\.0/,
   );
+  await page.waitForFunction(
+    () =>
+      [...document.querySelectorAll('a[download][href^="blob:"]')].some(
+        (link) => /\.(?:jpe?g|webp)$/i.test(link.getAttribute('download') || ''),
+      ),
+    { timeout: 300000 },
+  );
+  const exportLink = page.locator(
+    'a[download$=".jpg"][href^="blob:"], a[download$=".jpeg"][href^="blob:"], a[download$=".webp"][href^="blob:"]',
+  ).first();
+  const compressedExport = await exportLink.evaluate(async (link) => {
+    const response = await fetch(link.href);
+    const blob = await response.blob();
+    const bitmap = await createImageBitmap(blob);
+    const canvas = new OffscreenCanvas(bitmap.width, bitmap.height);
+    const context = canvas.getContext('2d');
+    context.drawImage(bitmap, 0, 0);
+    const pixel = [
+      ...context.getImageData(
+        Math.floor(bitmap.width / 2),
+        Math.floor(bitmap.height / 2),
+        1,
+        1,
+      ).data,
+    ];
+    bitmap.close();
+    return {
+      name: link.getAttribute('download'),
+      mimeType: blob.type,
+      byteLength: blob.size,
+      width: canvas.width,
+      height: canvas.height,
+      pixel,
+    };
+  });
+  assert.ok(
+    compressedExport.byteLength > 0,
+    'HEIC compressor did not produce a downloadable encoded output',
+  );
+  assert.match(compressedExport.mimeType, /^image\/(?:jpeg|webp)$/);
+  assert.deepEqual(
+    [compressedExport.width, compressedExport.height],
+    [1280, 854],
+  );
+  assert.equal(compressedExport.pixel[3], 255);
+  assert.ok(
+    compressedExport.pixel.slice(0, 3).some((channel) => channel !== 0),
+    'encoded output center pixel is unexpectedly black',
+  );
+  const downloadPromise = page.waitForEvent('download');
+  await exportLink.click({ force: true });
+  const download = await downloadPromise;
+  assert.equal(download.suggestedFilename(), compressedExport.name);
+  assert.equal(await download.failure(), null);
 
   await page.goto(origin + '/');
   await page
@@ -213,7 +267,11 @@ try {
     JSON.stringify(
       {
         jpg: { heicRequests: 0 },
-        heic: { assetRequests: heicRequests, decodedDimensions: [1280, 854] },
+        heic: {
+          assetRequests: heicRequests,
+          decodedDimensions: [1280, 854],
+          compressedExport,
+        },
         invalidFakeStayedHome: true,
         raceWinner: 'winner.jpg',
         mobile: layout,

@@ -4,6 +4,7 @@ import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { chromium } from '../remove-background/node_modules/playwright-core/index.mjs';
+import { findChromiumExecutable } from '../heic-converter/corresponding-source/rebuild/chromium-executable.mjs';
 
 const root = path.resolve(new URL('..', import.meta.url).pathname);
 const build = path.join(root, 'build');
@@ -41,9 +42,9 @@ await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
 const origin = `http://127.0.0.1:${server.address().port}`;
 after(() => new Promise((resolve) => server.close(resolve)));
 
-test('三个图片工具导航在桌面和窄屏均换行右对齐且 tooltip 可见', async () => {
+test('三个图片工具导航在桌面和窄屏均换行右对齐且 tooltip 可见', { timeout: 20_000 }, async () => {
   const browser = await chromium.launch({
-    executablePath: '/snap/bin/chromium',
+    executablePath: findChromiumExecutable(),
     headless: true,
     args: ['--no-sandbox', '--disable-dev-shm-usage'],
   });
