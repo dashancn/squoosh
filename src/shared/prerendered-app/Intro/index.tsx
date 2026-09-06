@@ -164,6 +164,13 @@ export default class Intro extends Component<Props, State> {
               </a>
               <a
                 class={style.toolLink}
+                href="/heic-converter/"
+                data-tooltip="将 HEIC、HEIF、WebP 转为 JPG 或 PNG"
+              >
+                HEIC 转换
+              </a>
+              <a
+                class={style.toolLink}
                 href="/remove-background/"
                 data-tooltip="在本地移除图片背景"
               >

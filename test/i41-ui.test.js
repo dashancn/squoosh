@@ -56,26 +56,31 @@ test('顶部导航使用约定来源链接且不使用下拉生态菜单', async
   );
 });
 
-test('三个图片工具页面以品牌标识当前工具，并从标准菜单中排除当前项', async () => {
+test('四个图片工具页面以品牌标识当前工具，并从标准菜单中排除当前项', async () => {
   const [
     compressor,
     removeBackground,
     collage,
+    converter,
     compressorCss,
     removeCss,
     collageCss,
+    converterCss,
   ] = await Promise.all([
     read('src/shared/prerendered-app/Intro/index.tsx'),
     read('remove-background/index.html'),
     read('collage/index.html'),
+    read('heic-converter/index.html'),
     read('src/shared/prerendered-app/Intro/style.css'),
     read('remove-background/src/style.css'),
     read('collage/style.css'),
+    read('heic-converter/style.css'),
   ]);
   const navItems = [
     ['i方案', iPlanUrl('ecosystem_nav')],
     ['开发者工具', 'https://tools.i41.cn'],
     ['图片压缩', '/'],
+    ['HEIC 转换', '/heic-converter/'],
     ['智能抠图', '/remove-background/'],
     ['多图拼接', '/collage/'],
     ['PDF 工具', 'https://pdf.i41.cn'],
@@ -87,6 +92,7 @@ test('三个图片工具页面以品牌标识当前工具，并从标准菜单�
     [compressor, 'i41 图片压缩', '图片压缩'],
     [removeBackground, 'i41 智能抠图', '智能抠图'],
     [collage, 'i41 多图拼接', '多图拼接'],
+    [converter, 'i41 HEIC 转换', 'HEIC 转换'],
   ];
 
   for (const [source, brand, currentLabel] of pages) {
@@ -133,6 +139,7 @@ test('三个图片工具页面以品牌标识当前工具，并从标准菜单�
     [compressorCss, '图片压缩'],
     [removeCss, '智能抠图'],
     [collageCss, '多图拼接'],
+    [converterCss, 'HEIC 转换'],
   ]) {
     assert.match(css, /\.site-header[\s\S]*height:\s*64px/);
     assert.match(css, /\.header-inner[\s\S]*max-width:\s*1104px/);
