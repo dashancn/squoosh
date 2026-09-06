@@ -11,6 +11,8 @@ import 'file-drop-element';
 import 'shared/custom-els/snack-bar';
 import Intro from 'shared/prerendered-app/Intro';
 import 'shared/custom-els/loading-spinner';
+import { CompressorHeicInput, HeicNotice } from '../heic-input.mjs';
+import { createHeicWorkerClient } from '../heic-worker-loader';
 
 const ROUTE_EDITOR = '/editor';
 
@@ -28,6 +30,7 @@ interface State {
   file?: File;
   isEditorOpen: Boolean;
   Compress?: typeof import('client/lazy-app/Compress').default;
+  heicNotice?: HeicNotice;
 }
 
 export default class App extends Component<Props, State> {
@@ -41,9 +44,17 @@ export default class App extends Component<Props, State> {
   };
 
   snackbar?: SnackBarElement;
+  private heicInput: CompressorHeicInput;
 
   constructor() {
     super();
+
+    this.heicInput = new CompressorHeicInput({
+      createWorkerClient: createHeicWorkerClient,
+      openFile: this.openSelectedFile,
+      setNotice: (heicNotice: HeicNotice | undefined | null) =>
+        this.setState({ heicNotice: heicNotice || undefined }),
+    });
 
     compressPromise
       .then((module) => {
@@ -76,12 +87,14 @@ export default class App extends Component<Props, State> {
 
   private onFileDrop = ({ files }: FileDropEvent) => {
     if (!files || files.length === 0) return;
-    const file = files[0];
-    this.openEditor();
-    this.setState({ file });
+    this.heicInput.select(files[0]);
   };
 
   private onIntroPickFile = (file: File) => {
+    this.heicInput.select(file);
+  };
+
+  private openSelectedFile = (file: File) => {
     this.openEditor();
     this.setState({ file });
   };
@@ -109,7 +122,7 @@ export default class App extends Component<Props, State> {
 
   render(
     {}: Props,
-    { file, isEditorOpen, Compress, awaitingShareTarget }: State,
+    { file, isEditorOpen, Compress, awaitingShareTarget, heicNotice }: State,
   ) {
     const showSpinner = awaitingShareTarget || (isEditorOpen && !Compress);
 
@@ -124,6 +137,22 @@ export default class App extends Component<Props, State> {
             )
           ) : (
             <Intro onFile={this.onIntroPickFile} showSnack={this.showSnack} />
+          )}
+          {heicNotice && (
+            <aside
+              class={`${style.heicNotice} ${style[heicNotice.kind]}`}
+              role="status"
+              aria-live="polite"
+            >
+              <p>{heicNotice.message}</p>
+              <p>
+                <a href="/heic-converter/">HEIC 解码许可说明</a>
+                {' · '}
+                <a href="/heic-converter/third-party/CORRESPONDING-SOURCE.md">
+                  对应源代码
+                </a>
+              </p>
+            </aside>
           )}
           <snack-bar ref={linkRef(this, 'snackbar')} />
         </file-drop>
