@@ -5,9 +5,15 @@ export const MAX_PIXELS = 30_000_000;
 export const MAX_EDGE = 10_000;
 export const CACHE_KEY = 'i41-heic-decoder-success-v1';
 
-export function classifyFile(file, heicSignature) {
+export function hasWebpSignature(bytes) {
+  return bytes.length >= 12
+    && bytes[0] === 0x52 && bytes[1] === 0x49 && bytes[2] === 0x46 && bytes[3] === 0x46
+    && bytes[8] === 0x57 && bytes[9] === 0x45 && bytes[10] === 0x42 && bytes[11] === 0x50;
+}
+
+export function classifyFile(file, heicSignature, webpSignature) {
   if (heicSignature) return 'heic';
-  if (file.type === 'image/webp') return 'webp';
+  if (webpSignature) return 'webp';
   return 'unsupported';
 }
 

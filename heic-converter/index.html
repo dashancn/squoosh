@@ -1,11 +1,11 @@
 <!doctype html>
-<html lang="zh-CN" data-i41-site="imgzip">
+<html lang="zh-CN" data-i41-site="heic-converter">
 <head>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="description" content="在浏览器本地将 HEIC、HEIF、WebP 批量转换为 JPG 或 PNG。">
   <title>HEIC 转换 - i41 图片工具</title>
   <link rel="stylesheet" href="./style.css">
-  <script src="https://stats.i41.cn/analytics.js" async></script>
+
 </head>
 <body>
 <header class="site-header"><div class="header-inner">
@@ -25,11 +25,11 @@
 <aside class="i-plan-banner" aria-label="关注 i方案"><div><strong>关注 i方案</strong><span>获取内容创作、客户跟单、文生图与视频制作方案</span></div><a href="https://www.i41.cn?utm_source=imgzip&amp;utm_medium=tool_referral&amp;utm_campaign=ifangan&amp;utm_content=promo_banner">访问 i方案 →</a></aside>
 <main class="workspace">
 <section class="hero"><p class="eyebrow">本地批量格式转换</p><h1>HEIC / HEIF / WebP 转 JPG / PNG</h1><p>文件不会上传。最多 12 个文件，每个 20 MiB，总计 80 MiB。</p></section>
-<section class="panel"><h2><span>1</span>选择图片</h2><label class="drop"><input id="files" type="file" accept=".heic,.heif,image/heic,image/heif,image/webp" multiple><strong>选择 HEIC、HEIF 或 WebP</strong><small>HEIC 会检查真实文件签名，不只看扩展名</small></label><div id="selection" class="selection"></div></section>
+<section class="panel"><h2><span>1</span>选择图片</h2><label class="drop"><input id="files" type="file" accept=".heic,.heif,.webp,image/heic,image/heif,image/webp" multiple><strong>选择 HEIC、HEIF 或 WebP</strong><small>HEIC 与 WebP 都会检查真实文件签名，不只看扩展名或 MIME 类型</small></label><div id="selection" class="selection"></div></section>
 <section class="panel"><h2><span>2</span>设置输出</h2><div class="options"><label>格式<select id="format"><option value="jpeg">JPG</option><option value="png">PNG</option></select></label><label id="quality-wrap">JPG 质量 <output id="quality-value">90%</output><input id="quality" type="range" min="1" max="100" value="90"></label><label id="background-wrap">JPG 背景色<input id="background" type="color" value="#ffffff"></label></div><p class="help">JPG 通常更小，但不支持透明；透明区域会铺上所选背景色。PNG 无损并支持透明，但文件通常更大。</p><p class="help">尺寸保持不变；元数据 / EXIF 可能不会保留。</p></section>
 <section class="panel action"><h2><span>3</span>开始转换</h2><p id="readiness" class="readiness"></p><button id="convert" class="primary" disabled>开始转换</button><p id="status" role="status" aria-live="polite"></p></section>
-<section class="panel"><div class="results-head"><h2><span>4</span>预览与下载</h2><div><button id="download-all" disabled>依次下载全部</button><button id="clear" disabled>清空</button></div></div><p class="help">“依次下载全部”会触发多个下载；浏览器可能询问是否允许。</p><div id="results" class="results"></div></section>
+<section class="panel"><div class="results-head"><h2><span>4</span>预览与下载</h2><div><button id="download-all" disabled>依次下载全部</button><button id="clear" disabled>清空</button></div></div><p class="help">“依次下载全部”会在本次点击中请求多个下载；浏览器可能询问是否允许，拒绝时请使用每张图片的“下载”。</p><div id="results" class="results"></div></section>
 </main>
-<footer class="notice" aria-label="隐私与许可证说明"><p class="footer-tagline">i41 免费实用工具</p><details><summary>隐私、许可与开源说明</summary><div><p>所有图片转换均在浏览器本地完成，不会发送文件内容或文件名给统计服务。</p><p>本项目主体沿用 Apache 2.0。HEIC 解码运行时使用 <strong>heic-to 1.5.2</strong>（LGPL-3.0），内含 <strong>libheif 1.22.2</strong>。首次 HEIC 使用会下载同源运行时。</p><p><a href="https://github.com/hoppergee/heic-to">heic-to 完整对应源代码</a> · <a href="./third-party/heic-to-1.5.2.LICENSE.txt">LGPL-3.0 许可证</a> · <a href="./third-party/heic-to-1.5.2.csp.js">未与本站代码合并的库文件</a> · <a href="./third-party/heic-to-1.5.2-source/index.js">随附对应源码</a></p><p>你可替换该独立库文件以重新链接（relink）修改版本；本站脚本通过动态导入调用它。许可证及 relinking 权利不受限制。</p><p><a href="https://www.i41.cn?utm_source=imgzip&amp;utm_medium=tool_referral&amp;utm_campaign=ifangan&amp;utm_content=footer">访问 i方案</a></p></div></details></footer>
+<footer class="notice" aria-label="隐私与许可证说明"><p class="footer-tagline">i41 免费实用工具</p><p>此转换页面不加载统计脚本，也不会上传文件。HEIC 解码使用 <strong>heic-to 1.5.2</strong> / <strong>libheif 1.22.2</strong>，遵循 <strong>LGPL-3.0</strong>。</p><details><summary>隐私、许可与开源说明</summary><div><p>所有图片转换均在浏览器本地完成；页面不向远程统计或接口发送文件内容、文件名或转换结果。</p><p>本项目主体沿用 Apache 2.0。HEIC 解码运行时使用 heic-to 1.5.2（LGPL-3.0），内含 libheif 1.22.2。首次 HEIC 使用会加载随本站发布的同源运行时。</p><p><a href="https://github.com/hoppergee/heic-to/tree/v1.5.2">heic-to v1.5.2 固定版本源码</a> · <a href="https://github.com/strukturag/libheif/tree/v1.22.2">libheif v1.22.2 固定版本源码</a> · <a href="./third-party/heic-to-1.5.2.LICENSE.txt">LGPL-3.0 许可证</a> · <a href="./third-party/heic-to-1.5.2.worker.js">可替换的独立库文件</a> · <a href="./third-party/BUILD-AND-RELINK.md">构建与重新链接说明</a></p><p>发布包随附 heic-to 的 npm 源码、package metadata、README 和 esbuild.mjs，以及 libheif 固定版本的首选源码/构建参考。你可按说明替换独立库文件以重新链接修改版本。</p><p><a href="https://www.i41.cn?utm_source=imgzip&amp;utm_medium=tool_referral&amp;utm_campaign=ifangan&amp;utm_content=footer">访问 i方案</a></p></div></details></footer>
 <script type="module" src="./src/app.mjs"></script>
 </body></html>

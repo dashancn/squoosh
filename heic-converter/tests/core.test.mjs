@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   classifyFile,
+  hasWebpSignature,
   validateBatch,
   outputFilename,
   encoderOptions,
@@ -13,10 +14,19 @@ import {
 const MiB = 1024 * 1024;
 const file = (name, size, type = '') => ({ name, size, type });
 
-test('classifyFile uses HEIC signature result rather than extension', () => {
-  assert.equal(classifyFile(file('photo.jpg', 1), true), 'heic');
-  assert.equal(classifyFile(file('fake.heic', 1, 'image/jpeg'), false), 'unsupported');
-  assert.equal(classifyFile(file('photo.webp', 1, 'image/webp'), false), 'webp');
+test('classifyFile requires real HEIC or WebP signature rather than MIME or extension', () => {
+  assert.equal(classifyFile(file('photo.jpg', 1), true, false), 'heic');
+  assert.equal(classifyFile(file('fake.heic', 1, 'image/jpeg'), false, false), 'unsupported');
+  assert.equal(classifyFile(file('photo.bin', 1), false, true), 'webp');
+  assert.equal(classifyFile(file('fake.webp', 1, 'image/webp'), false, false), 'unsupported');
+});
+
+test('hasWebpSignature recognizes RIFF....WEBP bytes only', () => {
+  const valid = Uint8Array.from([0x52,0x49,0x46,0x46,1,2,3,4,0x57,0x45,0x42,0x50]);
+  const fake = Uint8Array.from([0x52,0x49,0x46,0x46,1,2,3,4,0x4a,0x50,0x45,0x47]);
+  assert.equal(hasWebpSignature(valid), true);
+  assert.equal(hasWebpSignature(fake), false);
+  assert.equal(hasWebpSignature(valid.subarray(0, 11)), false);
 });
 
 test('validateBatch accepts exact boundaries and rejects every exceeded limit', () => {

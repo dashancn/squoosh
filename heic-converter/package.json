@@ -9,5 +9,8 @@
   },
   "dependencies": {
     "heic-to": "1.5.2"
+  },
+  "devDependencies": {
+    "esbuild": "0.25.4"
   }
 }
