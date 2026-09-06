@@ -6,6 +6,7 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright-core';
 import { build } from 'esbuild';
+import { findChromiumExecutable } from './chromium-executable.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const sourceRoot = resolve(here, '..');
@@ -48,7 +49,7 @@ const expectedHash = (await readFile(resolve(here, 'expected-worker.sha256'), 'u
 assert.equal(generatedHash, expectedHash, 'worker bytes differ; inspect toolchain before replacing the distributed worker');
 
 const fixture = await readFile(resolve(here, 'fixture.heic'));
-const browser = await chromium.launch({ executablePath: '/snap/bin/chromium', headless: true, args: ['--no-sandbox', '--disable-dev-shm-usage'] });
+const browser = await chromium.launch({ executablePath: findChromiumExecutable(), headless: true, args: ['--no-sandbox', '--disable-dev-shm-usage'] });
 let verification;
 try {
   const page = await browser.newPage();

@@ -48,8 +48,8 @@ Prerequisites used by upstream's script include Emscripten/emsdk, CMake, make, p
 mkdir low-level-build
 cd low-level-build
 tar -xzf ../libheif-v1.22.2.tar.gz
-cp ../libde265-1.0.16.tar.gz .
 mkdir buildjs
+cp ../libde265-1.0.16.tar.gz buildjs/
 cd buildjs
 LIBDE265_VERSION=1.0.16 USE_UNSAFE_EVAL=0 USE_WASM=0 \
   ../libheif-1.22.2/build-emscripten.sh ../libheif-1.22.2

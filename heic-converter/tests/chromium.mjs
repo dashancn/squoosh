@@ -3,6 +3,7 @@ import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { chromium } from '../../remove-background/node_modules/playwright-core/index.mjs';
+import { findChromiumExecutable } from '../corresponding-source/rebuild/chromium-executable.mjs';
 
 const root = path.resolve(new URL('../..', import.meta.url).pathname);
 const build = path.join(root, 'build');
@@ -23,10 +24,10 @@ const server = createServer(async (request, response) => {
 });
 await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
 const origin = `http://127.0.0.1:${server.address().port}`;
-const sourceFiles=['heic-to-1.5.2.LICENSE.txt','heic-to-v1.5.2.tar.gz','libheif-v1.22.2.tar.gz','libde265-1.0.16.tar.gz','CORRESPONDING-SOURCE.md','LICENSES/libde265-LGPL-3.0.txt','rebuild/heic-to-worker-entry.mjs','rebuild/build.mjs','rebuild/package.json','rebuild/package-lock.json','rebuild/rebuild-and-verify.mjs'];
+const sourceFiles=['heic-to-1.5.2.LICENSE.txt','heic-to-v1.5.2.tar.gz','libheif-v1.22.2.tar.gz','libde265-1.0.16.tar.gz','CORRESPONDING-SOURCE.md','LICENSES/libde265-LGPL-3.0.txt','rebuild/heic-to-worker-entry.mjs','rebuild/build.mjs','rebuild/package.json','rebuild/package-lock.json','rebuild/chromium-executable.mjs','rebuild/rebuild-and-verify.mjs'];
 const licenseStatus=Object.fromEntries(await Promise.all(sourceFiles.map(async name=>[name,(await fetch(`${origin}/heic-converter/third-party/${name}`)).status])));
 assert.ok(Object.values(licenseStatus).every(status=>status===200),JSON.stringify(licenseStatus));
-const browser = await chromium.launch({ executablePath:'/snap/bin/chromium', headless:true, args:['--no-sandbox','--disable-dev-shm-usage'] });
+const browser = await chromium.launch({ executablePath:findChromiumExecutable(), headless:true, args:['--no-sandbox','--disable-dev-shm-usage'] });
 const errors = [];
 const heicBytes = await readFile(new URL('./fixtures/libheif-example.heic', import.meta.url));
 const heicFile = { name: 'example.heic', mimeType: 'image/heic', buffer: heicBytes };
@@ -43,13 +44,19 @@ async function inspectResult(page, index=0) {
     const c=document.createElement('canvas'); c.width=image.naturalWidth;c.height=image.naturalHeight;c.getContext('2d').drawImage(image,0,0);
     const pixel=[...c.getContext('2d').getImageData(Math.floor(c.width/2),Math.floor(c.height/2),1,1).data];
     const download=card.querySelector('a.download').download; const type=download.endsWith('.png')?'image/png':'image/jpeg';
-    return {type,size:1,width:c.width,height:c.height,pixel,previewComplete:image.complete,download};
+    const size=window.outputBlobSizes.get(image.src);
+    return {type,size,width:c.width,height:c.height,pixel,previewComplete:image.complete,download};
   });
 }
 try {
   const page=await browser.newPage({viewport:{width:1280,height:900}});
   const cspViolations=[]; await page.exposeFunction('recordCspViolation', event=>cspViolations.push(event));
-  await page.addInitScript(()=>document.addEventListener('securitypolicyviolation', event=>window.recordCspViolation({blockedURI:event.blockedURI,violatedDirective:event.violatedDirective})));
+  await page.addInitScript(()=>{
+    window.outputBlobSizes=new Map();
+    const createObjectURL=URL.createObjectURL.bind(URL);
+    URL.createObjectURL=(blob)=>{const url=createObjectURL(blob);window.outputBlobSizes.set(url,blob.size);return url};
+    document.addEventListener('securitypolicyviolation', event=>window.recordCspViolation({blockedURI:event.blockedURI,violatedDirective:event.violatedDirective}));
+  });
   page.on('pageerror', e=>errors.push(String(e)));
   const decoder=[]; const workerScripts=[]; const remoteRequests=[];
   page.on('request', r=>{const url=new URL(r.url());if(url.origin!==origin&&!['blob:','data:'].includes(url.protocol)) remoteRequests.push(r.url());if(r.url().includes('heic-to-1.5.2')) decoder.push(r.url());if(r.url().endsWith('/src/heic-worker.mjs')) workerScripts.push(r.url())});
