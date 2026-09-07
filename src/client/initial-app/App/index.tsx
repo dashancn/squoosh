@@ -15,6 +15,7 @@ import { CompressorHeicInput, HeicNotice } from '../heic-input.mjs';
 import { createHeicWorkerClient } from '../heic-worker-loader';
 
 const ROUTE_EDITOR = '/editor';
+const HEIC_NOTICE_AUTO_DISMISS_MS = 5000;
 
 const compressPromise = import('client/lazy-app/Compress');
 const swBridgePromise = import('client/lazy-app/sw-bridge');
@@ -45,6 +46,7 @@ export default class App extends Component<Props, State> {
 
   snackbar?: SnackBarElement;
   private heicInput: CompressorHeicInput;
+  private heicNoticeTimer?: number;
 
   constructor() {
     super();
@@ -52,8 +54,7 @@ export default class App extends Component<Props, State> {
     this.heicInput = new CompressorHeicInput({
       createWorkerClient: createHeicWorkerClient,
       openFile: this.openSelectedFile,
-      setNotice: (heicNotice: HeicNotice | undefined | null) =>
-        this.setState({ heicNotice: heicNotice || undefined }),
+      setNotice: this.setHeicNotice,
     });
 
     compressPromise
@@ -83,6 +84,49 @@ export default class App extends Component<Props, State> {
     });
 
     window.addEventListener('popstate', this.onPopState);
+  }
+
+  private pauseHeicNoticeDismiss = () => {
+    if (this.heicNoticeTimer === undefined) return;
+    window.clearTimeout(this.heicNoticeTimer);
+    this.heicNoticeTimer = undefined;
+  };
+
+  private resumeHeicNoticeDismiss = () => {
+    if (
+      this.heicNoticeTimer !== undefined ||
+      this.state.heicNotice?.kind !== 'success'
+    )
+      return;
+    this.heicNoticeTimer = window.setTimeout(
+      this.dismissHeicNotice,
+      HEIC_NOTICE_AUTO_DISMISS_MS,
+    );
+  };
+
+  private dismissHeicNotice = () => {
+    this.pauseHeicNoticeDismiss();
+    this.setState({ heicNotice: undefined });
+  };
+
+  private setHeicNotice = (heicNotice: HeicNotice | undefined | null) => {
+    if (this.heicNoticeTimer !== undefined) {
+      window.clearTimeout(this.heicNoticeTimer);
+      this.heicNoticeTimer = undefined;
+    }
+    this.setState({ heicNotice: heicNotice || undefined });
+    if (heicNotice?.kind === 'success') {
+      this.heicNoticeTimer = window.setTimeout(
+        this.dismissHeicNotice,
+        HEIC_NOTICE_AUTO_DISMISS_MS,
+      );
+    }
+  };
+
+  componentWillUnmount() {
+    if (this.heicNoticeTimer !== undefined)
+      window.clearTimeout(this.heicNoticeTimer);
+    window.removeEventListener('popstate', this.onPopState);
   }
 
   private onFileDrop = ({ files }: FileDropEvent) => {
@@ -143,7 +187,19 @@ export default class App extends Component<Props, State> {
               class={`${style.heicNotice} ${style[heicNotice.kind]}`}
               role="status"
               aria-live="polite"
+              onMouseEnter={this.pauseHeicNoticeDismiss}
+              onMouseLeave={this.resumeHeicNoticeDismiss}
+              onFocus={this.pauseHeicNoticeDismiss}
+              onBlur={this.resumeHeicNoticeDismiss}
             >
+              <button
+                type="button"
+                class={style.heicNoticeClose}
+                aria-label="关闭 HEIC 提示"
+                onClick={this.dismissHeicNotice}
+              >
+                ×
+              </button>
               <p>{heicNotice.message}</p>
               <p>
                 <a href="/heic-converter/">HEIC 解码许可说明</a>
