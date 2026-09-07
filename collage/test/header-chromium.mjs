@@ -1,4 +1,5 @@
 import { chromium } from '../../remove-background/node_modules/playwright-core/index.mjs';
+import { findChromiumExecutable } from '../../heic-converter/corresponding-source/rebuild/chromium-executable.mjs';
 import { createServer } from 'node:http';
 import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import { extname, join, normalize } from 'node:path';
@@ -20,7 +21,7 @@ const server = createServer(async (request, response) => {
 });
 await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
 const { port } = server.address();
-const browser = await chromium.launch({ executablePath: '/snap/bin/chromium', headless: true, args: ['--no-sandbox', '--disable-dev-shm-usage'] });
+const browser = await chromium.launch({ executablePath: findChromiumExecutable(), headless: true, args: ['--no-sandbox', '--disable-dev-shm-usage'] });
 const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
 const errors = [];
 page.on('pageerror', (error) => errors.push(String(error)));
@@ -73,5 +74,5 @@ const all = [...evidence.desktop, ...evidence.mobile];
 if (
   errors.length ||
   all.some((entry) => entry.brand !== entry.expectedBrand || entry.currentPresent || entry.targetBlankCount || !entry.bannerPresent || entry.detailsOpen !== false || Number(entry.hoverOpacity) < 0.9 || Number(entry.focusTip.opacity) < 0.9 || !entry.focusTip.content.includes('方案') || entry.focusTip.iPlanWidth < 72) ||
-  evidence.mobile.some((entry) => !entry.scrollable)
+  evidence.mobile.some((entry) => entry.scrollable)
 ) process.exitCode = 1;
