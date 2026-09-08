@@ -282,6 +282,18 @@ function exportResult() {
   return exportQueue;
 }
 
+async function runExport() {
+  try {
+    await exportResult();
+    return true;
+  } catch (error) {
+    status.textContent = `导出失败：${
+      error instanceof Error ? error.message : String(error)
+    }`;
+    return false;
+  }
+}
+
 function releaseActivePointer() {
   if (activePointer !== null) {
     try {
@@ -462,6 +474,10 @@ function stamp(point) {
     },
   );
   if (result.changed) {
+    if (!strokeChanged) {
+      renderOwnership.reviseMask();
+      downloadButton.disabled = true;
+    }
     strokeChanged = true;
     strokeBounds = mergeBounds(strokeBounds, result.bounds);
   }
@@ -526,9 +542,8 @@ async function finishStroke(event) {
   strokeBounds = null;
   strokeRecorder = null;
   if (changed) {
-    renderOwnership.reviseMask();
     updateEditorButtons();
-    await exportResult();
+    await runExport();
   }
   updateEditorButtons();
 }
@@ -547,7 +562,7 @@ undoButton.addEventListener('click', async () => {
   renderOwnership.reviseMask();
   updatePreviewBounds();
   updateEditorButtons();
-  await exportResult();
+  await runExport();
 });
 redoButton.addEventListener('click', async () => {
   if (!maskHistory?.canRedo()) return;
@@ -555,7 +570,7 @@ redoButton.addEventListener('click', async () => {
   renderOwnership.reviseMask();
   updatePreviewBounds();
   updateEditorButtons();
-  await exportResult();
+  await runExport();
 });
 resetMaskButton.addEventListener('click', async () => {
   if (!maskHistory) return;
@@ -563,7 +578,7 @@ resetMaskButton.addEventListener('click', async () => {
   renderOwnership.reviseMask();
   updatePreviewBounds();
   updateEditorButtons();
-  await exportResult();
+  await runExport();
 });
 backgroundOptions.addEventListener('change', () => {
   renderOwnership.reviseBackground();

@@ -99,6 +99,12 @@ test('处理中切换文件可重新开始，黑边中断笔划且历史按笔�
   assert.match(source, /strokeRecorder/);
   assert.match(source, /commitEntry/);
   assert.doesNotMatch(source, /maskHistory\?\.commit\(editMask\)/);
+  assert.match(
+    source,
+    /if \(!strokeChanged\)[\s\S]*renderOwnership\.reviseMask/,
+  );
+  assert.match(source, /runExport/);
+  assert.match(source, /导出失败/);
 });
 
 test('页面使用统一图片工具导航和 i41 生态入口', async () => {
