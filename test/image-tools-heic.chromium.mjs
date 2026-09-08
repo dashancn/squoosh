@@ -8,15 +8,13 @@ const root = path.resolve(new URL('..', import.meta.url).pathname);
 const build = path.join(root, 'build');
 const headerText = await readFile(path.join(build, '_headers'), 'utf8');
 const removalCsp = headerText.match(/Content-Security-Policy:\s*([^\n]+)/)?.[1];
-const heicCsp = headerText.match(/\/heic-converter\/\*\n\s+Content-Security-Policy:\s*([^\n]+)/)?.[1];
 const types = new Map([['.html','text/html'],['.js','text/javascript'],['.mjs','text/javascript'],['.css','text/css'],['.json','application/json'],['.wasm','application/wasm'],['.png','image/png']]);
 const server = createServer(async (request,response) => {
   try {
     const url = new URL(request.url,'http://x'); let pathname=decodeURIComponent(url.pathname); if(pathname.endsWith('/')) pathname+='index.html';
     const target=path.resolve(build,`.${pathname}`); assert.ok(target === build || target.startsWith(`${build}${path.sep}`));
     const headers={'content-type':types.get(path.extname(target))||'application/octet-stream','cross-origin-resource-policy':'same-origin'};
-    if(url.pathname.startsWith('/remove-background/')) Object.assign(headers,{'content-security-policy':removalCsp});
-    else if(url.pathname.startsWith('/heic-converter/')) Object.assign(headers,{'content-security-policy':heicCsp});
+    if(url.pathname.startsWith('/remove-background/') || url.pathname.startsWith('/heic-converter/')) Object.assign(headers,{'content-security-policy':removalCsp});
     response.writeHead(200,headers); response.end(await readFile(target));
   } catch { if (!response.headersSent) response.writeHead(404); response.end('not found'); }
 });

@@ -32,15 +32,20 @@ test('sensitive converter route loads no analytics and states its exact privacy 
   assert.match(html, /data-i41-site="heic-converter"/);
 });
 
-test('converter build emits a restrictive route-specific CSP without weakening other routes', async () => {
-  const buildScript = await read('heic-converter/build.mjs');
-  assert.match(buildScript, /resolve\(destination, '_headers'\)/);
-  assert.match(buildScript, /resolve\(destination, '\.\.\/_headers'\)/);
-  assert.match(buildScript, /default-src 'self'/);
-  assert.match(buildScript, /script-src 'self'/);
-  assert.match(buildScript, /worker-src 'self' blob:/);
-  assert.match(buildScript, /img-src 'self' data: blob:/);
-  assert.match(buildScript, /connect-src 'none'/);
+test('converter build relies on the single compatible root CSP without appending a duplicate policy', async () => {
+  const [buildScript, rootHeaders] = await Promise.all([
+    read('heic-converter/build.mjs'),
+    read('src/static-build/index.tsx'),
+  ]);
+  assert.doesNotMatch(buildScript, /resolve\(destination, '_headers'\)/);
+  assert.doesNotMatch(buildScript, /resolve\(destination, '\.\.\/_headers'\)/);
+  assert.doesNotMatch(buildScript, /Content-Security-Policy/);
+  assert.match(
+    rootHeaders,
+    /script-src 'self' blob: 'wasm-unsafe-eval' 'unsafe-eval'/,
+  );
+  assert.match(rootHeaders, /worker-src 'self' blob:/);
+  assert.doesNotMatch(rootHeaders, /Cross-Origin-Embedder-Policy/);
 });
 
 test('LGPL notice is visible and distribution includes pinned corresponding-source materials', async () => {

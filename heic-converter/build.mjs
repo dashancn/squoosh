@@ -1,4 +1,4 @@
-import { cp, mkdir, rm, readFile, writeFile } from 'node:fs/promises';
+import { cp, mkdir, rm } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { build } from 'esbuild';
@@ -20,7 +20,6 @@ await Promise.all([
   cp(resolve(dependency, 'README.md'), resolve(thirdParty, 'heic-to-1.5.2.README.md')),
   cp(resolve(dependency, 'package.json'), resolve(thirdParty, 'heic-to-1.5.2.package.json')),
   cp(resolve(dependency, 'esbuild.mjs'), resolve(thirdParty, 'heic-to-1.5.2.esbuild.mjs')),
-  writeFile(resolve(destination, '_headers'), `/heic-converter/*\n  Content-Security-Policy: default-src 'self'; script-src 'self'; worker-src 'self' blob:; img-src 'self' data: blob:; style-src 'self'; connect-src 'none'; object-src 'none'; base-uri 'self'; form-action 'none'; frame-ancestors 'none'\n  Referrer-Policy: no-referrer\n  X-Content-Type-Options: nosniff\n`),
   cp(resolve(correspondingSource, 'CORRESPONDING-SOURCE.md'), resolve(thirdParty, 'BUILD-AND-RELINK.md')),
 ]);
 await build({
@@ -33,11 +32,3 @@ await build({
   target: 'es2022',
   external: ['fs', 'path', 'crypto'],
 });
-
-const rootHeadersPath = resolve(destination, '../_headers');
-const routeHeaders = `/heic-converter/*\n  Content-Security-Policy: default-src 'self'; script-src 'self'; worker-src 'self' blob:; img-src 'self' data: blob:; style-src 'self'; connect-src 'none'; object-src 'none'; base-uri 'self'; form-action 'none'; frame-ancestors 'none'\n  Referrer-Policy: no-referrer\n  X-Content-Type-Options: nosniff\n`;
-let rootHeaders = '';
-try { rootHeaders = await readFile(rootHeadersPath, 'utf8'); } catch {}
-const marker = '/heic-converter/*';
-const beforeRoute = rootHeaders.includes(marker) ? rootHeaders.slice(0, rootHeaders.indexOf(marker)).trimEnd() : rootHeaders.trimEnd();
-await writeFile(rootHeadersPath, `${beforeRoute}\n\n${routeHeaders}`);

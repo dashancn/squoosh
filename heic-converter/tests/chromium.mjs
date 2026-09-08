@@ -9,7 +9,7 @@ const root = path.resolve(new URL('../..', import.meta.url).pathname);
 const build = path.join(root, 'build');
 const types = new Map([['.html','text/html'],['.js','text/javascript'],['.mjs','text/javascript'],['.css','text/css'],['.txt','text/plain'],['.json','application/json']]);
 const headerText = await readFile(path.join(build, '_headers'), 'utf8');
-const csp = headerText.match(/\/heic-converter\/\*\n\s+Content-Security-Policy:\s*([^\n]+)/)?.[1];
+const csp = headerText.match(/Content-Security-Policy:\s*([^\n]+)/)?.[1];
 assert.ok(csp, 'generated production CSP header missing');
 const server = createServer(async (request, response) => {
   try {
