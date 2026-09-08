@@ -78,36 +78,46 @@ async function verifyCase(pathname, width) {
         itemTops: [...element.children].map(
           (item) => item.getBoundingClientRect().top,
         ),
+        itemStyles: [...element.children].map((item) => {
+          const itemStyle = getComputedStyle(item);
+          return {
+            fontFamily: itemStyle.fontFamily,
+            fontSize: itemStyle.fontSize,
+            fontWeight: itemStyle.fontWeight,
+            paddingTop: itemStyle.paddingTop,
+            paddingRight: itemStyle.paddingRight,
+            paddingBottom: itemStyle.paddingBottom,
+            paddingLeft: itemStyle.paddingLeft,
+            borderRadius: itemStyle.borderRadius,
+            iPlan: item.textContent.trim() === 'i方案',
+          };
+        }),
       };
     });
     assert.equal(layout.scrollWidth, layout.documentWidth, '页面横向溢出');
     assert.notEqual(layout.navOverflowX, 'auto');
     assert.notEqual(layout.navOverflowX, 'scroll');
     assert.equal(layout.navFlexWrap, 'wrap');
-    const expectedJustify =
-      width === 375 && ['/', '/heic-converter/'].includes(pathname)
-        ? 'flex-start'
-        : 'flex-end';
-    assert.equal(layout.navJustify, expectedJustify);
+    assert.equal(layout.navJustify, 'flex-end');
     assert.equal(
       layout.navScrollWidth,
       layout.navClientWidth,
       '导航仍可横向滚动',
     );
-    if (expectedJustify === 'flex-end')
-      assert.ok(
-        Math.abs(layout.navRight - layout.lastRight) <= 1,
-        '菜单未靠右',
-      );
-    else {
-      const firstLeft = await nav
-        .locator('a')
-        .first()
-        .evaluate((item) => item.getBoundingClientRect().left);
-      const navLeft = await nav.evaluate(
-        (item) => item.getBoundingClientRect().left,
-      );
-      assert.ok(Math.abs(firstLeft - navLeft) <= 1, '移动菜单未从左侧自然换行');
+    assert.ok(Math.abs(layout.navRight - layout.lastRight) <= 1, '菜单未靠右');
+    for (const item of layout.itemStyles) {
+      assert.match(item.fontFamily, /Inter/);
+      assert.match(item.fontFamily, /PingFang SC/);
+      assert.match(item.fontFamily, /Microsoft YaHei/);
+      assert.equal(item.fontSize, width === 375 ? '12px' : '13px');
+      assert.equal(item.fontWeight, item.iPlan ? '800' : '650');
+      assert.equal(item.paddingTop, '7px');
+      assert.equal(item.paddingBottom, '7px');
+      if (!item.iPlan) {
+        assert.equal(item.paddingRight, '8px');
+        assert.equal(item.paddingLeft, '8px');
+        assert.equal(item.borderRadius, '8px');
+      }
     }
     if (width === 1280)
       assert.equal(new Set(layout.itemTops).size, 1, '桌面导航不是单行');

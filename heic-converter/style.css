@@ -59,18 +59,20 @@ body {
   padding: 7px 8px;
   border-radius: 8px;
   white-space: nowrap;
+  font-family: Inter, 'PingFang SC', 'Microsoft YaHei', sans-serif;
   font-size: 13px;
   font-weight: 650;
 }
-.i-plan-nav {
+.tool-nav a.i-plan-nav {
   min-width: 72px;
-  padding: 7px 14px !important;
+  padding: 7px 14px;
   background: #1769e0;
-  color: #fff !important;
-  border-radius: 9px !important;
+  color: #fff;
+  border-radius: 9px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  font-weight: 800;
 }
 .privacy-badge {
   font-size: 12px;
@@ -432,7 +434,10 @@ body.lightbox-open {
   .tool-nav {
     flex-basis: 100%;
     margin-left: 0;
-    justify-content: flex-start;
+    justify-content: flex-end;
+  }
+  .tool-nav a {
+    font-size: 12px;
   }
   .i-plan-banner {
     margin: 16px;
@@ -489,7 +494,7 @@ body.lightbox-open {
   }
   .tool-nav a {
     font-size: 12px;
-    padding: 5px;
+    padding: 7px 8px;
   }
   .results-head div {
     display: flex;

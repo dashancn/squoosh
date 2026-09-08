@@ -406,7 +406,7 @@
     flex-basis: 100%;
     flex: 0 0 100%;
     margin-left: 0;
-    justify-content: flex-start;
+    justify-content: flex-end;
   }
 
   .ecosystem {
@@ -550,9 +550,11 @@
 .current-tool,
 .tool-link {
   position: relative;
-  padding: 8px 9px;
+  padding: 7px 8px;
   border-radius: 8px;
-  font-size: 1.3rem;
+  font-family: Inter, 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  font-size: 13px;
+  font-weight: 650;
 }
 .current-tool {
   color: white;
@@ -563,7 +565,9 @@
   align-items: center;
   justify-content: center;
   min-width: 72px;
+  padding-top: 7px;
   padding-right: 15px;
+  padding-bottom: 7px;
   padding-left: 15px;
   text-align: center;
   color: white;
@@ -582,6 +586,10 @@
   margin: 1.6rem auto;
 }
 @media (max-width: 760px) {
+  .current-tool,
+  .tool-link {
+    font-size: 12px;
+  }
   .i-plan-banner {
     width: calc(100% - 3.2rem);
   }

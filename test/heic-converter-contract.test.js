@@ -209,7 +209,7 @@ test('converter mobile header contains menu before the i方案 banner', async ()
   );
   assert.match(
     css,
-    /@media\s*\(max-width:\s*700px\)[\s\S]*?\.tool-nav\s*\{[^}]*flex-basis:\s*100%[^}]*justify-content:\s*flex-start/,
+    /@media\s*\(max-width:\s*700px\)[\s\S]*?\.tool-nav\s*\{[^}]*flex-basis:\s*100%[^}]*justify-content:\s*flex-end/,
   );
   assert.match(
     css,

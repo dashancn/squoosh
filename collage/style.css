@@ -1,7 +1,6 @@
 :root {
   color-scheme: light;
-  font-family: Inter, ui-sans-serif, system-ui, -apple-system,
-    BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-family: Inter, 'PingFang SC', 'Microsoft YaHei', sans-serif;
   color: #172033;
   background: #f5f7fb;
   font-synthesis: none;
@@ -62,10 +61,11 @@ a {
 }
 
 .tool-nav a {
-  padding: 9px 12px;
-  border-radius: 9px;
+  padding: 7px 8px;
+  border-radius: 8px;
   color: #59647a;
-  font-size: 0.92rem;
+  font-family: Inter, 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  font-size: 13px;
   font-weight: 650;
   text-decoration: none;
   white-space: nowrap;
@@ -560,7 +560,7 @@ button:disabled {
 }
 .tool-nav a {
   position: relative;
-  padding: 8px 9px;
+  padding: 7px 8px;
   border-radius: 8px;
   white-space: nowrap;
 }
@@ -573,7 +573,9 @@ button:disabled {
   align-items: center;
   justify-content: center;
   min-width: 72px;
+  padding-top: 7px;
   padding-right: 15px;
+  padding-bottom: 7px;
   padding-left: 15px;
   text-align: center;
   color: white;
@@ -675,6 +677,9 @@ button:disabled {
 @media (max-width: 760px) {
   .privacy-badge {
     margin-left: auto;
+  }
+  .tool-nav a {
+    font-size: 12px;
   }
   .i-plan-banner {
     align-items: flex-start;
