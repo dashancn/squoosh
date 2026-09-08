@@ -62,6 +62,25 @@
             <label><input type="radio" name="background" value="red" />红色</label>
           </fieldset>
 
+          <fieldset id="mask-editor-controls" class="mask-editor" disabled>
+            <legend>主体蒙版精修</legend>
+            <p>在右侧图片上涂抹。擦除会隐藏主体，恢复会从原图找回。</p>
+            <div class="mode-buttons" role="group" aria-label="蒙版画笔模式">
+              <button id="erase-mode" class="tool-button active" type="button" aria-pressed="true" aria-label="擦除主体蒙版">擦除</button>
+              <button id="restore-mode" class="tool-button" type="button" aria-pressed="false" aria-label="恢复原图像素">恢复</button>
+            </div>
+            <label class="brush-control" for="brush-size">
+              <span>画笔大小</span>
+              <input id="brush-size" type="range" min="4" max="160" value="36" />
+              <output id="brush-size-output" for="brush-size">36 px</output>
+            </label>
+            <div class="history-buttons">
+              <button id="undo-button" class="tool-button" type="button" disabled aria-label="撤销上一次蒙版精修">撤销</button>
+              <button id="redo-button" class="tool-button" type="button" disabled aria-label="重做上一次蒙版精修">重做</button>
+              <button id="reset-mask-button" class="tool-button" type="button" disabled aria-label="重置为 AI 抠图结果">重置</button>
+            </div>
+          </fieldset>
+
           <button id="download-button" class="secondary" type="button" disabled>下载 PNG</button>
         </div>
 

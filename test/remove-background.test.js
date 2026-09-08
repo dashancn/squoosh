@@ -34,6 +34,40 @@ test('独立抠图页面提供完整操作且不使用 iframe 或工作区跳转
   assert.match(source, /image\/png/);
 });
 
+test('抠图结果提供触控友好的蒙版精修控制且导出使用编辑结果', async () => {
+  const [html, source, style] = await Promise.all([
+    read('remove-background/index.html'),
+    read('remove-background/src/main.js'),
+    read('remove-background/src/style.css'),
+  ]);
+  for (const id of [
+    'mask-editor-controls',
+    'erase-mode',
+    'restore-mode',
+    'brush-size',
+    'brush-size-output',
+    'undo-button',
+    'redo-button',
+    'reset-mask-button',
+  ]) {
+    assert.match(html, new RegExp(`id="${id}"`));
+  }
+  assert.match(
+    html,
+    /aria-pressed="true"[^>]*>擦除|id="erase-mode"[^>]*aria-pressed="true"/,
+  );
+  assert.match(html, /恢复/);
+  assert.match(source, /pointerdown/);
+  assert.match(source, /pointermove/);
+  assert.match(source, /setPointerCapture/);
+  assert.match(source, /toSourcePoint/);
+  assert.match(source, /interpolateStroke/);
+  assert.match(source, /createMaskHistory/);
+  assert.match(style, /#preview[^}]*touch-action:\s*none/s);
+  assert.match(style, /min-height:\s*44px/);
+  assert.match(style, /@media \(max-width:\s*760px\)/);
+});
+
 test('页面使用统一图片工具导航和 i41 生态入口', async () => {
   const html = await read('remove-background/index.html');
   for (const [label, href] of requiredNav) {

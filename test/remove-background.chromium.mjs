@@ -94,6 +94,45 @@ try {
   assert.equal(page.url(), initialUrl, 'processing must not navigate');
   assert.equal(await page.locator('iframe').count(), 0);
 
+  await page.locator('#preview').scrollIntoViewIfNeeded();
+  const editorBaseline = await page.locator('#preview').evaluate((canvas) => {
+    const x = Math.floor(canvas.width / 2);
+    const y = Math.floor(canvas.height / 2);
+    return [...canvas.getContext('2d').getImageData(x, y, 1, 1).data];
+  });
+  const box = await page.locator('#preview').boundingBox();
+  const canvasSize = await page.locator('#preview').evaluate((canvas) => ({ width: canvas.width, height: canvas.height }));
+  const scale = Math.min(box.width / canvasSize.width, box.height / canvasSize.height);
+  const drawnWidth = canvasSize.width * scale;
+  const drawnHeight = canvasSize.height * scale;
+  const drawLeft = box.x + (box.width - drawnWidth) / 2;
+  const drawTop = box.y + (box.height - drawnHeight) / 2;
+  const centerX = drawLeft + drawnWidth / 2;
+  const centerY = drawTop + drawnHeight / 2;
+  await page.mouse.move(centerX, centerY);
+  await page.mouse.down();
+  await page.mouse.move(centerX + 24, centerY, { steps: 8 });
+  await page.mouse.up();
+  await page.waitForFunction((baseline) => {
+    const canvas = document.querySelector('#preview');
+    return canvas.getContext('2d').getImageData(Math.floor(canvas.width / 2), Math.floor(canvas.height / 2), 1, 1).data[3] < baseline;
+  }, editorBaseline[3]);
+  const erased = await page.locator('#preview').evaluate((canvas) => [...canvas.getContext('2d').getImageData(Math.floor(canvas.width / 2), Math.floor(canvas.height / 2), 1, 1).data]);
+  assert.ok(erased[3] < editorBaseline[3], `erase did not reduce alpha: ${editorBaseline[3]} -> ${erased[3]}`);
+  await page.click('#undo-button');
+  const undone = await page.locator('#preview').evaluate((canvas) => [...canvas.getContext('2d').getImageData(Math.floor(canvas.width / 2), Math.floor(canvas.height / 2), 1, 1).data]);
+  assert.equal(undone[3], editorBaseline[3]);
+  await page.click('#redo-button');
+  const redone = await page.locator('#preview').evaluate((canvas) => [...canvas.getContext('2d').getImageData(Math.floor(canvas.width / 2), Math.floor(canvas.height / 2), 1, 1).data]);
+  assert.equal(redone[3], erased[3]);
+  await page.click('#restore-mode');
+  await page.mouse.click(centerX, centerY);
+  const restored = await page.locator('#preview').evaluate((canvas) => [...canvas.getContext('2d').getImageData(Math.floor(canvas.width / 2), Math.floor(canvas.height / 2), 1, 1).data]);
+  assert.ok(restored[3] > erased[3]);
+  await page.click('#reset-mask-button');
+  const reset = await page.locator('#preview').evaluate((canvas) => [...canvas.getContext('2d').getImageData(Math.floor(canvas.width / 2), Math.floor(canvas.height / 2), 1, 1).data]);
+  assert.equal(reset[3], editorBaseline[3]);
+
   await page.check('input[name="background"][value="blue"]');
   const exportResult = await page.evaluate(async () => {
     const canvas = document.querySelector('#preview');
