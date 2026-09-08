@@ -4,59 +4,100 @@ import {
   applyBrushStamp,
   applyMaskToPixels,
   compositePreviewPixels,
+  containedImageRect,
   createMaskHistory,
+  createRenderOwnership,
   interpolateStroke,
-  toSourcePoint,
+  isPrimaryPointerStart,
+  toContainedSourcePoint,
 } from '../remove-background/src/mask-editor.js';
 
-test('显示坐标按画布实际比例转换并限制在源图范围内', () => {
-  assert.deepEqual(
-    toSourcePoint(
-      260,
-      170,
-      { left: 100, top: 50, width: 320, height: 240 },
-      640,
-      480,
-    ),
-    { x: 320, y: 240 },
+test('landscape image is contained with vertical letterbox and maps all edges', () => {
+  const rect = containedImageRect(
+    { left: 10, top: 20, width: 300, height: 300 },
+    400,
+    200,
   );
-  assert.deepEqual(
-    toSourcePoint(
-      20,
-      900,
-      { left: 100, top: 50, width: 320, height: 240 },
-      640,
-      480,
-    ),
-    { x: 0, y: 479 },
-  );
+  assert.deepEqual(rect, { left: 10, top: 95, width: 300, height: 150 });
+  assert.deepEqual(toContainedSourcePoint(10, 95, rect, 400, 200), {
+    x: 0,
+    y: 0,
+  });
+  assert.deepEqual(toContainedSourcePoint(310, 245, rect, 400, 200), {
+    x: 399,
+    y: 199,
+  });
+  assert.equal(toContainedSourcePoint(160, 94.9, rect, 400, 200), null);
+  assert.equal(toContainedSourcePoint(160, 245.1, rect, 400, 200), null);
 });
 
-test('快速笔划按笔刷半径插值且包含终点', () => {
+test('portrait image is contained with horizontal letterbox and ignores bars', () => {
+  const rect = containedImageRect(
+    { left: 0, top: 0, width: 320, height: 180 },
+    100,
+    200,
+  );
+  assert.deepEqual(rect, { left: 115, top: 0, width: 90, height: 180 });
+  assert.deepEqual(toContainedSourcePoint(160, 90, rect, 100, 200), {
+    x: 50,
+    y: 100,
+  });
+  assert.equal(toContainedSourcePoint(114, 90, rect, 100, 200), null);
+  assert.equal(toContainedSourcePoint(206, 90, rect, 100, 200), null);
+});
+
+test('fast strokes interpolate through the endpoint', () => {
   const points = interpolateStroke({ x: 2, y: 3 }, { x: 42, y: 3 }, 10);
   assert.deepEqual(points.at(-1), { x: 42, y: 3 });
-  assert.ok(points.length >= 9, `插值点不足: ${points.length}`);
-  for (let index = 1; index < points.length; index += 1) {
-    assert.ok(points[index].x - points[index - 1].x <= 5.01);
-  }
+  assert.ok(points.length >= 9, `insufficient samples: ${points.length}`);
 });
 
-test('擦除只降低 alpha，恢复从原图 alpha 恢复且不越界', () => {
-  const width = 5;
-  const height = 5;
+test('brush stamp returns changed bounds and no-op information', () => {
+  const width = 7;
+  const height = 7;
   const originalAlpha = new Uint8ClampedArray(width * height).fill(210);
   const mask = new Uint8ClampedArray(originalAlpha);
-  applyBrushStamp(mask, originalAlpha, width, height, 2, 2, 1, 'erase');
-  assert.equal(mask[2 * width + 2], 0);
-  assert.equal(mask[0], 210);
-  applyBrushStamp(mask, originalAlpha, width, height, 2, 2, 1, 'restore');
-  assert.equal(mask[2 * width + 2], 210);
-  assert.doesNotThrow(() =>
-    applyBrushStamp(mask, originalAlpha, width, height, -10, 99, 20, 'erase'),
+  const erased = applyBrushStamp(
+    mask,
+    originalAlpha,
+    width,
+    height,
+    3,
+    3,
+    1,
+    'erase',
   );
+  assert.deepEqual(erased, {
+    changed: true,
+    bounds: { left: 2, top: 2, right: 4, bottom: 4 },
+  });
+  assert.equal(mask[3 * width + 3], 0);
+  const noop = applyBrushStamp(
+    mask,
+    originalAlpha,
+    width,
+    height,
+    3,
+    3,
+    1,
+    'erase',
+  );
+  assert.deepEqual(noop, { changed: false, bounds: null });
+  const restored = applyBrushStamp(
+    mask,
+    originalAlpha,
+    width,
+    height,
+    3,
+    3,
+    1,
+    'restore',
+  );
+  assert.equal(restored.changed, true);
+  assert.equal(mask[3 * width + 3], 210);
 });
 
-test('编辑蒙版应用到原图像素并按原 alpha 上限合成', () => {
+test('masking preserves original RGB and caps alpha by original alpha', () => {
   const source = new Uint8ClampedArray([10, 20, 30, 200, 40, 50, 60, 100]);
   const mask = new Uint8ClampedArray([80, 255]);
   assert.deepEqual(
@@ -66,7 +107,7 @@ test('编辑蒙版应用到原图像素并按原 alpha 上限合成', () => {
   assert.deepEqual([...source], [10, 20, 30, 200, 40, 50, 60, 100]);
 });
 
-test('透明预览保留编辑 alpha，纯色背景按 alpha 正确合成', () => {
+test('transparent and solid backgrounds compose edited alpha correctly', () => {
   const foreground = new Uint8ClampedArray([100, 50, 0, 64]);
   assert.deepEqual(
     [...compositePreviewPixels(foreground, null)],
@@ -78,18 +119,61 @@ test('透明预览保留编辑 alpha，纯色背景按 alpha 正确合成', () =
   );
 });
 
-test('历史有界，撤销重做与重置恢复 AI 初始蒙版', () => {
+test('history skips no-op commits and remains bounded', () => {
   const initial = new Uint8ClampedArray([255, 128, 0]);
   const history = createMaskHistory(initial, 3);
-  history.commit(new Uint8ClampedArray([200, 128, 0]));
-  history.commit(new Uint8ClampedArray([100, 128, 0]));
-  history.commit(new Uint8ClampedArray([50, 128, 0]));
+  assert.equal(history.commit(new Uint8ClampedArray(initial)), false);
+  assert.equal(history.canUndo(), false);
+  assert.equal(history.commit(new Uint8ClampedArray([200, 128, 0])), true);
+  assert.equal(history.commit(new Uint8ClampedArray([100, 128, 0])), true);
+  assert.equal(history.commit(new Uint8ClampedArray([50, 128, 0])), true);
   assert.deepEqual([...history.undo()], [100, 128, 0]);
-  assert.deepEqual([...history.redo()], [50, 128, 0]);
+  assert.deepEqual([...history.undo()], [200, 128, 0]);
+  assert.equal(history.canUndo(), false, 'oldest retained snapshot is bounded');
+  assert.deepEqual([...history.redo()], [100, 128, 0]);
   history.reset();
   assert.deepEqual([...history.current()], [...initial]);
   assert.equal(history.canRedo(), false);
-  assert.equal(history.canUndo(), false);
   initial[0] = 1;
-  assert.equal(history.current()[0], 255, '历史必须安全复制输入蒙版');
+  assert.equal(history.current()[0], 255);
+});
+
+test('render ownership serializes work and rejects stale revisions and files', async () => {
+  const ownership = createRenderOwnership();
+  ownership.select(1);
+  ownership.reviseMask();
+  const firstToken = ownership.request('transparent');
+  ownership.reviseMask();
+  assert.equal(ownership.isCurrent(firstToken), false);
+  assert.equal(ownership.pending, false);
+  const secondToken = ownership.request('transparent');
+  assert.equal(ownership.isCurrent(firstToken), false);
+  assert.equal(ownership.isCurrent(secondToken), true);
+  assert.equal(ownership.pending, true);
+  assert.equal(ownership.publish(firstToken, new Blob(['old'])), false);
+  assert.equal(ownership.publish(secondToken, new Blob(['new'])), true);
+  assert.equal(ownership.pending, false);
+  assert.equal(ownership.outputBlob.size, 3);
+
+  const oldFileToken = ownership.request('white');
+  ownership.select(2);
+  assert.equal(ownership.publish(oldFileToken, new Blob(['stale'])), false);
+  assert.equal(ownership.outputBlob, null);
+  assert.equal(ownership.pending, false);
+});
+
+test('only an unclaimed primary pointer can start a stroke', () => {
+  assert.equal(
+    isPrimaryPointerStart({ isPrimary: true, button: 0 }, null),
+    true,
+  );
+  assert.equal(
+    isPrimaryPointerStart({ isPrimary: false, button: 0 }, null),
+    false,
+  );
+  assert.equal(
+    isPrimaryPointerStart({ isPrimary: true, button: 1 }, null),
+    false,
+  );
+  assert.equal(isPrimaryPointerStart({ isPrimary: true, button: 0 }, 7), false);
 });

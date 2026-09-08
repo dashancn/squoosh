@@ -1,10 +1,51 @@
 const clamp = (value, minimum, maximum) =>
   Math.max(minimum, Math.min(maximum, value));
 
-export function toSourcePoint(clientX, clientY, rect, width, height) {
+export function containedImageRect(box, sourceWidth, sourceHeight) {
+  if (
+    box.width <= 0 ||
+    box.height <= 0 ||
+    sourceWidth <= 0 ||
+    sourceHeight <= 0
+  )
+    return null;
+  const scale = Math.min(box.width / sourceWidth, box.height / sourceHeight);
+  const width = sourceWidth * scale;
+  const height = sourceHeight * scale;
   return {
-    x: clamp(((clientX - rect.left) / rect.width) * width, 0, width - 1),
-    y: clamp(((clientY - rect.top) / rect.height) * height, 0, height - 1),
+    left: box.left + (box.width - width) / 2,
+    top: box.top + (box.height - height) / 2,
+    width,
+    height,
+  };
+}
+
+export function toContainedSourcePoint(
+  clientX,
+  clientY,
+  imageRect,
+  width,
+  height,
+) {
+  if (
+    !imageRect ||
+    clientX < imageRect.left ||
+    clientY < imageRect.top ||
+    clientX > imageRect.left + imageRect.width ||
+    clientY > imageRect.top + imageRect.height
+  )
+    return null;
+  return {
+    x: clamp(
+      ((clientX - imageRect.left) / imageRect.width) * width,
+      0,
+      width - 1,
+    ),
+    y: clamp(
+      ((clientY - imageRect.top) / imageRect.height) * height,
+      0,
+      height - 1,
+    ),
   };
 }
 
@@ -37,16 +78,35 @@ export function applyBrushStamp(
   const startY = clamp(Math.floor(centerY - safeRadius), 0, height - 1);
   const endY = clamp(Math.ceil(centerY + safeRadius), 0, height - 1);
   const radiusSquared = safeRadius * safeRadius;
+  let changed = false;
 
   for (let y = startY; y <= endY; y += 1) {
     for (let x = startX; x <= endX; x += 1) {
-      const distanceSquared = (x - centerX) ** 2 + (y - centerY) ** 2;
-      if (distanceSquared > radiusSquared) continue;
+      if ((x - centerX) ** 2 + (y - centerY) ** 2 > radiusSquared) continue;
       const index = y * width + x;
-      mask[index] = mode === 'restore' ? originalAlpha[index] : 0;
+      const next = mode === 'restore' ? originalAlpha[index] : 0;
+      if (mask[index] === next) continue;
+      mask[index] = next;
+      changed = true;
     }
   }
-  return mask;
+  return {
+    changed,
+    bounds: changed
+      ? { left: startX, top: startY, right: endX, bottom: endY }
+      : null,
+  };
+}
+
+export function mergeBounds(first, second) {
+  if (!first) return second;
+  if (!second) return first;
+  return {
+    left: Math.min(first.left, second.left),
+    top: Math.min(first.top, second.top),
+    right: Math.max(first.right, second.right),
+    bottom: Math.max(first.bottom, second.bottom),
+  };
 }
 
 export function applyMaskToPixels(sourcePixels, mask) {
@@ -81,34 +141,137 @@ export function compositePreviewPixels(foregroundPixels, background) {
   return output;
 }
 
+export function isPrimaryPointerStart(event, activePointer) {
+  return activePointer === null && event.isPrimary && event.button === 0;
+}
+
 export function createMaskHistory(initialMask, limit = 20) {
   const initial = new Uint8ClampedArray(initialMask);
-  let snapshots = [new Uint8ClampedArray(initial)];
+  let current = new Uint8ClampedArray(initial);
+  const maximum = Math.max(0, limit - 1);
+  let entries = [];
   let position = 0;
 
+  const applyEntry = (entry, values) => {
+    for (let index = 0; index < entry.indices.length; index += 1)
+      current[entry.indices[index]] = values[index];
+  };
+
   return {
-    current: () => new Uint8ClampedArray(snapshots[position]),
+    current: () => new Uint8ClampedArray(current),
     canUndo: () => position > 0,
-    canRedo: () => position < snapshots.length - 1,
+    canRedo: () => position < entries.length,
     commit(mask) {
-      snapshots = snapshots.slice(0, position + 1);
-      snapshots.push(new Uint8ClampedArray(mask));
-      if (snapshots.length > Math.max(2, limit)) snapshots.shift();
-      position = snapshots.length - 1;
-      return this.current();
+      const indices = [];
+      const before = [];
+      const after = [];
+      for (let index = 0; index < mask.length; index += 1) {
+        if (current[index] === mask[index]) continue;
+        indices.push(index);
+        before.push(current[index]);
+        after.push(mask[index]);
+      }
+      if (!indices.length) return false;
+      entries = entries.slice(0, position);
+      entries.push({
+        indices: Uint32Array.from(indices),
+        before: Uint8ClampedArray.from(before),
+        after: Uint8ClampedArray.from(after),
+      });
+      current = new Uint8ClampedArray(mask);
+      if (entries.length > maximum) entries.shift();
+      position = entries.length;
+      return true;
     },
     undo() {
-      if (position > 0) position -= 1;
+      if (position > 0) {
+        position -= 1;
+        applyEntry(entries[position], entries[position].before);
+      }
       return this.current();
     },
     redo() {
-      if (position < snapshots.length - 1) position += 1;
+      if (position < entries.length) {
+        applyEntry(entries[position], entries[position].after);
+        position += 1;
+      }
       return this.current();
     },
     reset() {
-      snapshots = [new Uint8ClampedArray(initial)];
+      current = new Uint8ClampedArray(initial);
+      entries = [];
       position = 0;
       return this.current();
     },
+    clear() {
+      initial.fill(0);
+      current.fill(0);
+      entries = [];
+      position = 0;
+    },
   };
+}
+
+export function createRenderOwnership() {
+  let fileVersion = 0;
+  let maskRevision = 0;
+  let backgroundRevision = 0;
+  let requestId = 0;
+  let currentToken = null;
+
+  const api = {
+    outputBlob: null,
+    pending: false,
+    select(version) {
+      fileVersion = version;
+      maskRevision = 0;
+      backgroundRevision = 0;
+      requestId += 1;
+      currentToken = null;
+      api.outputBlob = null;
+      api.pending = false;
+    },
+    reviseMask() {
+      maskRevision += 1;
+      requestId += 1;
+      currentToken = null;
+      api.outputBlob = null;
+      api.pending = false;
+    },
+    reviseBackground() {
+      backgroundRevision += 1;
+      requestId += 1;
+      currentToken = null;
+      api.outputBlob = null;
+      api.pending = false;
+    },
+    request(background) {
+      currentToken = Object.freeze({
+        fileVersion,
+        maskRevision,
+        backgroundRevision,
+        background,
+        requestId: ++requestId,
+      });
+      api.outputBlob = null;
+      api.pending = true;
+      return currentToken;
+    },
+    isCurrent(token) {
+      return token === currentToken;
+    },
+    publish(token, blob) {
+      if (!api.isCurrent(token)) return false;
+      api.outputBlob = blob;
+      api.pending = false;
+      return true;
+    },
+    fail(token) {
+      if (!api.isCurrent(token)) return false;
+      api.outputBlob = null;
+      api.pending = false;
+      return true;
+    },
+  };
+  return api;
 }

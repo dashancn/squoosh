@@ -64,7 +64,7 @@
 
           <fieldset id="mask-editor-controls" class="mask-editor" disabled>
             <legend>主体蒙版精修</legend>
-            <p>在右侧图片上涂抹。擦除会隐藏主体，恢复会从原图找回。</p>
+            <p id="mask-editor-help">在右侧图片上涂抹。擦除会隐藏主体，恢复会从原图找回；图片显示区域的黑边外涂抹不会修改图片。</p>
             <div class="mode-buttons" role="group" aria-label="蒙版画笔模式">
               <button id="erase-mode" class="tool-button active" type="button" aria-pressed="true" aria-label="擦除主体蒙版">擦除</button>
               <button id="restore-mode" class="tool-button" type="button" aria-pressed="false" aria-label="恢复原图像素">恢复</button>
@@ -85,7 +85,7 @@
         </div>
 
         <div class="preview-panel">
-          <canvas id="preview" width="720" height="480" aria-label="抠图结果预览"></canvas>
+          <canvas id="preview" width="720" height="480" aria-label="抠图结果预览与蒙版手工精修画布" aria-describedby="mask-editor-help"></canvas>
           <p id="preview-empty">选择图片后可在此预览；不会自动跳转到其他页面。</p>
         </div>
       </section>

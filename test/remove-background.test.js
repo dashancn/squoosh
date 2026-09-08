@@ -60,12 +60,35 @@ test('抠图结果提供触控友好的蒙版精修控制且导出使用编辑�
   assert.match(source, /pointerdown/);
   assert.match(source, /pointermove/);
   assert.match(source, /setPointerCapture/);
-  assert.match(source, /toSourcePoint/);
+  assert.match(source, /containedImageRect/);
+  assert.match(source, /toContainedSourcePoint/);
   assert.match(source, /interpolateStroke/);
   assert.match(source, /createMaskHistory/);
+  assert.match(source, /createRenderOwnership/);
   assert.match(style, /#preview[^}]*touch-action:\s*none/s);
   assert.match(style, /min-height:\s*44px/);
+  assert.match(style, /:focus-visible/);
   assert.match(style, /@media \(max-width:\s*760px\)/);
+  assert.match(html, /黑边外涂抹不会修改图片/);
+  assert.match(style, /button:focus-visible/);
+  assert.match(style, /overflow-x:\s*hidden/);
+});
+
+test('移动笔划只刷新低分辨率脏区，完整导出由提交操作触发', async () => {
+  const source = await read('remove-background/src/main.js');
+  const move = source.match(
+    /preview\.addEventListener\('pointermove',[\s\S]*?\n}\);/,
+  )?.[0];
+  assert.ok(move, '缺少 pointermove 处理器');
+  assert.doesNotMatch(
+    move,
+    /toBlob|exportResult|applyMaskToPixels|new ImageData/,
+  );
+  assert.match(move, /updatePreviewBounds/);
+  assert.match(source, /finishStroke[\s\S]*exportResult/);
+  assert.match(source, /createRenderOwnership/);
+  assert.match(source, /releasePointerCapture/);
+  assert.match(source, /isPrimaryPointerStart/);
 });
 
 test('页面使用统一图片工具导航和 i41 生态入口', async () => {

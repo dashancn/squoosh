@@ -10,6 +10,7 @@
 body {
   margin: 0;
   min-width: 320px;
+  overflow-x: hidden;
 }
 a {
   color: inherit;
@@ -183,6 +184,14 @@ button.secondary {
 button:disabled {
   background: #c5cdd6;
   cursor: not-allowed;
+}
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+summary:focus-visible,
+.upload:focus-within {
+  outline: 3px solid #ffbf47;
+  outline-offset: 3px;
 }
 .progress-wrap {
   display: grid;

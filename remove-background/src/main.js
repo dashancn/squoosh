@@ -6,11 +6,13 @@ import {
 } from '../../heic-converter/src/input-adapter.mjs';
 import {
   applyBrushStamp,
-  applyMaskToPixels,
-  compositePreviewPixels,
+  containedImageRect,
   createMaskHistory,
+  createRenderOwnership,
   interpolateStroke,
-  toSourcePoint,
+  isPrimaryPointerStart,
+  mergeBounds,
+  toContainedSourcePoint,
 } from './mask-editor.js';
 
 const $ = (selector) => document.querySelector(selector);
@@ -33,23 +35,35 @@ const brushSizeOutput = $('#brush-size-output');
 const undoButton = $('#undo-button');
 const redoButton = $('#redo-button');
 const resetMaskButton = $('#reset-mask-button');
-const context = preview.getContext('2d');
-const editCanvas = document.createElement('canvas');
-const editContext = editCanvas.getContext('2d');
+const previewContext = preview.getContext('2d', { willReadFrequently: true });
+const exportCanvas = document.createElement('canvas');
+const exportContext = exportCanvas.getContext('2d');
+const renderOwnership = createRenderOwnership();
+const backgrounds = {
+  transparent: null,
+  white: [255, 255, 255],
+  blue: [22, 119, 255],
+  red: [229, 57, 53],
+};
+const MAX_PREVIEW_EDGE = 1200;
 
 let selectedFile = null;
 let selectedVersion = 0;
-let outputBlob = null;
 let busy = false;
+let sourceWidth = 0;
+let sourceHeight = 0;
 let sourcePixels = null;
 let originalAlpha = null;
-let aiMask = null;
 let editMask = null;
 let maskHistory = null;
+let previewSource = null;
+let previewImage = null;
 let brushMode = 'erase';
 let activePointer = null;
 let lastPoint = null;
 let strokeChanged = false;
+let strokeBounds = null;
+let exportQueue = Promise.resolve();
 
 function setProgress(value, message) {
   const percent = Math.max(0, Math.min(100, Math.round(value)));
@@ -70,13 +84,31 @@ async function decodeBlob(blob) {
   }
 }
 
-function bitmapPixels(bitmap) {
+function pixelsFromBitmap(bitmap) {
   const canvas = document.createElement('canvas');
   canvas.width = bitmap.width;
   canvas.height = bitmap.height;
   const canvasContext = canvas.getContext('2d', { willReadFrequently: true });
+  if (!canvasContext) throw new Error('浏览器无法创建图片画布');
   canvasContext.drawImage(bitmap, 0, 0);
-  return canvasContext.getImageData(0, 0, canvas.width, canvas.height).data;
+  const pixels = canvasContext.getImageData(
+    0,
+    0,
+    canvas.width,
+    canvas.height,
+  ).data;
+  canvas.width = 0;
+  canvas.height = 0;
+  return pixels;
+}
+
+function alphaFromBitmap(bitmap) {
+  const pixels = pixelsFromBitmap(bitmap);
+  const alpha = new Uint8ClampedArray(bitmap.width * bitmap.height);
+  for (let index = 0; index < alpha.length; index += 1)
+    alpha[index] = pixels[index * 4 + 3];
+  pixels.fill(0);
+  return alpha;
 }
 
 function selectedBackground() {
@@ -87,6 +119,8 @@ function updateEditorButtons() {
   undoButton.disabled = !maskHistory?.canUndo();
   redoButton.disabled = !maskHistory?.canRedo();
   resetMaskButton.disabled = !maskHistory;
+  downloadButton.disabled =
+    !renderOwnership.outputBlob || renderOwnership.pending;
 }
 
 function setBrushMode(mode) {
@@ -98,47 +132,191 @@ function setBrushMode(mode) {
   restoreMode.setAttribute('aria-pressed', String(!erasing));
 }
 
-async function renderResult() {
-  if (!sourcePixels || !editMask || !editCanvas.width) return;
-  const foregroundPixels = applyMaskToPixels(sourcePixels, editMask);
-  const backgrounds = {
-    transparent: null,
-    white: [255, 255, 255],
-    blue: [22, 119, 255],
-    red: [229, 57, 53],
-  };
-  const previewPixels = compositePreviewPixels(
-    foregroundPixels,
-    backgrounds[selectedBackground()],
+function makePreview(bitmap) {
+  const scale = Math.min(
+    1,
+    MAX_PREVIEW_EDGE / Math.max(bitmap.width, bitmap.height),
   );
-  editContext.putImageData(
-    new ImageData(previewPixels, editCanvas.width, editCanvas.height),
+  preview.width = Math.max(1, Math.round(bitmap.width * scale));
+  preview.height = Math.max(1, Math.round(bitmap.height * scale));
+  previewContext.clearRect(0, 0, preview.width, preview.height);
+  previewContext.drawImage(bitmap, 0, 0, preview.width, preview.height);
+  previewSource = previewContext.getImageData(
     0,
     0,
+    preview.width,
+    preview.height,
+  ).data;
+  previewImage = previewContext.createImageData(preview.width, preview.height);
+}
+
+function updatePreviewBounds(bounds = null) {
+  if (
+    !previewSource ||
+    !previewImage ||
+    !editMask ||
+    !sourceWidth ||
+    !sourceHeight
+  )
+    return;
+  const background = backgrounds[selectedBackground()];
+  const scaleX = sourceWidth / preview.width;
+  const scaleY = sourceHeight / preview.height;
+  let left = 0;
+  let top = 0;
+  let right = preview.width - 1;
+  let bottom = preview.height - 1;
+  if (bounds) {
+    left = Math.max(0, Math.floor(bounds.left / scaleX) - 1);
+    top = Math.max(0, Math.floor(bounds.top / scaleY) - 1);
+    right = Math.min(preview.width - 1, Math.ceil(bounds.right / scaleX) + 1);
+    bottom = Math.min(
+      preview.height - 1,
+      Math.ceil(bounds.bottom / scaleY) + 1,
+    );
+  }
+  for (let y = top; y <= bottom; y += 1) {
+    const sourceY = Math.min(sourceHeight - 1, Math.floor((y + 0.5) * scaleY));
+    for (let x = left; x <= right; x += 1) {
+      const sourceX = Math.min(sourceWidth - 1, Math.floor((x + 0.5) * scaleX));
+      const sourceIndex = sourceY * sourceWidth + sourceX;
+      const pixelIndex = (y * preview.width + x) * 4;
+      const alpha = Math.min(originalAlpha[sourceIndex], editMask[sourceIndex]);
+      if (!background) {
+        previewImage.data[pixelIndex] = previewSource[pixelIndex];
+        previewImage.data[pixelIndex + 1] = previewSource[pixelIndex + 1];
+        previewImage.data[pixelIndex + 2] = previewSource[pixelIndex + 2];
+        previewImage.data[pixelIndex + 3] = alpha;
+      } else {
+        const amount = alpha / 255;
+        previewImage.data[pixelIndex] = Math.round(
+          previewSource[pixelIndex] * amount + background[0] * (1 - amount),
+        );
+        previewImage.data[pixelIndex + 1] = Math.round(
+          previewSource[pixelIndex + 1] * amount + background[1] * (1 - amount),
+        );
+        previewImage.data[pixelIndex + 2] = Math.round(
+          previewSource[pixelIndex + 2] * amount + background[2] * (1 - amount),
+        );
+        previewImage.data[pixelIndex + 3] = 255;
+      }
+    }
+  }
+  previewContext.putImageData(
+    previewImage,
+    0,
+    0,
+    left,
+    top,
+    right - left + 1,
+    bottom - top + 1,
   );
-  preview.width = editCanvas.width;
-  preview.height = editCanvas.height;
-  context.clearRect(0, 0, preview.width, preview.height);
-  context.drawImage(editCanvas, 0, 0);
-  outputBlob = await new Promise((resolve, reject) =>
-    preview.toBlob(
+}
+
+function canvasToBlob(canvas) {
+  return new Promise((resolve, reject) =>
+    canvas.toBlob(
       (blob) => (blob ? resolve(blob) : reject(new Error('PNG 导出失败'))),
       'image/png',
     ),
   );
-  downloadButton.disabled = false;
-  updateEditorButtons();
 }
 
-function clearEditor() {
-  sourcePixels = null;
-  originalAlpha = null;
-  aiMask = null;
-  editMask = null;
-  maskHistory = null;
+function exportResult() {
+  if (!sourcePixels || !editMask || !sourceWidth || !sourceHeight) return;
+  const backgroundName = selectedBackground();
+  const token = renderOwnership.request(backgroundName);
+  downloadButton.disabled = true;
+  exportQueue = exportQueue
+    .catch(() => {})
+    .then(async () => {
+      if (!renderOwnership.isCurrent(token)) return;
+      const background = backgrounds[backgroundName];
+      try {
+        const output = new Uint8ClampedArray(sourcePixels.length);
+        for (let index = 0; index < editMask.length; index += 1) {
+          const pixelIndex = index * 4;
+          const alpha = Math.min(sourcePixels[pixelIndex + 3], editMask[index]);
+          if (!background) {
+            output[pixelIndex] = sourcePixels[pixelIndex];
+            output[pixelIndex + 1] = sourcePixels[pixelIndex + 1];
+            output[pixelIndex + 2] = sourcePixels[pixelIndex + 2];
+            output[pixelIndex + 3] = alpha;
+          } else {
+            const amount = alpha / 255;
+            output[pixelIndex] = Math.round(
+              sourcePixels[pixelIndex] * amount + background[0] * (1 - amount),
+            );
+            output[pixelIndex + 1] = Math.round(
+              sourcePixels[pixelIndex + 1] * amount +
+                background[1] * (1 - amount),
+            );
+            output[pixelIndex + 2] = Math.round(
+              sourcePixels[pixelIndex + 2] * amount +
+                background[2] * (1 - amount),
+            );
+            output[pixelIndex + 3] = 255;
+          }
+        }
+        if (!renderOwnership.isCurrent(token)) return;
+        exportCanvas.width = sourceWidth;
+        exportCanvas.height = sourceHeight;
+        exportContext.putImageData(
+          new ImageData(output, sourceWidth, sourceHeight),
+          0,
+          0,
+        );
+        const blob = await canvasToBlob(exportCanvas);
+        if (renderOwnership.publish(token, blob))
+          downloadButton.disabled = false;
+      } catch (error) {
+        if (renderOwnership.fail(token)) {
+          downloadButton.disabled = true;
+          throw error;
+        }
+      } finally {
+        updateEditorButtons();
+      }
+    });
+  return exportQueue;
+}
+
+function releaseActivePointer() {
+  if (activePointer !== null) {
+    try {
+      if (preview.hasPointerCapture(activePointer))
+        preview.releasePointerCapture(activePointer);
+    } catch {
+      // Capture may already have been released by the browser.
+    }
+  }
   activePointer = null;
   lastPoint = null;
   strokeChanged = false;
+  strokeBounds = null;
+}
+
+function clearEditor() {
+  releaseActivePointer();
+  renderOwnership.select(selectedVersion);
+  sourcePixels?.fill(0);
+  originalAlpha?.fill(0);
+  editMask?.fill(0);
+  previewSource?.fill(0);
+  previewImage?.data.fill(0);
+  maskHistory?.clear?.();
+  sourcePixels = null;
+  originalAlpha = null;
+  editMask = null;
+  maskHistory = null;
+  previewSource = null;
+  previewImage = null;
+  sourceWidth = 0;
+  sourceHeight = 0;
+  preview.width = 0;
+  preview.height = 0;
+  exportCanvas.width = 0;
+  exportCanvas.height = 0;
   maskControls.disabled = true;
   updateEditorButtons();
 }
@@ -146,10 +324,8 @@ function clearEditor() {
 function selectFile(file) {
   selectedVersion += 1;
   selectedFile = file || null;
-  outputBlob = null;
   clearEditor();
   backgroundOptions.disabled = true;
-  downloadButton.disabled = true;
   startButton.disabled = !selectedFile || busy;
   fileName.textContent = selectedFile
     ? `${selectedFile.name} · ${(selectedFile.size / 1024 / 1024).toFixed(
@@ -158,7 +334,6 @@ function selectFile(file) {
     : '尚未选择图片';
   setProgress(0, selectedFile ? '图片已选择，点击开始抠图' : '等待选择图片');
   previewEmpty.hidden = false;
-  context.clearRect(0, 0, preview.width, preview.height);
 }
 
 fileInput.addEventListener('change', () => selectFile(fileInput.files?.[0]));
@@ -215,25 +390,23 @@ startButton.addEventListener('click', async () => {
       sourceBitmap.height !== foregroundBitmap.height
     )
       throw new Error('抠图结果尺寸与原图不一致');
-    sourcePixels = bitmapPixels(sourceBitmap);
-    originalAlpha = new Uint8ClampedArray(
-      sourceBitmap.width * sourceBitmap.height,
-    );
+    sourceWidth = sourceBitmap.width;
+    sourceHeight = sourceBitmap.height;
+    sourcePixels = pixelsFromBitmap(sourceBitmap);
+    originalAlpha = new Uint8ClampedArray(sourceWidth * sourceHeight);
     for (let index = 0; index < originalAlpha.length; index += 1)
       originalAlpha[index] = sourcePixels[index * 4 + 3];
-    const foregroundPixels = bitmapPixels(foregroundBitmap);
-    editCanvas.width = sourceBitmap.width;
-    editCanvas.height = sourceBitmap.height;
-    aiMask = new Uint8ClampedArray(editCanvas.width * editCanvas.height);
-    for (let index = 0; index < aiMask.length; index += 1)
-      aiMask[index] = foregroundPixels[index * 4 + 3];
-    editMask = new Uint8ClampedArray(aiMask);
-    maskHistory = createMaskHistory(aiMask, 20);
+    editMask = alphaFromBitmap(foregroundBitmap);
+    maskHistory = createMaskHistory(editMask, 20);
+    renderOwnership.select(version);
+    makePreview(sourceBitmap);
+    updatePreviewBounds();
     backgroundOptions.disabled = false;
     maskControls.disabled = false;
     previewEmpty.hidden = true;
-    await renderResult();
-    setProgress(100, '抠图完成，可手工精修、选择背景并下载 PNG');
+    await exportResult();
+    if (version === selectedVersion)
+      setProgress(100, '抠图完成，可手工精修、选择背景并下载 PNG');
   } catch (error) {
     if (version === selectedVersion) {
       const detail = error instanceof Error ? error.message : String(error);
@@ -255,63 +428,88 @@ startButton.addEventListener('click', async () => {
   }
 });
 
+function eventSourcePoint(event) {
+  return toContainedSourcePoint(
+    event.clientX,
+    event.clientY,
+    containedImageRect(
+      preview.getBoundingClientRect(),
+      preview.width,
+      preview.height,
+    ),
+    sourceWidth,
+    sourceHeight,
+  );
+}
+
 function stamp(point) {
-  if (!editMask || !sourcePixels) return;
-  applyBrushStamp(
+  if (!point || !editMask || !originalAlpha) return null;
+  const result = applyBrushStamp(
     editMask,
     originalAlpha,
-    editCanvas.width,
-    editCanvas.height,
+    sourceWidth,
+    sourceHeight,
     point.x,
     point.y,
     Number(brushSize.value) / 2,
     brushMode,
   );
-  strokeChanged = true;
+  if (result.changed) {
+    strokeChanged = true;
+    strokeBounds = mergeBounds(strokeBounds, result.bounds);
+  }
+  return result.bounds;
 }
 
 preview.addEventListener('pointerdown', (event) => {
-  if (!editMask || busy) return;
+  if (!editMask || busy || !isPrimaryPointerStart(event, activePointer)) return;
+  const point = eventSourcePoint(event);
+  if (!point) return;
   event.preventDefault();
   activePointer = event.pointerId;
   preview.setPointerCapture(event.pointerId);
-  lastPoint = toSourcePoint(
-    event.clientX,
-    event.clientY,
-    preview.getBoundingClientRect(),
-    editCanvas.width,
-    editCanvas.height,
-  );
+  lastPoint = point;
   strokeChanged = false;
-  stamp(lastPoint);
-  void renderResult();
+  strokeBounds = null;
+  const bounds = stamp(point);
+  if (bounds) updatePreviewBounds(bounds);
 });
+
 preview.addEventListener('pointermove', (event) => {
   if (event.pointerId !== activePointer || !lastPoint || !editMask) return;
+  const point = eventSourcePoint(event);
+  if (!point) return;
   event.preventDefault();
-  const point = toSourcePoint(
-    event.clientX,
-    event.clientY,
-    preview.getBoundingClientRect(),
-    editCanvas.width,
-    editCanvas.height,
-  );
+  let changedBounds = null;
   for (const sample of interpolateStroke(
     lastPoint,
     point,
     Number(brushSize.value) / 2,
   ))
-    stamp(sample);
+    changedBounds = mergeBounds(changedBounds, stamp(sample));
   lastPoint = point;
-  void renderResult();
+  if (changedBounds) updatePreviewBounds(changedBounds);
 });
+
 async function finishStroke(event) {
   if (event.pointerId !== activePointer) return;
+  try {
+    if (preview.hasPointerCapture(event.pointerId))
+      preview.releasePointerCapture(event.pointerId);
+  } catch {
+    // lostpointercapture can arrive after automatic release.
+  }
   activePointer = null;
   lastPoint = null;
-  if (strokeChanged && maskHistory) editMask = maskHistory.commit(editMask);
+  const changed = strokeChanged && maskHistory?.commit(editMask);
   strokeChanged = false;
-  await renderResult();
+  strokeBounds = null;
+  if (changed) {
+    renderOwnership.reviseMask();
+    updateEditorButtons();
+    await exportResult();
+  }
+  updateEditorButtons();
 }
 preview.addEventListener('pointerup', finishStroke);
 preview.addEventListener('pointercancel', finishStroke);
@@ -325,28 +523,41 @@ brushSize.addEventListener('input', () => {
 undoButton.addEventListener('click', async () => {
   if (!maskHistory?.canUndo()) return;
   editMask = maskHistory.undo();
-  await renderResult();
+  renderOwnership.reviseMask();
+  updatePreviewBounds();
+  updateEditorButtons();
+  await exportResult();
 });
 redoButton.addEventListener('click', async () => {
   if (!maskHistory?.canRedo()) return;
   editMask = maskHistory.redo();
-  await renderResult();
+  renderOwnership.reviseMask();
+  updatePreviewBounds();
+  updateEditorButtons();
+  await exportResult();
 });
 resetMaskButton.addEventListener('click', async () => {
   if (!maskHistory) return;
   editMask = maskHistory.reset();
-  await renderResult();
+  renderOwnership.reviseMask();
+  updatePreviewBounds();
+  updateEditorButtons();
+  await exportResult();
 });
-backgroundOptions.addEventListener('change', () =>
-  renderResult().catch((error) => {
+backgroundOptions.addEventListener('change', () => {
+  renderOwnership.reviseBackground();
+  updatePreviewBounds();
+  updateEditorButtons();
+  exportResult().catch((error) => {
     status.textContent = `预览失败：${
       error instanceof Error ? error.message : String(error)
     }`;
-  }),
-);
+  });
+});
 
 downloadButton.addEventListener('click', () => {
-  if (!outputBlob) return;
+  const outputBlob = renderOwnership.outputBlob;
+  if (!outputBlob || renderOwnership.pending) return;
   const link = document.createElement('a');
   const base = selectedFile?.name.replace(/\.[^.]+$/, '') || 'image';
   const url = URL.createObjectURL(outputBlob);
