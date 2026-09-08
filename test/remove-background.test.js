@@ -71,6 +71,7 @@ test('抠图结果提供触控友好的蒙版精修控制且导出使用编辑�
   assert.match(style, /@media \(max-width:\s*760px\)/);
   assert.match(html, /黑边外涂抹不会修改图片/);
   assert.match(style, /button:focus-visible/);
+  assert.match(style, /\.brush-control input[^}]*min-height:\s*44px/s);
   assert.match(style, /overflow-x:\s*hidden/);
 });
 
@@ -89,6 +90,15 @@ test('移动笔划只刷新低分辨率脏区，完整导出由提交操作触�
   assert.match(source, /createRenderOwnership/);
   assert.match(source, /releasePointerCapture/);
   assert.match(source, /isPrimaryPointerStart/);
+});
+
+test('处理中切换文件可重新开始，黑边中断笔划且历史按笔划记录', async () => {
+  const source = await read('remove-background/src/main.js');
+  assert.match(source, /function selectFile[\s\S]*busy = false/);
+  assert.match(source, /if \(!point\) \{[\s\S]*lastPoint = null/);
+  assert.match(source, /strokeRecorder/);
+  assert.match(source, /commitEntry/);
+  assert.doesNotMatch(source, /maskHistory\?\.commit\(editMask\)/);
 });
 
 test('页面使用统一图片工具导航和 i41 生态入口', async () => {

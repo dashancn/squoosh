@@ -138,6 +138,30 @@ test('history skips no-op commits and remains bounded', () => {
   assert.equal(history.current()[0], 255);
 });
 
+test('history accepts bounded dirty-region entries without rescanning the mask', () => {
+  const initial = new Uint8ClampedArray([255, 255, 255, 255]);
+  const history = createMaskHistory(initial, 3);
+  assert.equal(
+    history.commitEntry({
+      indices: Uint32Array.from([1, 2]),
+      before: Uint8ClampedArray.from([255, 255]),
+      after: Uint8ClampedArray.from([0, 64]),
+    }),
+    true,
+  );
+  assert.deepEqual([...history.current()], [255, 0, 64, 255]);
+  assert.deepEqual([...history.undo()], [...initial]);
+  assert.deepEqual([...history.redo()], [255, 0, 64, 255]);
+  assert.equal(
+    history.commitEntry({
+      indices: new Uint32Array(),
+      before: new Uint8ClampedArray(),
+      after: new Uint8ClampedArray(),
+    }),
+    false,
+  );
+});
+
 test('render ownership serializes work and rejects stale revisions and files', async () => {
   const ownership = createRenderOwnership();
   ownership.select(1);

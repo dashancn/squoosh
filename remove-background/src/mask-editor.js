@@ -71,6 +71,7 @@ export function applyBrushStamp(
   centerY,
   radius,
   mode,
+  onChange,
 ) {
   const safeRadius = Math.max(0.5, radius);
   const startX = clamp(Math.floor(centerX - safeRadius), 0, width - 1);
@@ -86,6 +87,7 @@ export function applyBrushStamp(
       const index = y * width + x;
       const next = mode === 'restore' ? originalAlpha[index] : 0;
       if (mask[index] === next) continue;
+      onChange?.(index, mask[index], next);
       mask[index] = next;
       changed = true;
     }
@@ -157,31 +159,50 @@ export function createMaskHistory(initialMask, limit = 20) {
       current[entry.indices[index]] = values[index];
   };
 
+  const storeEntry = (entry) => {
+    if (!entry.indices.length) return false;
+    entries = entries.slice(0, position);
+    entries.push({
+      indices: new Uint32Array(entry.indices),
+      before: new Uint8ClampedArray(entry.before),
+      after: new Uint8ClampedArray(entry.after),
+    });
+    applyEntry(entries.at(-1), entries.at(-1).after);
+    if (entries.length > maximum) entries.shift();
+    position = entries.length;
+    return true;
+  };
+
   return {
     current: () => new Uint8ClampedArray(current),
     canUndo: () => position > 0,
     canRedo: () => position < entries.length,
+    commitEntry(entry) {
+      if (
+        !entry ||
+        entry.indices.length !== entry.before.length ||
+        entry.indices.length !== entry.after.length
+      )
+        throw new Error('Invalid mask history entry');
+      return storeEntry(entry);
+    },
     commit(mask) {
-      const indices = [];
-      const before = [];
-      const after = [];
+      let count = 0;
+      for (let index = 0; index < mask.length; index += 1)
+        if (current[index] !== mask[index]) count += 1;
+      if (!count) return false;
+      const indices = new Uint32Array(count);
+      const before = new Uint8ClampedArray(count);
+      const after = new Uint8ClampedArray(count);
+      let offset = 0;
       for (let index = 0; index < mask.length; index += 1) {
         if (current[index] === mask[index]) continue;
-        indices.push(index);
-        before.push(current[index]);
-        after.push(mask[index]);
+        indices[offset] = index;
+        before[offset] = current[index];
+        after[offset] = mask[index];
+        offset += 1;
       }
-      if (!indices.length) return false;
-      entries = entries.slice(0, position);
-      entries.push({
-        indices: Uint32Array.from(indices),
-        before: Uint8ClampedArray.from(before),
-        after: Uint8ClampedArray.from(after),
-      });
-      current = new Uint8ClampedArray(mask);
-      if (entries.length > maximum) entries.shift();
-      position = entries.length;
-      return true;
+      return storeEntry({ indices, before, after });
     },
     undo() {
       if (position > 0) {

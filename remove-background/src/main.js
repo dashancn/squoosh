@@ -63,6 +63,7 @@ let activePointer = null;
 let lastPoint = null;
 let strokeChanged = false;
 let strokeBounds = null;
+let strokeRecorder = null;
 let exportQueue = Promise.resolve();
 
 function setProgress(value, message) {
@@ -294,6 +295,7 @@ function releaseActivePointer() {
   lastPoint = null;
   strokeChanged = false;
   strokeBounds = null;
+  strokeRecorder = null;
 }
 
 function clearEditor() {
@@ -325,8 +327,9 @@ function selectFile(file) {
   selectedVersion += 1;
   selectedFile = file || null;
   clearEditor();
+  busy = false;
   backgroundOptions.disabled = true;
-  startButton.disabled = !selectedFile || busy;
+  startButton.disabled = !selectedFile;
   fileName.textContent = selectedFile
     ? `${selectedFile.name} · ${(selectedFile.size / 1024 / 1024).toFixed(
         2,
@@ -453,6 +456,10 @@ function stamp(point) {
     point.y,
     Number(brushSize.value) / 2,
     brushMode,
+    (index, before) => {
+      if (strokeRecorder && !strokeRecorder.has(index))
+        strokeRecorder.set(index, before);
+    },
   );
   if (result.changed) {
     strokeChanged = true;
@@ -471,21 +478,24 @@ preview.addEventListener('pointerdown', (event) => {
   lastPoint = point;
   strokeChanged = false;
   strokeBounds = null;
+  strokeRecorder = new Map();
   const bounds = stamp(point);
   if (bounds) updatePreviewBounds(bounds);
 });
 
 preview.addEventListener('pointermove', (event) => {
-  if (event.pointerId !== activePointer || !lastPoint || !editMask) return;
+  if (event.pointerId !== activePointer || !editMask) return;
   const point = eventSourcePoint(event);
-  if (!point) return;
+  if (!point) {
+    lastPoint = null;
+    return;
+  }
   event.preventDefault();
   let changedBounds = null;
-  for (const sample of interpolateStroke(
-    lastPoint,
-    point,
-    Number(brushSize.value) / 2,
-  ))
+  const samples = lastPoint
+    ? interpolateStroke(lastPoint, point, Number(brushSize.value) / 2)
+    : [point];
+  for (const sample of samples)
     changedBounds = mergeBounds(changedBounds, stamp(sample));
   lastPoint = point;
   if (changedBounds) updatePreviewBounds(changedBounds);
@@ -501,9 +511,20 @@ async function finishStroke(event) {
   }
   activePointer = null;
   lastPoint = null;
-  const changed = strokeChanged && maskHistory?.commit(editMask);
+  const indices = strokeRecorder
+    ? Uint32Array.from(strokeRecorder.keys())
+    : new Uint32Array();
+  const before = new Uint8ClampedArray(indices.length);
+  const after = new Uint8ClampedArray(indices.length);
+  for (let index = 0; index < indices.length; index += 1) {
+    before[index] = strokeRecorder.get(indices[index]);
+    after[index] = editMask[indices[index]];
+  }
+  const changed =
+    strokeChanged && maskHistory?.commitEntry({ indices, before, after });
   strokeChanged = false;
   strokeBounds = null;
+  strokeRecorder = null;
   if (changed) {
     renderOwnership.reviseMask();
     updateEditorButtons();
