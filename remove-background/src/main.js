@@ -7,9 +7,10 @@ import {
 import {
   applyBrushStamp,
   brushIndicatorDiameter,
+  brushIndicatorVisible,
   clampPreviewPan,
+  composeCroppedPixels,
   containedImageRect,
-  cropPixels,
   createMaskHistory,
   createRenderOwnership,
   normalizeCropRect,
@@ -156,12 +157,15 @@ function updateEditorButtons() {
 }
 
 function updatePreviewTransform() {
-  previewPan = clampPreviewPan(
-    previewPan,
-    previewZoom,
+  const panelRect = previewPanel.getBoundingClientRect();
+  const fit = containedImageRect(
+    { left: 0, top: 0, width: panelRect.width, height: panelRect.height },
     preview.width,
     preview.height,
   );
+  previewPan = fit
+    ? clampPreviewPan(previewPan, previewZoom, fit.width, fit.height)
+    : { x: 0, y: 0 };
   preview.style.transform = `scale(${previewZoom}) translate(${previewPan.x}px, ${previewPan.y}px)`;
   preview.style.transformOrigin = 'center';
   zoomOutput.value = `${Math.round(previewZoom * 100)}%`;
@@ -377,51 +381,34 @@ function exportResult() {
       if (!renderOwnership.isCurrent(token)) return;
       const background = backgrounds[backgroundName];
       try {
-        const output = new Uint8ClampedArray(sourcePixels.length);
-        for (let index = 0; index < editMask.length; index += 1) {
-          const pixelIndex = index * 4;
-          const alpha = Math.min(sourcePixels[pixelIndex + 3], editMask[index]);
-          if (!background) {
-            output[pixelIndex] = sourcePixels[pixelIndex];
-            output[pixelIndex + 1] = sourcePixels[pixelIndex + 1];
-            output[pixelIndex + 2] = sourcePixels[pixelIndex + 2];
-            output[pixelIndex + 3] = alpha;
-          } else {
-            const amount = alpha / 255;
-            output[pixelIndex] = Math.round(
-              sourcePixels[pixelIndex] * amount + background[0] * (1 - amount),
-            );
-            output[pixelIndex + 1] = Math.round(
-              sourcePixels[pixelIndex + 1] * amount +
-                background[1] * (1 - amount),
-            );
-            output[pixelIndex + 2] = Math.round(
-              sourcePixels[pixelIndex + 2] * amount +
-                background[2] * (1 - amount),
-            );
-            output[pixelIndex + 3] = 255;
-          }
-        }
-        if (!renderOwnership.isCurrent(token)) return;
         const crop = appliedCrop || {
           x: 0,
           y: 0,
           width: sourceWidth,
           height: sourceHeight,
         };
-        const croppedOutput = cropPixels(
-          output,
+        let output = composeCroppedPixels(
+          sourcePixels,
+          editMask,
           sourceWidth,
           sourceHeight,
           crop,
+          background,
         );
+        if (!renderOwnership.isCurrent(token)) {
+          output.fill(0);
+          output = null;
+          return;
+        }
         exportCanvas.width = crop.width;
         exportCanvas.height = crop.height;
         exportContext.putImageData(
-          new ImageData(croppedOutput, crop.width, crop.height),
+          new ImageData(output, crop.width, crop.height),
           0,
           0,
         );
+        output.fill(0);
+        output = null;
         const blob = await canvasToBlob(exportCanvas);
         if (renderOwnership.publish(token, blob))
           downloadButton.disabled = false;
@@ -654,16 +641,27 @@ function displayedImageRect() {
 function updateBrushIndicator(event) {
   const imageRect = displayedImageRect();
   const point = eventSourcePoint(event);
-  if (!point || !editMask || busy) {
+  if (
+    !brushIndicatorVisible({
+      point,
+      hasMask: Boolean(editMask),
+      busy,
+      cropMode,
+    })
+  ) {
     brushIndicator.hidden = true;
     return;
   }
   const panelRect = previewPanel.getBoundingClientRect();
+  const crop = appliedCrop || {
+    width: sourceWidth,
+    height: sourceHeight,
+  };
   const diameter = brushIndicatorDiameter(
     brushSize.value,
     imageRect,
-    sourceWidth,
-    sourceHeight,
+    crop.width,
+    crop.height,
   );
   brushIndicator.style.left = `${event.clientX - panelRect.left}px`;
   brushIndicator.style.top = `${event.clientY - panelRect.top}px`;

@@ -133,8 +133,8 @@ try {
     (canvas, { x, y }) => {
       for (const [type, clientX, clientY, buttons] of [
         ['pointerdown', x, y, 1],
-        ['pointermove', x + 35, y + 20, 1],
-        ['pointerup', x + 35, y + 20, 0],
+        ['pointermove', x + 5000, y + 5000, 1],
+        ['pointerup', x + 5000, y + 5000, 0],
       ])
         {
           const event = new PointerEvent(type, {
@@ -153,6 +153,22 @@ try {
   );
   const pannedTransform = await page.locator('#preview').evaluate((canvas) => canvas.style.transform);
   assert.notEqual(pannedTransform, zoomedTransform);
+  const panLimit = await page.locator('#preview').evaluate((canvas) => {
+    const match = canvas.style.transform.match(/translate\(([-\d.]+)px, ([-\d.]+)px\)/);
+    const panel = canvas.parentElement.getBoundingClientRect();
+    const scale = Math.min(panel.width / canvas.width, panel.height / canvas.height);
+    return {
+      x: Number(match?.[1]),
+      y: Number(match?.[2]),
+      maxX: (canvas.width * scale * 0.25) / (2 * 1.25),
+      maxY: (canvas.height * scale * 0.25) / (2 * 1.25),
+      intrinsicWidth: canvas.width,
+      renderedWidth: canvas.width * scale,
+    };
+  });
+  assert.notEqual(panLimit.intrinsicWidth, panLimit.renderedWidth, 'E2E must exercise intrinsic/CSS mismatch');
+  assert.ok(Math.abs(panLimit.x - panLimit.maxX) < 0.01, `horizontal pan not CSS-clamped: ${JSON.stringify(panLimit)}`);
+  assert.ok(Math.abs(panLimit.y - panLimit.maxY) < 0.01, `vertical pan not CSS-clamped: ${JSON.stringify(panLimit)}`);
   await page.click('#zoom-reset-button');
   assert.equal(await page.locator('#zoom-output').textContent(), '100%');
   await page.locator('#preview').scrollIntoViewIfNeeded();
@@ -194,7 +210,24 @@ try {
   const reset = await page.locator('#preview').evaluate((canvas) => [...canvas.getContext('2d').getImageData(Math.floor(canvas.width / 2), Math.floor(canvas.height / 2), 1, 1).data]);
   assert.equal(reset[3], editorBaseline[3]);
 
+  await page.locator('#preview').scrollIntoViewIfNeeded();
+  const preCropBox = await page.locator('#preview').boundingBox();
+  await page.mouse.move(preCropBox.x + preCropBox.width / 2, preCropBox.y + preCropBox.height / 2);
+  await page.waitForFunction(() => !document.querySelector('#brush-indicator').hidden);
   await page.click('#crop-mode-button');
+  assert.equal(await page.locator('#crop-mode-button').getAttribute('aria-pressed'), 'true');
+  assert.equal(await page.locator('#brush-indicator').getAttribute('hidden'), '');
+  await page.mouse.move(preCropBox.x + preCropBox.width / 2 + 1, preCropBox.y + preCropBox.height / 2 + 1);
+  assert.equal(await page.locator('#brush-indicator').getAttribute('hidden'), '', 'crop pointermove must not reveal brush indicator');
+  await page.click('#zoom-in-button');
+  await page.click('#pan-mode-button');
+  assert.equal(await page.locator('#pan-mode-button').getAttribute('aria-pressed'), 'true');
+  assert.equal(await page.locator('#crop-mode-button').getAttribute('aria-pressed'), 'false');
+  await page.click('#crop-mode-button');
+  assert.equal(await page.locator('#crop-mode-button').getAttribute('aria-pressed'), 'true');
+  assert.equal(await page.locator('#pan-mode-button').getAttribute('aria-pressed'), 'false');
+  assert.equal(await page.locator('#brush-indicator').getAttribute('hidden'), '');
+  await page.click('#zoom-reset-button');
   await page.locator('#preview').scrollIntoViewIfNeeded();
   const cropBox = await page.locator('#preview').boundingBox();
   const cropDrawScale = Math.min(cropBox.width / 320, cropBox.height / 240);
@@ -233,6 +266,23 @@ try {
   await page.click('#apply-crop-button');
   await page.waitForFunction(() => document.querySelector('#preview').width === 160);
   assert.equal(await page.locator('#preview').evaluate((canvas) => `${canvas.width}x${canvas.height}`), '160x120');
+  const appliedBox = await page.locator('#preview').boundingBox();
+  await page.mouse.move(appliedBox.x + appliedBox.width / 2, appliedBox.y + appliedBox.height / 2);
+  await page.waitForFunction(() => !document.querySelector('#brush-indicator').hidden);
+  const croppedIndicator = await page.locator('#brush-indicator').evaluate((element) => ({
+    width: parseFloat(element.style.width),
+    brushSize: Number(document.querySelector('#brush-size').value),
+    previewWidth: document.querySelector('#preview').width,
+    previewHeight: document.querySelector('#preview').height,
+  }));
+  const appliedScale = Math.min(
+    appliedBox.width / croppedIndicator.previewWidth,
+    appliedBox.height / croppedIndicator.previewHeight,
+  );
+  assert.ok(
+    Math.abs(croppedIndicator.width - croppedIndicator.brushSize * appliedScale) < 0.01,
+    `cropped indicator does not follow active crop scale: ${JSON.stringify(croppedIndicator)}`,
+  );
 
   await page.check('input[name="background"][value="blue"]');
   const exportResult = await page.evaluate(async () => {

@@ -4,8 +4,10 @@ import {
   applyBrushStamp,
   applyMaskToPixels,
   brushIndicatorDiameter,
+  brushIndicatorVisible,
   clampPreviewPan,
   compositePreviewPixels,
+  composeCroppedPixels,
   cropPixels,
   containedImageRect,
   normalizeCropRect,
@@ -50,15 +52,40 @@ test('portrait image is contained with horizontal letterbox and ignores bars', (
   assert.equal(toContainedSourcePoint(206, 90, rect, 100, 200), null);
 });
 
-test('brush indicator diameter follows the displayed source scale', () => {
+test('brush indicator diameter follows the displayed active crop scale', () => {
   assert.equal(
     brushIndicatorDiameter(36, { width: 640, height: 480 }, 320, 240),
     72,
   );
+  assert.equal(
+    brushIndicatorDiameter(36, { width: 640, height: 480 }, 160, 120),
+    144,
+  );
   assert.equal(brushIndicatorDiameter(36, null, 320, 240), 0);
 });
 
-test('preview pan is centered at fit and clamped to the zoomed image edges', () => {
+test('brush indicator stays hidden while crop mode is active', () => {
+  assert.equal(
+    brushIndicatorVisible({
+      point: { x: 1, y: 1 },
+      hasMask: true,
+      busy: false,
+      cropMode: true,
+    }),
+    false,
+  );
+  assert.equal(
+    brushIndicatorVisible({
+      point: { x: 1, y: 1 },
+      hasMask: true,
+      busy: false,
+      cropMode: false,
+    }),
+    true,
+  );
+});
+
+test('preview pan is centered at fit and clamped in rendered CSS pixels', () => {
   assert.deepEqual(clampPreviewPan({ x: 100, y: -100 }, 1, 300, 200), {
     x: 0,
     y: 0,
@@ -67,6 +94,11 @@ test('preview pan is centered at fit and clamped to the zoomed image edges', () 
     x: 75,
     y: -50,
   });
+  assert.deepEqual(
+    clampPreviewPan({ x: 1000, y: -1000 }, 2, 300, 150),
+    { x: 75, y: -37.5 },
+    'intrinsic canvas dimensions must not expand CSS translation limits',
+  );
 });
 
 test('zoomed and panned image coordinates map through letterboxing', () => {
@@ -122,6 +154,27 @@ test('cropping returns exact dimensions without changing source pixels', () => {
   );
   assert.deepEqual([...cropped], [3, 4, 5, 6, 9, 10, 11, 12]);
   assert.deepEqual([...source], [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]);
+});
+
+test('export composition allocates only the final crop-sized pixel buffer', () => {
+  const source = Uint8ClampedArray.from([
+    10, 20, 30, 255, 40, 50, 60, 200, 70, 80, 90, 100, 100, 110, 120, 255, 130,
+    140, 150, 128, 160, 170, 180, 64,
+  ]);
+  const mask = Uint8ClampedArray.from([255, 255, 255, 255, 80, 255]);
+  const output = composeCroppedPixels(
+    source,
+    mask,
+    3,
+    2,
+    { x: 1, y: 0, width: 2, height: 2 },
+    null,
+  );
+  assert.equal(output.length, 2 * 2 * 4);
+  assert.deepEqual(
+    [...output],
+    [40, 50, 60, 200, 70, 80, 90, 100, 130, 140, 150, 80, 160, 170, 180, 64],
+  );
 });
 
 test('fast strokes interpolate through the endpoint', () => {

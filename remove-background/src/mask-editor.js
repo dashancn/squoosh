@@ -63,6 +63,10 @@ export function brushIndicatorDiameter(
   return Math.max(1, Number(brushSize) * scale);
 }
 
+export function brushIndicatorVisible({ point, hasMask, busy, cropMode }) {
+  return Boolean(point && hasMask && !busy && !cropMode);
+}
+
 export function clampPreviewPan(pan, zoom, width, height) {
   if (zoom <= 1) return { x: 0, y: 0 };
   const maximumX = (width * (zoom - 1)) / (2 * zoom);
@@ -103,6 +107,52 @@ export function cropPixels(pixels, width, height, crop, channels = 4) {
       pixels.subarray(sourceStart, sourceEnd),
       y * safeCrop.width * channels,
     );
+  }
+  return output;
+}
+
+export function composeCroppedPixels(
+  sourcePixels,
+  mask,
+  width,
+  height,
+  crop,
+  background,
+) {
+  const safeCrop = normalizeCropRect(
+    { x: crop.x, y: crop.y },
+    { x: crop.x + crop.width, y: crop.y + crop.height },
+    width,
+    height,
+  );
+  const output = new Uint8ClampedArray(safeCrop.width * safeCrop.height * 4);
+  for (let y = 0; y < safeCrop.height; y += 1) {
+    for (let x = 0; x < safeCrop.width; x += 1) {
+      const sourceIndex = (safeCrop.y + y) * width + safeCrop.x + x;
+      const sourceOffset = sourceIndex * 4;
+      const outputOffset = (y * safeCrop.width + x) * 4;
+      const alpha = Math.min(sourcePixels[sourceOffset + 3], mask[sourceIndex]);
+      if (!background) {
+        output[outputOffset] = sourcePixels[sourceOffset];
+        output[outputOffset + 1] = sourcePixels[sourceOffset + 1];
+        output[outputOffset + 2] = sourcePixels[sourceOffset + 2];
+        output[outputOffset + 3] = alpha;
+      } else {
+        const amount = alpha / 255;
+        output[outputOffset] = Math.round(
+          sourcePixels[sourceOffset] * amount + background[0] * (1 - amount),
+        );
+        output[outputOffset + 1] = Math.round(
+          sourcePixels[sourceOffset + 1] * amount +
+            background[1] * (1 - amount),
+        );
+        output[outputOffset + 2] = Math.round(
+          sourcePixels[sourceOffset + 2] * amount +
+            background[2] * (1 - amount),
+        );
+        output[outputOffset + 3] = 255;
+      }
+    }
   }
   return output;
 }

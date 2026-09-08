@@ -86,12 +86,24 @@ test('抠图结果提供触控友好的蒙版精修控制且导出使用编辑�
   assert.match(style, /overflow-x:\s*hidden/);
   assert.match(style, /#brush-indicator[^}]*border-radius:\s*50%/s);
   assert.match(style, /#brush-indicator[^}]*pointer-events:\s*none/s);
-  assert.match(source, /clampPreviewPan/);
+  assert.match(
+    source,
+    /clampPreviewPan\([\s\S]*?previewZoom,[\s\S]*?fit\.width,[\s\S]*?fit\.height/,
+  );
+  assert.match(
+    source,
+    /brushIndicatorDiameter\([\s\S]*?crop\.width,[\s\S]*?crop\.height/,
+  );
+  assert.match(
+    source,
+    /function updateBrushIndicator[\s\S]*?brushIndicatorVisible\([\s\S]*?cropMode/,
+  );
   assert.match(source, /panMode/);
   assert.match(source, /wheel/);
   assert.match(style, /\.preview-toolbar[^}]*display:\s*flex/s);
   assert.match(source, /normalizeCropRect/);
-  assert.match(source, /cropPixels/);
+  assert.match(source, /composeCroppedPixels/);
+  assert.doesNotMatch(source, /cropPixels/);
   assert.match(source, /renderOwnership\.reviseCrop/);
   assert.match(style, /#crop-selection[^}]*position:\s*absolute/s);
 });
