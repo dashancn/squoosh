@@ -127,6 +127,53 @@ const nineGrid = await page.evaluate(async () => {
 });
 await writeFile(join(repositoryRoot, 'collage/evidence/chromium-nine-grid.png'), Buffer.from(nineGrid.bytes));
 delete nineGrid.bytes;
+
+await page.locator('#files').setInputFiles(
+  inputFiles.slice(0, 7).map((file) => ({ ...file, buffer: Buffer.from(file.buffer) })),
+);
+await page.waitForFunction(() => document.querySelectorAll('.thumbnail-item').length === 7 && document.documentElement.dataset.state === 'complete');
+const repeatedTemplateGeometry = {};
+for (const mode of ['three-feature', 'left-stack-right-feature', 'top-feature-bottom-pair', 'bottom-feature-top-pair']) {
+  const previousUrl = await page.locator('#download').getAttribute('href');
+  await page.selectOption('#mode', mode);
+  await page.fill('#spacing', '17');
+  await page.click('#generate');
+  await page.waitForFunction((oldUrl) => document.querySelectorAll('.preview-cell').length === 7 && document.documentElement.dataset.state === 'complete' && document.querySelector('#download').href !== oldUrl, previousUrl);
+  repeatedTemplateGeometry[mode] = await page.evaluate(() => {
+    const cells = [...document.querySelectorAll('.preview-cell')].map((cell) => {
+      const style = cell.style;
+      return [style.left, style.top, style.width, style.height];
+    });
+    const normalizeGroup = (group) => {
+      const origin = Number.parseFloat(group[0][0]);
+      return group.map(([left, top, width, height]) => [Number.parseFloat(left) - origin, top, width, height]);
+    };
+    return {
+      cells,
+      repeatedShape: JSON.stringify(normalizeGroup(cells.slice(0, 3))) === JSON.stringify(normalizeGroup(cells.slice(3, 6))),
+    };
+  });
+}
+
+await page.locator('#files').setInputFiles(
+  inputFiles.slice(0, 4).map((file) => ({ ...file, buffer: Buffer.from(file.buffer) })),
+);
+await page.waitForFunction(() => document.querySelectorAll('.thumbnail-item').length === 4 && document.documentElement.dataset.state === 'complete');
+const templateChecksum = async (mode) => {
+  const previousUrl = await page.locator('#download').getAttribute('href');
+  await page.selectOption('#mode', mode);
+  await page.click('#generate');
+  await page.waitForFunction((oldUrl) => document.documentElement.dataset.state === 'complete' && document.querySelector('#download').href !== oldUrl, previousUrl);
+  return page.evaluate(async () => {
+    const bytes = await (await fetch(document.querySelector('#download').href)).arrayBuffer();
+    const digest = await crypto.subtle.digest('SHA-256', bytes);
+    return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('');
+  });
+};
+const topFeatureChecksum = await templateChecksum('top-feature-bottom-pair');
+const asymmetricChecksum = await templateChecksum('asymmetric-mosaic');
+const asymmetricDistinct = topFeatureChecksum !== asymmetricChecksum;
+
 await page.locator('#files').setInputFiles(
   inputFiles.slice(0, 3).map((file) => ({ ...file, buffer: Buffer.from(file.buffer) })),
 );
@@ -307,6 +354,10 @@ const evidence = {
   results,
   imageManagement,
   nineGrid,
+  repeatedTemplateGeometry,
+  asymmetricDistinct,
+  topFeatureChecksum,
+  asymmetricChecksum,
   focal,
   threeFeatureBottomRightPixel,
   canvasInteraction,
@@ -323,6 +374,8 @@ await new Promise((resolve) => server.close(resolve));
 if (
   pageErrors.length ||
   evidence.iframeCount !== 0 ||
+  !asymmetricDistinct ||
+  Object.values(repeatedTemplateGeometry).some((value) => value.cells.length !== 7 || !value.repeatedShape) ||
   results.some((result) => result.type !== 'image/png' || !result.size || !result.previewVisible || !result.downloadReady)
 ) {
   process.exitCode = 1;

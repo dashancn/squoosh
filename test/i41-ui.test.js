@@ -178,6 +178,14 @@ test('四个图片工具页面以品牌标识当前工具，并从标准菜单�
   }
 });
 
+test('图片压缩首页移动菜单从左侧自然换行且不被推到右侧', async () => {
+  const css = await read('src/shared/prerendered-app/Intro/style.css');
+  assert.match(
+    css,
+    /@media\s*\(max-width:\s*760px\)[\s\S]*?\.tool-nav\s*\{[^}]*order:\s*3[^}]*flex-basis:\s*100%[^}]*flex:\s*0\s+0\s+100%[^}]*margin-left:\s*0[^}]*justify-content:\s*flex-start/,
+  );
+});
+
 test('图片压缩首页在上传入口后只保留紧凑价值说明和折叠页脚', async () => {
   const source = await read('src/shared/prerendered-app/Intro/index.tsx');
   const header = source.slice(

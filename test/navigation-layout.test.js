@@ -84,13 +84,31 @@ async function verifyCase(pathname, width) {
     assert.notEqual(layout.navOverflowX, 'auto');
     assert.notEqual(layout.navOverflowX, 'scroll');
     assert.equal(layout.navFlexWrap, 'wrap');
-    assert.equal(layout.navJustify, 'flex-end');
+    const expectedJustify =
+      width === 375 && ['/', '/heic-converter/'].includes(pathname)
+        ? 'flex-start'
+        : 'flex-end';
+    assert.equal(layout.navJustify, expectedJustify);
     assert.equal(
       layout.navScrollWidth,
       layout.navClientWidth,
       '导航仍可横向滚动',
     );
-    assert.ok(Math.abs(layout.navRight - layout.lastRight) <= 1, '菜单未靠右');
+    if (expectedJustify === 'flex-end')
+      assert.ok(
+        Math.abs(layout.navRight - layout.lastRight) <= 1,
+        '菜单未靠右',
+      );
+    else {
+      const firstLeft = await nav
+        .locator('a')
+        .first()
+        .evaluate((item) => item.getBoundingClientRect().left);
+      const navLeft = await nav.evaluate(
+        (item) => item.getBoundingClientRect().left,
+      );
+      assert.ok(Math.abs(firstLeft - navLeft) <= 1, '移动菜单未从左侧自然换行');
+    }
     if (width === 1280)
       assert.equal(new Set(layout.itemTops).size, 1, '桌面导航不是单行');
 
@@ -113,6 +131,26 @@ async function verifyCase(pathname, width) {
 
     const firstItem = nav.locator('a').first();
     await firstItem.hover({ timeout: 5_000 });
+    const tipGeometry = await firstItem.evaluate((item) => {
+      const style = getComputedStyle(item, '::after');
+      return {
+        left: Number.parseFloat(style.left),
+        width: Number.parseFloat(style.width),
+        whiteSpace: style.whiteSpace,
+      };
+    });
+    assert.equal(tipGeometry.whiteSpace, 'normal');
+    if (pathname === '/heic-converter/' && width === 1280) {
+      assert.ok(tipGeometry.width <= width - 24, 'tooltip 宽度越界');
+      assert.ok(
+        tipGeometry.left - tipGeometry.width / 2 >= -1,
+        'tooltip 左侧越界',
+      );
+      assert.ok(
+        tipGeometry.left + tipGeometry.width / 2 <= width + 1,
+        'tooltip 右侧越界',
+      );
+    }
     await firstItem.evaluate(
       (item) =>
         new Promise((resolve, reject) => {
@@ -154,7 +192,12 @@ async function verifyCase(pathname, width) {
 
 describe('导航布局和 tooltip', { concurrency: false }, () => {
   for (const width of [1280, 375]) {
-    for (const pathname of ['/', '/remove-background/', '/collage/']) {
+    for (const pathname of [
+      '/',
+      '/heic-converter/',
+      '/remove-background/',
+      '/collage/',
+    ]) {
       test(`${pathname} ${width}px`, { timeout: 15_000 }, () =>
         verifyCase(pathname, width),
       );

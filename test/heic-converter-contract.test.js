@@ -169,6 +169,26 @@ test('all four image pages link converter in global order and omit their current
   }
 });
 
+test('converter header matches watermark typography, wraps desktop tips, and stays sticky on mobile', async () => {
+  const css = await read('heic-converter/style.css');
+  assert.match(
+    css,
+    /body\s*\{[^}]*font:\s*15px\/1\.55\s+Inter,\s*['"]PingFang SC['"],\s*['"]Microsoft YaHei['"],\s*sans-serif/s,
+  );
+  assert.match(
+    css,
+    /\.site-header\s*\{[^}]*position:\s*sticky[^}]*top:\s*0[^}]*z-index:\s*10/s,
+  );
+  assert.match(
+    css,
+    /\.tool-nav a\s*\{[^}]*font-size:\s*13px[^}]*font-weight:\s*650/s,
+  );
+  assert.match(
+    css,
+    /\[data-tooltip\]::after\s*\{[^}]*position:\s*fixed[^}]*width:\s*min\(420px,\s*calc\(100vw\s*-\s*24px\)\)[^}]*box-sizing:\s*border-box[^}]*white-space:\s*normal/s,
+  );
+});
+
 test('converter mobile header contains menu before the i方案 banner', async () => {
   const [html, css] = await Promise.all([
     read('heic-converter/index.html'),
@@ -189,7 +209,7 @@ test('converter mobile header contains menu before the i方案 banner', async ()
   );
   assert.match(
     css,
-    /@media\s*\(max-width:\s*700px\)[\s\S]*?\.tool-nav\s*\{[^}]*flex-basis:\s*100%[^}]*justify-content:\s*flex-end/,
+    /@media\s*\(max-width:\s*700px\)[\s\S]*?\.tool-nav\s*\{[^}]*flex-basis:\s*100%[^}]*justify-content:\s*flex-start/,
   );
   assert.match(
     css,

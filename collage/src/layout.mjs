@@ -58,30 +58,63 @@ function splitExtent(total, spacing) {
   return [first, available - first];
 }
 
+function templateFor(mode, cellWidth, cellHeight, spacing) {
+  const doubleWidth = cellWidth * 2 + spacing;
+  const stackedHeight = cellHeight * 2;
+  const pairedHeight = cellHeight * 2 + spacing;
+  const [upperHeight, lowerHeight] = splitExtent(stackedHeight, spacing);
+  if (mode === 'three-feature') return {
+    width: doubleWidth, height: stackedHeight,
+    rectangles: [[0, 0, cellWidth, stackedHeight], [cellWidth + spacing, 0, cellWidth, upperHeight], [cellWidth + spacing, upperHeight + spacing, cellWidth, lowerHeight]],
+  };
+  if (mode === 'left-stack-right-feature') return {
+    width: doubleWidth, height: stackedHeight,
+    rectangles: [[0, 0, cellWidth, upperHeight], [0, upperHeight + spacing, cellWidth, lowerHeight], [cellWidth + spacing, 0, cellWidth, stackedHeight]],
+  };
+  if (mode === 'top-feature-bottom-pair') return {
+    width: doubleWidth, height: pairedHeight,
+    rectangles: [[0, 0, doubleWidth, cellHeight], [0, cellHeight + spacing, cellWidth, cellHeight], [cellWidth + spacing, cellHeight + spacing, cellWidth, cellHeight]],
+  };
+  if (mode === 'bottom-feature-top-pair') return {
+    width: doubleWidth, height: pairedHeight,
+    rectangles: [[0, 0, cellWidth, cellHeight], [cellWidth + spacing, 0, cellWidth, cellHeight], [0, cellHeight + spacing, doubleWidth, cellHeight]],
+  };
+  return {
+    width: cellWidth * 3 + spacing * 2, height: pairedHeight,
+    rectangles: [[0, 0, cellWidth, pairedHeight], [cellWidth + spacing, 0, doubleWidth, cellHeight], [cellWidth + spacing, cellHeight + spacing, cellWidth, cellHeight], [cellWidth * 2 + spacing * 2, cellHeight + spacing, cellWidth, cellHeight]],
+  };
+}
+
 function decorativeLayout(images, options, mode) {
   const spacing = Math.max(0, Number(options.spacing) || 0);
   const cellWidth = Math.max(1, Math.round(Number(options.cellWidth) || 400));
   const cellHeight = Math.max(1, Math.round(cellWidth / parseRatio(options.ratio)));
-  const doubleWidth = cellWidth * 2 + spacing;
-  const doubleHeight = cellHeight * 2;
-  const [upperHeight, lowerHeight] = splitExtent(doubleHeight, spacing);
-  let width = doubleWidth;
-  let height = mode.includes('feature') && !mode.includes('stack') ? cellHeight * 2 + spacing : doubleHeight;
-  let rectangles;
-  if (mode === 'left-stack-right-feature') rectangles = [[0, 0, cellWidth, upperHeight], [0, upperHeight + spacing, cellWidth, lowerHeight], [cellWidth + spacing, 0, cellWidth, doubleHeight]];
-  else if (mode === 'top-feature-bottom-pair') rectangles = [[0, 0, doubleWidth, cellHeight], [0, cellHeight + spacing, cellWidth, cellHeight], [cellWidth + spacing, cellHeight + spacing, cellWidth, cellHeight]];
-  else if (mode === 'bottom-feature-top-pair') rectangles = [[0, 0, cellWidth, cellHeight], [cellWidth + spacing, 0, cellWidth, cellHeight], [0, cellHeight + spacing, doubleWidth, cellHeight]];
-  else {
-    width = cellWidth * 3 + spacing * 2;
-    height = cellHeight * 2 + spacing;
-    rectangles = [[0, 0, doubleWidth, cellHeight], [doubleWidth + spacing, 0, cellWidth, height], [0, cellHeight + spacing, cellWidth, cellHeight], [cellWidth + spacing, cellHeight + spacing, cellWidth, cellHeight]];
+  const template = templateFor(mode, cellWidth, cellHeight, spacing);
+  const items = [];
+  const groupSize = template.rectangles.length;
+  const completeGroups = Math.floor(images.length / groupSize);
+  let index = 0;
+  for (let group = 0; group < completeGroups; group += 1) {
+    const offsetX = group * (template.width + spacing);
+    for (const [x, y, width, height] of template.rectangles) {
+      items.push(withFocal({ x: x + offsetX, y, width, height, fit: 'cover' }, options, index));
+      index += 1;
+    }
   }
-  const items = rectangles.map(([x, y, itemWidth, itemHeight], index) => withFocal({ x, y, width: itemWidth, height: itemHeight, fit: 'cover' }, options, index));
-  for (let index = rectangles.length; index < images.length; index += 1) {
-    items.push(withFocal({ x: width + spacing, y: 0, width: cellWidth, height, fit: 'cover' }, options, index));
-    width += cellWidth + spacing;
+  const remainder = images.length - index;
+  const remainderStart = completeGroups * (template.width + spacing);
+  for (let offset = 0; offset < remainder; offset += 1) {
+    items.push(withFocal({
+      x: remainderStart + offset * (cellWidth + spacing), y: 0,
+      width: cellWidth, height: template.height, fit: 'cover',
+    }, options, index));
+    index += 1;
   }
-  return clampLayout({ width, height, scale: 1, items });
+  const width = completeGroups * template.width
+    + Math.max(0, completeGroups - 1) * spacing
+    + (completeGroups && remainder ? spacing : 0)
+    + remainder * cellWidth + Math.max(0, remainder - 1) * spacing;
+  return clampLayout({ width, height: template.height, scale: 1, items });
 }
 
 export function calculateLayout(images, options = {}) {
@@ -93,20 +126,7 @@ export function calculateLayout(images, options = {}) {
   if (mode === 'two-columns') return fixedGrid(images, options, Math.min(2, images.length));
   if (mode === 'two-rows') return fixedGrid(images, options, Math.max(1, Math.ceil(images.length / 2)), Math.min(2, images.length));
   if (mode === 'four-grid') return fixedGrid(images, options, Math.min(2, images.length));
-  if (mode === 'three-feature') {
-    if (images.length < 3) return fixedGrid(images, options, images.length);
-    const cellWidth = Math.max(1, Math.round(Number(options.cellWidth) || 400));
-    const cellHeight = Math.max(1, Math.round(cellWidth / parseRatio(options.ratio)));
-    const [upperHeight, lowerHeight] = splitExtent(cellHeight * 2, spacing);
-    const items = [
-      { x: 0, y: 0, width: cellWidth, height: cellHeight * 2, fit: 'cover', focal: focalAt(options, 0) },
-      { x: cellWidth + spacing, y: 0, width: cellWidth, height: upperHeight, fit: 'cover', focal: focalAt(options, 1) },
-      { x: cellWidth + spacing, y: upperHeight + spacing, width: cellWidth, height: lowerHeight, fit: 'cover', focal: focalAt(options, 2) },
-    ];
-    for (let index = 3; index < images.length; index += 1) items.push({ x: (index - 1) * (cellWidth + spacing), y: 0, width: cellWidth, height: cellHeight * 2, fit: 'cover', focal: focalAt(options, index) });
-    return clampLayout({ width: (images.length - 1) * cellWidth + (images.length - 2) * spacing, height: cellHeight * 2, scale: 1, items });
-  }
-  if (['left-stack-right-feature', 'top-feature-bottom-pair', 'bottom-feature-top-pair'].includes(mode)) return images.length < 3 ? fixedGrid(images, options, images.length) : decorativeLayout(images, options, mode);
+  if (['three-feature', 'left-stack-right-feature', 'top-feature-bottom-pair', 'bottom-feature-top-pair'].includes(mode)) return images.length < 3 ? fixedGrid(images, options, images.length) : decorativeLayout(images, options, mode);
   if (mode === 'asymmetric-mosaic') return images.length < 4 ? fixedGrid(images, options, images.length) : decorativeLayout(images, options, mode);
   if (mode === 'vertical') {
     const targetWidth = Math.max(1, Math.round(Number(options.targetWidth) || Math.max(...images.map((image) => image.width))));

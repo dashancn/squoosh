@@ -117,6 +117,60 @@ test('three-feature appends extra images after its fixed three-image template wi
   assert.equal(layout.items.at(-1).x + layout.items.at(-1).width, layout.width);
 });
 
+function assertNonOverlapping(layout) {
+  for (let first = 0; first < layout.items.length; first += 1) {
+    for (let second = first + 1; second < layout.items.length; second += 1) {
+      const a = layout.items[first];
+      const b = layout.items[second];
+      const overlaps = a.x < b.x + b.width && a.x + a.width > b.x
+        && a.y < b.y + b.height && a.y + a.height > b.y;
+      assert.equal(overlaps, false, `items ${first} and ${second} overlap`);
+    }
+  }
+}
+
+for (const mode of [
+  'three-feature',
+  'left-stack-right-feature',
+  'top-feature-bottom-pair',
+  'bottom-feature-top-pair',
+]) {
+  test(`${mode} repeats its paired slots for every complete three-image group`, () => {
+    const source = Array.from({ length: 7 }, () => images[0]);
+    const layout = calculateLayout(source, {
+      mode, ratio: '1:1', cellWidth: 100, spacing: 10,
+    });
+    assert.equal(layout.items.length, 7);
+    assertNonOverlapping(layout);
+    const firstGroup = layout.items.slice(0, 3).map(({ x, y, width, height }) => [x, y, width, height]);
+    const secondGroup = layout.items.slice(3, 6).map(({ x, y, width, height }) => [x, y, width, height]);
+    const groupWidth = Math.max(...firstGroup.map(([x, , width]) => x + width));
+    assert.deepEqual(
+      secondGroup,
+      firstGroup.map(([x, y, width, height]) => [x + groupWidth + 10, y, width, height]),
+    );
+    assert.equal(layout.items[6].x, (groupWidth + 10) * 2);
+    assert.equal(layout.items[6].x + layout.items[6].width, layout.width);
+  });
+}
+
+test('asymmetric mosaic has a distinct four-slot geometry from top-feature-bottom-pair', () => {
+  const source = Array.from({ length: 4 }, () => images[0]);
+  const asymmetric = calculateLayout(source, {
+    mode: 'asymmetric-mosaic', ratio: '1:1', cellWidth: 100, spacing: 10,
+  });
+  const topFeature = calculateLayout(source, {
+    mode: 'top-feature-bottom-pair', ratio: '1:1', cellWidth: 100, spacing: 10,
+  });
+  const signature = (layout) => layout.items.map(({ x, y, width, height }) => [x, y, width, height]);
+  assert.notDeepEqual(signature(asymmetric), signature(topFeature));
+  assertNonOverlapping(asymmetric);
+  assert.ok(asymmetric.items.some((item) => item.width !== item.height));
+  assert.ok(asymmetric.items.some((item) => item.height > 100));
+  assert.ok(asymmetric.items[0].height > asymmetric.items[0].width, 'first mosaic slot is a tall feature');
+  assert.ok(asymmetric.items[1].width > asymmetric.items[1].height, 'second mosaic slot is a wide feature');
+});
+
 test('decorative templates cover their canvas and fall back without enough images', () => {
   const fourImages = [...images, images[0]];
   const expectations = {
@@ -130,7 +184,7 @@ test('decorative templates cover their canvas and fall back without enough image
       [0, 0, 400, 400], [417, 0, 400, 400], [0, 417, 817, 400],
     ],
     'asymmetric-mosaic': [
-      [0, 0, 817, 400], [834, 0, 400, 817], [0, 417, 400, 400], [417, 417, 400, 400],
+      [0, 0, 400, 817], [417, 0, 817, 400], [417, 417, 400, 400], [834, 417, 400, 400],
     ],
   };
   for (const [mode, rectangles] of Object.entries(expectations)) {

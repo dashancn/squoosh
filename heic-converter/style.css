@@ -5,9 +5,12 @@ body {
   margin: 0;
   color: #172033;
   background: #f5f7fb;
-  font: 15px/1.55 system-ui, -apple-system, 'Segoe UI', sans-serif;
+  font: 15px/1.55 Inter, 'PingFang SC', 'Microsoft YaHei', sans-serif;
 }
 .site-header {
+  position: sticky;
+  top: 0;
+  z-index: 10;
   height: 64px;
   min-height: 64px;
   background: #fff;
@@ -57,6 +60,7 @@ body {
   border-radius: 8px;
   white-space: nowrap;
   font-size: 13px;
+  font-weight: 650;
 }
 .i-plan-nav {
   min-width: 72px;
@@ -75,18 +79,24 @@ body {
 }
 [data-tooltip]::after {
   content: attr(data-tooltip);
-  position: absolute;
-  z-index: 5;
+  position: fixed;
+  top: 58px;
+  left: 50%;
+  z-index: 20;
+  width: min(420px, calc(100vw - 24px));
+  box-sizing: border-box;
   opacity: 0;
   pointer-events: none;
-  left: 50%;
-  top: calc(100% + 7px);
   transform: translateX(-50%);
   background: #172033;
   color: #fff;
-  padding: 5px 8px;
-  border-radius: 6px;
+  padding: 9px 11px;
+  border-radius: 7px;
   font-size: 12px;
+  font-weight: 600;
+  line-height: 1.45;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 [data-tooltip]:hover::after,
 [data-tooltip]:focus-visible::after {
@@ -422,7 +432,7 @@ body.lightbox-open {
   .tool-nav {
     flex-basis: 100%;
     margin-left: 0;
-    justify-content: flex-end;
+    justify-content: flex-start;
   }
   .i-plan-banner {
     margin: 16px;
