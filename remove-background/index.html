@@ -62,6 +62,17 @@
             <label><input type="radio" name="background" value="red" />红色</label>
           </fieldset>
 
+          <fieldset id="crop-controls" class="mask-editor" disabled>
+            <legend>图片裁剪</legend>
+            <p>选择裁剪后在预览中拖出矩形，应用前不会改变原图；重置可恢复完整图片。</p>
+            <div class="history-buttons">
+              <button id="crop-mode-button" class="tool-button" type="button" aria-pressed="false">选择裁剪</button>
+              <button id="apply-crop-button" class="tool-button" type="button" disabled>应用裁剪</button>
+              <button id="reset-crop-button" class="tool-button" type="button" disabled>重置裁剪</button>
+            </div>
+            <output id="crop-output">完整图片</output>
+          </fieldset>
+
           <fieldset id="mask-editor-controls" class="mask-editor" disabled>
             <legend>主体蒙版精修</legend>
             <p id="mask-editor-help">在右侧图片上涂抹。擦除会隐藏主体，恢复会从原图找回；图片显示区域的黑边外涂抹不会修改图片。</p>
@@ -85,7 +96,16 @@
         </div>
 
         <div class="preview-panel">
+          <div class="preview-toolbar" role="group" aria-label="预览缩放与平移">
+            <button id="zoom-out-button" class="preview-tool" type="button" disabled aria-label="缩小预览">−</button>
+            <output id="zoom-output" aria-live="polite">100%</output>
+            <button id="zoom-in-button" class="preview-tool" type="button" disabled aria-label="放大预览">＋</button>
+            <button id="pan-mode-button" class="preview-tool" type="button" disabled aria-pressed="false">平移</button>
+            <button id="zoom-reset-button" class="preview-tool" type="button" disabled>适合窗口</button>
+          </div>
           <canvas id="preview" width="720" height="480" aria-label="抠图结果预览与蒙版手工精修画布" aria-describedby="mask-editor-help"></canvas>
+          <div id="brush-indicator" hidden aria-hidden="true"></div>
+          <div id="crop-selection" hidden aria-hidden="true"></div>
           <p id="preview-empty">选择图片后可在此预览；不会自动跳转到其他页面。</p>
         </div>
       </section>

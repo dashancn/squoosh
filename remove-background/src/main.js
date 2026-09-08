@@ -6,9 +6,13 @@ import {
 } from '../../heic-converter/src/input-adapter.mjs';
 import {
   applyBrushStamp,
+  brushIndicatorDiameter,
+  clampPreviewPan,
   containedImageRect,
+  cropPixels,
   createMaskHistory,
   createRenderOwnership,
+  normalizeCropRect,
   interpolateStroke,
   isPrimaryPointerStart,
   mergeBounds,
@@ -26,7 +30,20 @@ const progress = $('#progress');
 const progressLabel = $('#progress-label');
 const backgroundOptions = $('#background-options');
 const preview = $('#preview');
+const previewPanel = $('.preview-panel');
 const previewEmpty = $('#preview-empty');
+const brushIndicator = $('#brush-indicator');
+const zoomOutButton = $('#zoom-out-button');
+const zoomInButton = $('#zoom-in-button');
+const zoomResetButton = $('#zoom-reset-button');
+const zoomOutput = $('#zoom-output');
+const panModeButton = $('#pan-mode-button');
+const cropControls = $('#crop-controls');
+const cropModeButton = $('#crop-mode-button');
+const applyCropButton = $('#apply-crop-button');
+const resetCropButton = $('#reset-crop-button');
+const cropOutput = $('#crop-output');
+const cropSelection = $('#crop-selection');
 const maskControls = $('#mask-editor-controls');
 const eraseMode = $('#erase-mode');
 const restoreMode = $('#restore-mode');
@@ -56,7 +73,6 @@ let sourcePixels = null;
 let originalAlpha = null;
 let editMask = null;
 let maskHistory = null;
-let previewSource = null;
 let previewImage = null;
 let brushMode = 'erase';
 let activePointer = null;
@@ -64,6 +80,14 @@ let lastPoint = null;
 let strokeChanged = false;
 let strokeBounds = null;
 let strokeRecorder = null;
+let previewZoom = 1;
+let previewPan = { x: 0, y: 0 };
+let panMode = false;
+let panStart = null;
+let cropMode = false;
+let cropStart = null;
+let cropDraft = null;
+let appliedCrop = null;
 let exportQueue = Promise.resolve();
 
 function setProgress(value, message) {
@@ -120,8 +144,104 @@ function updateEditorButtons() {
   undoButton.disabled = !maskHistory?.canUndo();
   redoButton.disabled = !maskHistory?.canRedo();
   resetMaskButton.disabled = !maskHistory;
+  zoomOutButton.disabled = !maskHistory || previewZoom <= 1;
+  zoomInButton.disabled = !maskHistory || previewZoom >= 8;
+  zoomResetButton.disabled = !maskHistory || previewZoom === 1;
+  panModeButton.disabled = !maskHistory || previewZoom === 1;
+  cropModeButton.disabled = !maskHistory;
+  applyCropButton.disabled = !cropDraft;
+  resetCropButton.disabled = !appliedCrop && !cropDraft;
   downloadButton.disabled =
     !renderOwnership.outputBlob || renderOwnership.pending;
+}
+
+function updatePreviewTransform() {
+  previewPan = clampPreviewPan(
+    previewPan,
+    previewZoom,
+    preview.width,
+    preview.height,
+  );
+  preview.style.transform = `scale(${previewZoom}) translate(${previewPan.x}px, ${previewPan.y}px)`;
+  preview.style.transformOrigin = 'center';
+  zoomOutput.value = `${Math.round(previewZoom * 100)}%`;
+  zoomOutput.textContent = zoomOutput.value;
+  if (previewZoom === 1 && panMode) setPanMode(false);
+  updateCropSelection();
+  updateEditorButtons();
+}
+
+function setPreviewZoom(nextZoom) {
+  previewZoom = Math.max(1, Math.min(8, nextZoom));
+  updatePreviewTransform();
+}
+
+function setPanMode(enabled) {
+  panMode = Boolean(enabled && previewZoom > 1);
+  if (!panMode) {
+    activePointer = null;
+    panStart = null;
+  }
+  if (panMode) setCropMode(false);
+  panModeButton.classList.toggle('active', panMode);
+  panModeButton.setAttribute('aria-pressed', String(panMode));
+  preview.classList.toggle('panning', panMode);
+  brushIndicator.hidden = true;
+}
+
+function setCropMode(enabled) {
+  cropMode = Boolean(enabled && editMask);
+  if (cropMode && panMode) {
+    panMode = false;
+    panModeButton.classList.remove('active');
+    panModeButton.setAttribute('aria-pressed', 'false');
+    preview.classList.remove('panning');
+  }
+  cropModeButton.classList.toggle('active', cropMode);
+  cropModeButton.setAttribute('aria-pressed', String(cropMode));
+  preview.classList.toggle('cropping', cropMode);
+  brushIndicator.hidden = true;
+}
+
+function displayedCropRect(crop) {
+  const imageRect = displayedImageRect();
+  if (!crop || !imageRect) return null;
+  const visibleCrop = appliedCrop || {
+    x: 0,
+    y: 0,
+    width: sourceWidth,
+    height: sourceHeight,
+  };
+  return {
+    left:
+      imageRect.left +
+      ((crop.x - visibleCrop.x) / visibleCrop.width) * imageRect.width,
+    top:
+      imageRect.top +
+      ((crop.y - visibleCrop.y) / visibleCrop.height) * imageRect.height,
+    width: (crop.width / visibleCrop.width) * imageRect.width,
+    height: (crop.height / visibleCrop.height) * imageRect.height,
+  };
+}
+
+function updateCropSelection() {
+  const crop = cropDraft || appliedCrop;
+  const rect = displayedCropRect(crop);
+  if (!rect) {
+    cropSelection.hidden = true;
+  } else {
+    const panelRect = previewPanel.getBoundingClientRect();
+    cropSelection.style.left = `${rect.left - panelRect.left}px`;
+    cropSelection.style.top = `${rect.top - panelRect.top}px`;
+    cropSelection.style.width = `${rect.width}px`;
+    cropSelection.style.height = `${rect.height}px`;
+    cropSelection.hidden = false;
+  }
+  cropOutput.value = crop
+    ? `${crop.width} × ${crop.height} px${cropDraft ? '（待应用）' : ''}`
+    : '完整图片';
+  cropOutput.textContent = cropOutput.value;
+  updateEditorButtons();
 }
 
 function setBrushMode(mode) {
@@ -133,27 +253,26 @@ function setBrushMode(mode) {
   restoreMode.setAttribute('aria-pressed', String(!erasing));
 }
 
-function makePreview(bitmap) {
+function makePreview() {
+  const crop = appliedCrop || {
+    x: 0,
+    y: 0,
+    width: sourceWidth,
+    height: sourceHeight,
+  };
   const scale = Math.min(
     1,
-    MAX_PREVIEW_EDGE / Math.max(bitmap.width, bitmap.height),
+    MAX_PREVIEW_EDGE / Math.max(crop.width, crop.height),
   );
-  preview.width = Math.max(1, Math.round(bitmap.width * scale));
-  preview.height = Math.max(1, Math.round(bitmap.height * scale));
-  previewContext.clearRect(0, 0, preview.width, preview.height);
-  previewContext.drawImage(bitmap, 0, 0, preview.width, preview.height);
-  previewSource = previewContext.getImageData(
-    0,
-    0,
-    preview.width,
-    preview.height,
-  ).data;
+  preview.width = Math.max(1, Math.round(crop.width * scale));
+  preview.height = Math.max(1, Math.round(crop.height * scale));
   previewImage = previewContext.createImageData(preview.width, preview.height);
+  updatePreviewBounds();
 }
 
 function updatePreviewBounds(bounds = null) {
   if (
-    !previewSource ||
+    !sourcePixels ||
     !previewImage ||
     !editMask ||
     !sourceWidth ||
@@ -161,43 +280,67 @@ function updatePreviewBounds(bounds = null) {
   )
     return;
   const background = backgrounds[selectedBackground()];
-  const scaleX = sourceWidth / preview.width;
-  const scaleY = sourceHeight / preview.height;
+  const crop = appliedCrop || {
+    x: 0,
+    y: 0,
+    width: sourceWidth,
+    height: sourceHeight,
+  };
+  const scaleX = crop.width / preview.width;
+  const scaleY = crop.height / preview.height;
   let left = 0;
   let top = 0;
   let right = preview.width - 1;
   let bottom = preview.height - 1;
   if (bounds) {
-    left = Math.max(0, Math.floor(bounds.left / scaleX) - 1);
-    top = Math.max(0, Math.floor(bounds.top / scaleY) - 1);
-    right = Math.min(preview.width - 1, Math.ceil(bounds.right / scaleX) + 1);
+    if (
+      bounds.right < crop.x ||
+      bounds.bottom < crop.y ||
+      bounds.left >= crop.x + crop.width ||
+      bounds.top >= crop.y + crop.height
+    )
+      return;
+    left = Math.max(0, Math.floor((bounds.left - crop.x) / scaleX) - 1);
+    top = Math.max(0, Math.floor((bounds.top - crop.y) / scaleY) - 1);
+    right = Math.min(
+      preview.width - 1,
+      Math.ceil((bounds.right - crop.x) / scaleX) + 1,
+    );
     bottom = Math.min(
       preview.height - 1,
-      Math.ceil(bounds.bottom / scaleY) + 1,
+      Math.ceil((bounds.bottom - crop.y) / scaleY) + 1,
     );
   }
   for (let y = top; y <= bottom; y += 1) {
-    const sourceY = Math.min(sourceHeight - 1, Math.floor((y + 0.5) * scaleY));
+    const sourceY = Math.min(
+      sourceHeight - 1,
+      crop.y + Math.floor((y + 0.5) * scaleY),
+    );
     for (let x = left; x <= right; x += 1) {
-      const sourceX = Math.min(sourceWidth - 1, Math.floor((x + 0.5) * scaleX));
+      const sourceX = Math.min(
+        sourceWidth - 1,
+        crop.x + Math.floor((x + 0.5) * scaleX),
+      );
       const sourceIndex = sourceY * sourceWidth + sourceX;
       const pixelIndex = (y * preview.width + x) * 4;
       const alpha = Math.min(originalAlpha[sourceIndex], editMask[sourceIndex]);
       if (!background) {
-        previewImage.data[pixelIndex] = previewSource[pixelIndex];
-        previewImage.data[pixelIndex + 1] = previewSource[pixelIndex + 1];
-        previewImage.data[pixelIndex + 2] = previewSource[pixelIndex + 2];
+        previewImage.data[pixelIndex] = sourcePixels[sourceIndex * 4];
+        previewImage.data[pixelIndex + 1] = sourcePixels[sourceIndex * 4 + 1];
+        previewImage.data[pixelIndex + 2] = sourcePixels[sourceIndex * 4 + 2];
         previewImage.data[pixelIndex + 3] = alpha;
       } else {
         const amount = alpha / 255;
         previewImage.data[pixelIndex] = Math.round(
-          previewSource[pixelIndex] * amount + background[0] * (1 - amount),
+          sourcePixels[sourceIndex * 4] * amount + background[0] * (1 - amount),
         );
         previewImage.data[pixelIndex + 1] = Math.round(
-          previewSource[pixelIndex + 1] * amount + background[1] * (1 - amount),
+          sourcePixels[sourceIndex * 4 + 1] * amount +
+            background[1] * (1 - amount),
         );
         previewImage.data[pixelIndex + 2] = Math.round(
-          previewSource[pixelIndex + 2] * amount + background[2] * (1 - amount),
+          sourcePixels[sourceIndex * 4 + 2] * amount +
+            background[2] * (1 - amount),
         );
         previewImage.data[pixelIndex + 3] = 255;
       }
@@ -260,10 +403,22 @@ function exportResult() {
           }
         }
         if (!renderOwnership.isCurrent(token)) return;
-        exportCanvas.width = sourceWidth;
-        exportCanvas.height = sourceHeight;
+        const crop = appliedCrop || {
+          x: 0,
+          y: 0,
+          width: sourceWidth,
+          height: sourceHeight,
+        };
+        const croppedOutput = cropPixels(
+          output,
+          sourceWidth,
+          sourceHeight,
+          crop,
+        );
+        exportCanvas.width = crop.width;
+        exportCanvas.height = crop.height;
         exportContext.putImageData(
-          new ImageData(output, sourceWidth, sourceHeight),
+          new ImageData(croppedOutput, crop.width, crop.height),
           0,
           0,
         );
@@ -308,6 +463,7 @@ function releaseActivePointer() {
   strokeChanged = false;
   strokeBounds = null;
   strokeRecorder = null;
+  panStart = null;
 }
 
 function clearEditor() {
@@ -316,21 +472,29 @@ function clearEditor() {
   sourcePixels?.fill(0);
   originalAlpha?.fill(0);
   editMask?.fill(0);
-  previewSource?.fill(0);
   previewImage?.data.fill(0);
   maskHistory?.clear?.();
   sourcePixels = null;
   originalAlpha = null;
   editMask = null;
   maskHistory = null;
-  previewSource = null;
   previewImage = null;
   sourceWidth = 0;
   sourceHeight = 0;
+  previewZoom = 1;
+  previewPan = { x: 0, y: 0 };
+  cropStart = null;
+  cropDraft = null;
+  appliedCrop = null;
+  setCropMode(false);
+  setPanMode(false);
+  updatePreviewTransform();
+  updateCropSelection();
   preview.width = 0;
   preview.height = 0;
   exportCanvas.width = 0;
   exportCanvas.height = 0;
+  cropControls.disabled = true;
   maskControls.disabled = true;
   updateEditorButtons();
 }
@@ -373,6 +537,7 @@ startButton.addEventListener('click', async () => {
   startButton.disabled = true;
   downloadButton.disabled = true;
   backgroundOptions.disabled = true;
+  cropControls.disabled = true;
   maskControls.disabled = true;
   setProgress(1, '正在准备图片…');
   let sourceBitmap;
@@ -414,9 +579,9 @@ startButton.addEventListener('click', async () => {
     editMask = alphaFromBitmap(foregroundBitmap);
     maskHistory = createMaskHistory(editMask, 20);
     renderOwnership.select(version);
-    makePreview(sourceBitmap);
-    updatePreviewBounds();
+    makePreview();
     backgroundOptions.disabled = false;
+    cropControls.disabled = false;
     maskControls.disabled = false;
     previewEmpty.hidden = true;
     await exportResult();
@@ -444,17 +609,67 @@ startButton.addEventListener('click', async () => {
 });
 
 function eventSourcePoint(event) {
-  return toContainedSourcePoint(
+  const crop = appliedCrop || {
+    x: 0,
+    y: 0,
+    width: sourceWidth,
+    height: sourceHeight,
+  };
+  const point = toContainedSourcePoint(
     event.clientX,
     event.clientY,
-    containedImageRect(
-      preview.getBoundingClientRect(),
-      preview.width,
-      preview.height,
-    ),
+    displayedImageRect(),
+    crop.width,
+    crop.height,
+  );
+  return point ? { x: point.x + crop.x, y: point.y + crop.y } : null;
+}
+
+function displayedImageRect() {
+  const panelRect = previewPanel.getBoundingClientRect();
+  const viewportBox = {
+    left: panelRect.left,
+    top: panelRect.top,
+    width: preview.clientWidth,
+    height: preview.clientHeight,
+  };
+  const fit = containedImageRect(viewportBox, preview.width, preview.height);
+  if (!fit) return null;
+  return {
+    left:
+      fit.left +
+      fit.width / 2 -
+      (fit.width * previewZoom) / 2 +
+      previewPan.x * previewZoom,
+    top:
+      fit.top +
+      fit.height / 2 -
+      (fit.height * previewZoom) / 2 +
+      previewPan.y * previewZoom,
+    width: fit.width * previewZoom,
+    height: fit.height * previewZoom,
+  };
+}
+
+function updateBrushIndicator(event) {
+  const imageRect = displayedImageRect();
+  const point = eventSourcePoint(event);
+  if (!point || !editMask || busy) {
+    brushIndicator.hidden = true;
+    return;
+  }
+  const panelRect = previewPanel.getBoundingClientRect();
+  const diameter = brushIndicatorDiameter(
+    brushSize.value,
+    imageRect,
     sourceWidth,
     sourceHeight,
   );
+  brushIndicator.style.left = `${event.clientX - panelRect.left}px`;
+  brushIndicator.style.top = `${event.clientY - panelRect.top}px`;
+  brushIndicator.style.width = `${diameter}px`;
+  brushIndicator.style.height = `${diameter}px`;
+  brushIndicator.hidden = false;
 }
 
 function stamp(point) {
@@ -486,6 +701,36 @@ function stamp(point) {
 
 preview.addEventListener('pointerdown', (event) => {
   if (!editMask || busy || !isPrimaryPointerStart(event, activePointer)) return;
+  if (panMode) {
+    event.preventDefault();
+    activePointer = event.pointerId;
+    panStart = {
+      clientX: event.clientX,
+      clientY: event.clientY,
+      pan: { ...previewPan },
+    };
+    try {
+      preview.setPointerCapture(event.pointerId);
+    } catch {
+      // Synthetic pointer tests and some browser transitions cannot capture.
+    }
+    return;
+  }
+  if (cropMode) {
+    const point = eventSourcePoint(event);
+    if (!point) return;
+    event.preventDefault();
+    activePointer = event.pointerId;
+    cropStart = point;
+    cropDraft = normalizeCropRect(point, point, sourceWidth, sourceHeight);
+    try {
+      preview.setPointerCapture(event.pointerId);
+    } catch {
+      // Synthetic pointer tests and some browser transitions cannot capture.
+    }
+    updateCropSelection();
+    return;
+  }
   const point = eventSourcePoint(event);
   if (!point) return;
   event.preventDefault();
@@ -500,7 +745,39 @@ preview.addEventListener('pointerdown', (event) => {
 });
 
 preview.addEventListener('pointermove', (event) => {
+  if (!panMode) updateBrushIndicator(event);
   if (event.pointerId !== activePointer || !editMask) return;
+  if (panMode && activePointer !== null) {
+    event.preventDefault();
+    const origin = panStart || {
+      clientX: event.clientX,
+      clientY: event.clientY,
+      pan: { ...previewPan },
+    };
+    previewPan = {
+      x: origin.pan.x + (event.clientX - origin.clientX) / previewZoom,
+      y: origin.pan.y + (event.clientY - origin.clientY) / previewZoom,
+    };
+    updatePreviewTransform();
+    return;
+  }
+  if (panStart) {
+    event.preventDefault();
+    previewPan = {
+      x: panStart.pan.x + (event.clientX - panStart.clientX) / previewZoom,
+      y: panStart.pan.y + (event.clientY - panStart.clientY) / previewZoom,
+    };
+    updatePreviewTransform();
+    return;
+  }
+  if (cropStart) {
+    const point = eventSourcePoint(event);
+    if (!point) return;
+    event.preventDefault();
+    cropDraft = normalizeCropRect(cropStart, point, sourceWidth, sourceHeight);
+    updateCropSelection();
+    return;
+  }
   const point = eventSourcePoint(event);
   if (!point) {
     lastPoint = null;
@@ -516,9 +793,14 @@ preview.addEventListener('pointermove', (event) => {
   lastPoint = point;
   if (changedBounds) updatePreviewBounds(changedBounds);
 });
+preview.addEventListener('pointerleave', () => {
+  if (activePointer === null) brushIndicator.hidden = true;
+});
 
 async function finishStroke(event) {
   if (event.pointerId !== activePointer) return;
+  const finishedPan = Boolean(panStart);
+  const finishedCrop = Boolean(cropStart);
   try {
     if (preview.hasPointerCapture(event.pointerId))
       preview.releasePointerCapture(event.pointerId);
@@ -527,6 +809,12 @@ async function finishStroke(event) {
   }
   activePointer = null;
   lastPoint = null;
+  panStart = null;
+  cropStart = null;
+  if (finishedPan || finishedCrop) {
+    updateCropSelection();
+    return;
+  }
   const indices = strokeRecorder
     ? Uint32Array.from(strokeRecorder.keys())
     : new Uint32Array();
@@ -556,6 +844,53 @@ restoreMode.addEventListener('click', () => setBrushMode('restore'));
 brushSize.addEventListener('input', () => {
   brushSizeOutput.value = `${brushSize.value} px`;
 });
+zoomOutButton.addEventListener('click', () =>
+  setPreviewZoom(previewZoom / 1.25),
+);
+zoomInButton.addEventListener('click', () =>
+  setPreviewZoom(previewZoom * 1.25),
+);
+zoomResetButton.addEventListener('click', () => {
+  previewPan = { x: 0, y: 0 };
+  setPreviewZoom(1);
+});
+panModeButton.addEventListener('click', () => setPanMode(!panMode));
+cropModeButton.addEventListener('click', () => setCropMode(!cropMode));
+applyCropButton.addEventListener('click', async () => {
+  if (!cropDraft) return;
+  appliedCrop = cropDraft;
+  cropDraft = null;
+  setCropMode(false);
+  previewPan = { x: 0, y: 0 };
+  previewZoom = 1;
+  renderOwnership.reviseCrop();
+  makePreview();
+  updatePreviewTransform();
+  updateCropSelection();
+  await runExport();
+});
+resetCropButton.addEventListener('click', async () => {
+  if (!cropDraft && !appliedCrop) return;
+  cropDraft = null;
+  appliedCrop = null;
+  setCropMode(false);
+  previewPan = { x: 0, y: 0 };
+  previewZoom = 1;
+  renderOwnership.reviseCrop();
+  makePreview();
+  updatePreviewTransform();
+  updateCropSelection();
+  await runExport();
+});
+previewPanel.addEventListener(
+  'wheel',
+  (event) => {
+    if (!editMask) return;
+    event.preventDefault();
+    setPreviewZoom(previewZoom * (event.deltaY < 0 ? 1.15 : 1 / 1.15));
+  },
+  { passive: false },
+);
 undoButton.addEventListener('click', async () => {
   if (!maskHistory?.canUndo()) return;
   editMask = maskHistory.undo();

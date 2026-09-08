@@ -110,8 +110,64 @@ try {
   const centerX = drawLeft + drawnWidth / 2;
   const centerY = drawTop + drawnHeight / 2;
   await page.mouse.move(centerX, centerY);
+  await page.waitForFunction(() => !document.querySelector('#brush-indicator').hidden);
+  const indicator = await page.locator('#brush-indicator').evaluate((element) => ({
+    width: parseFloat(element.style.width),
+    height: parseFloat(element.style.height),
+  }));
+  assert.ok(indicator.width > 0);
+  assert.equal(indicator.width, indicator.height);
+
+  await page.click('#zoom-in-button');
+  assert.equal(await page.locator('#zoom-output').textContent(), '125%');
+  const zoomedTransform = await page.locator('#preview').evaluate((canvas) => canvas.style.transform);
+  assert.match(zoomedTransform, /scale\(1\.25\)/);
+  await page.click('#pan-mode-button');
+  assert.equal(await page.locator('#pan-mode-button').getAttribute('aria-pressed'), 'true');
+  assert.equal(await page.locator('#preview').getAttribute('class'), 'panning');
+  const panBox = await page.locator('.preview-panel').boundingBox();
+  assert.ok(panBox, 'preview panel must be visible for panning');
+  const panX = panBox.x + panBox.width / 2;
+  const panY = panBox.y + Math.min(panBox.height - 24, 260);
+  await page.locator('#preview').evaluate(
+    (canvas, { x, y }) => {
+      for (const [type, clientX, clientY, buttons] of [
+        ['pointerdown', x, y, 1],
+        ['pointermove', x + 35, y + 20, 1],
+        ['pointerup', x + 35, y + 20, 0],
+      ])
+        {
+          const event = new PointerEvent(type, {
+            bubbles: true,
+            pointerId: 21,
+            button: 0,
+            buttons,
+            clientX,
+            clientY,
+          });
+          Object.defineProperty(event, 'isPrimary', { value: true });
+          canvas.dispatchEvent(event);
+        }
+    },
+    { x: panX, y: panY },
+  );
+  const pannedTransform = await page.locator('#preview').evaluate((canvas) => canvas.style.transform);
+  assert.notEqual(pannedTransform, zoomedTransform);
+  await page.click('#zoom-reset-button');
+  assert.equal(await page.locator('#zoom-output').textContent(), '100%');
+  await page.locator('#preview').scrollIntoViewIfNeeded();
+  const resetBox = await page.locator('#preview').boundingBox();
+  const resetCenterX = resetBox.x + resetBox.width / 2;
+  const resetCenterY = resetBox.y + resetBox.height / 2;
+  assert.equal(await page.locator('#preview').getAttribute('class'), '');
+  assert.equal(
+    await page.evaluate(({ x, y }) => document.elementFromPoint(x, y)?.id, { x: resetCenterX, y: resetCenterY }),
+    'preview',
+  );
+
+  await page.mouse.move(resetCenterX, resetCenterY);
   await page.mouse.down();
-  await page.mouse.move(centerX + 24, centerY, { steps: 8 });
+  await page.mouse.move(resetCenterX + 24, resetCenterY, { steps: 8 });
   await page.mouse.up();
   await page.waitForFunction((baseline) => {
     const canvas = document.querySelector('#preview');
@@ -126,12 +182,57 @@ try {
   const redone = await page.locator('#preview').evaluate((canvas) => [...canvas.getContext('2d').getImageData(Math.floor(canvas.width / 2), Math.floor(canvas.height / 2), 1, 1).data]);
   assert.equal(redone[3], erased[3]);
   await page.click('#restore-mode');
-  await page.mouse.click(centerX, centerY);
+  await page.locator('#preview').scrollIntoViewIfNeeded();
+  const restoreBox = await page.locator('#preview').boundingBox();
+  await page.mouse.click(
+    restoreBox.x + restoreBox.width / 2,
+    restoreBox.y + restoreBox.height / 2,
+  );
   const restored = await page.locator('#preview').evaluate((canvas) => [...canvas.getContext('2d').getImageData(Math.floor(canvas.width / 2), Math.floor(canvas.height / 2), 1, 1).data]);
   assert.ok(restored[3] > erased[3]);
   await page.click('#reset-mask-button');
   const reset = await page.locator('#preview').evaluate((canvas) => [...canvas.getContext('2d').getImageData(Math.floor(canvas.width / 2), Math.floor(canvas.height / 2), 1, 1).data]);
   assert.equal(reset[3], editorBaseline[3]);
+
+  await page.click('#crop-mode-button');
+  await page.locator('#preview').scrollIntoViewIfNeeded();
+  const cropBox = await page.locator('#preview').boundingBox();
+  const cropDrawScale = Math.min(cropBox.width / 320, cropBox.height / 240);
+  const cropDrawWidth = 320 * cropDrawScale;
+  const cropDrawHeight = 240 * cropDrawScale;
+  const cropDrawLeft = cropBox.x + (cropBox.width - cropDrawWidth) / 2;
+  const cropDrawTop = cropBox.y + (cropBox.height - cropDrawHeight) / 2;
+  const cropStartX = cropDrawLeft + cropDrawWidth * 0.25;
+  const cropStartY = cropDrawTop + cropDrawHeight * 0.25;
+  const cropEndX = cropDrawLeft + cropDrawWidth * 0.75;
+  const cropEndY = cropDrawTop + cropDrawHeight * 0.75 - 1;
+  await page.locator('#preview').evaluate(
+    (canvas, { startX, startY, endX, endY }) => {
+      for (const [type, clientX, clientY, buttons] of [
+        ['pointerdown', startX, startY, 1],
+        ['pointermove', endX, endY, 1],
+        ['pointerup', endX, endY, 0],
+      ]) {
+        const event = new PointerEvent(type, {
+          bubbles: true,
+          pointerId: 23,
+          button: 0,
+          buttons,
+          clientX,
+          clientY,
+        });
+        Object.defineProperty(event, 'isPrimary', { value: true });
+        canvas.dispatchEvent(event);
+      }
+    },
+    { startX: cropStartX, startY: cropStartY, endX: cropEndX, endY: cropEndY },
+  );
+  assert.equal(await page.locator('#crop-selection').getAttribute('hidden'), null);
+  assert.match(await page.locator('#crop-output').textContent(), /160 × 120 px/);
+  assert.equal(await page.locator('#preview').evaluate((canvas) => `${canvas.width}x${canvas.height}`), '320x240', 'draft crop must be non-destructive');
+  await page.click('#apply-crop-button');
+  await page.waitForFunction(() => document.querySelector('#preview').width === 160);
+  assert.equal(await page.locator('#preview').evaluate((canvas) => `${canvas.width}x${canvas.height}`), '160x120');
 
   await page.check('input[name="background"][value="blue"]');
   const exportResult = await page.evaluate(async () => {
@@ -146,10 +247,30 @@ try {
   assert.equal(exportResult.mimeType, 'image/png');
   assert.ok(png.length > 8);
   assert.deepEqual([...png.subarray(0, 8)], [137, 80, 78, 71, 13, 10, 26, 10]);
+  const downloadBlobPromise = page.evaluate(() =>
+    new Promise((resolve) => {
+      const original = URL.createObjectURL;
+      URL.createObjectURL = (blob) => {
+        blob.arrayBuffer().then((buffer) => resolve(Array.from(new Uint8Array(buffer))));
+        return original.call(URL, blob);
+      };
+    }),
+  );
   const downloadPromise = page.waitForEvent('download');
   await page.click('#download-button');
-  const download = await downloadPromise;
+  const [download, downloadBytes] = await Promise.all([
+    downloadPromise,
+    downloadBlobPromise,
+  ]);
   assert.match(download.suggestedFilename(), /\.png$/);
+  const downloadedBytes = Buffer.from(downloadBytes);
+  assert.ok(downloadedBytes.length > 24);
+  assert.equal(downloadedBytes.readUInt32BE(16), 160);
+  assert.equal(downloadedBytes.readUInt32BE(20), 120);
+  await page.click('#reset-crop-button');
+  await page.waitForFunction(() => document.querySelector('#preview').width === 320);
+  assert.equal(await page.locator('#preview').evaluate((canvas) => `${canvas.width}x${canvas.height}`), '320x240');
+  assert.equal(await page.locator('#crop-output').textContent(), '完整图片');
   assert.deepEqual(errors, []);
   const external = requests.filter((url) => /^https?:/.test(url) && !url.startsWith(origin));
   assert.deepEqual(external, []);

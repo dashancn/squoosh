@@ -49,6 +49,64 @@ export function toContainedSourcePoint(
   };
 }
 
+export function brushIndicatorDiameter(
+  brushSize,
+  imageRect,
+  sourceWidth,
+  sourceHeight,
+) {
+  if (!imageRect || sourceWidth <= 0 || sourceHeight <= 0) return 0;
+  const scale = Math.min(
+    imageRect.width / sourceWidth,
+    imageRect.height / sourceHeight,
+  );
+  return Math.max(1, Number(brushSize) * scale);
+}
+
+export function clampPreviewPan(pan, zoom, width, height) {
+  if (zoom <= 1) return { x: 0, y: 0 };
+  const maximumX = (width * (zoom - 1)) / (2 * zoom);
+  const maximumY = (height * (zoom - 1)) / (2 * zoom);
+  return {
+    x: clamp(pan.x, -maximumX, maximumX),
+    y: clamp(pan.y, -maximumY, maximumY),
+  };
+}
+
+export function normalizeCropRect(start, end, width, height) {
+  const startX = clamp(Math.floor(Math.min(start.x, end.x)), 0, width - 1);
+  const startY = clamp(Math.floor(Math.min(start.y, end.y)), 0, height - 1);
+  const endX = clamp(Math.ceil(Math.max(start.x, end.x)), startX + 1, width);
+  const endY = clamp(Math.ceil(Math.max(start.y, end.y)), startY + 1, height);
+  return {
+    x: startX,
+    y: startY,
+    width: endX - startX,
+    height: endY - startY,
+  };
+}
+
+export function cropPixels(pixels, width, height, crop, channels = 4) {
+  const safeCrop = normalizeCropRect(
+    { x: crop.x, y: crop.y },
+    { x: crop.x + crop.width, y: crop.y + crop.height },
+    width,
+    height,
+  );
+  const output = new pixels.constructor(
+    safeCrop.width * safeCrop.height * channels,
+  );
+  for (let y = 0; y < safeCrop.height; y += 1) {
+    const sourceStart = ((safeCrop.y + y) * width + safeCrop.x) * channels;
+    const sourceEnd = sourceStart + safeCrop.width * channels;
+    output.set(
+      pixels.subarray(sourceStart, sourceEnd),
+      y * safeCrop.width * channels,
+    );
+  }
+  return output;
+}
+
 export function interpolateStroke(from, to, radius) {
   const distance = Math.hypot(to.x - from.x, to.y - from.y);
   const spacing = Math.max(1, radius * 0.4);
@@ -144,7 +202,9 @@ export function compositePreviewPixels(foregroundPixels, background) {
 }
 
 export function isPrimaryPointerStart(event, activePointer) {
-  return activePointer === null && event.isPrimary && event.button === 0;
+  return (
+    activePointer === null && event.isPrimary !== false && event.button === 0
+  );
 }
 
 export function createMaskHistory(initialMask, limit = 20) {
@@ -237,6 +297,7 @@ export function createRenderOwnership() {
   let fileVersion = 0;
   let maskRevision = 0;
   let backgroundRevision = 0;
+  let cropRevision = 0;
   let requestId = 0;
   let currentToken = null;
 
@@ -247,6 +308,7 @@ export function createRenderOwnership() {
       fileVersion = version;
       maskRevision = 0;
       backgroundRevision = 0;
+      cropRevision = 0;
       requestId += 1;
       currentToken = null;
       api.outputBlob = null;
@@ -266,11 +328,19 @@ export function createRenderOwnership() {
       api.outputBlob = null;
       api.pending = false;
     },
+    reviseCrop() {
+      cropRevision += 1;
+      requestId += 1;
+      currentToken = null;
+      api.outputBlob = null;
+      api.pending = false;
+    },
     request(background) {
       currentToken = Object.freeze({
         fileVersion,
         maskRevision,
         backgroundRevision,
+        cropRevision,
         background,
         requestId: ++requestId,
       });

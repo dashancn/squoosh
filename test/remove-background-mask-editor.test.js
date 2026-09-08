@@ -3,8 +3,12 @@ import assert from 'node:assert/strict';
 import {
   applyBrushStamp,
   applyMaskToPixels,
+  brushIndicatorDiameter,
+  clampPreviewPan,
   compositePreviewPixels,
+  cropPixels,
   containedImageRect,
+  normalizeCropRect,
   createMaskHistory,
   createRenderOwnership,
   interpolateStroke,
@@ -44,6 +48,80 @@ test('portrait image is contained with horizontal letterbox and ignores bars', (
   });
   assert.equal(toContainedSourcePoint(114, 90, rect, 100, 200), null);
   assert.equal(toContainedSourcePoint(206, 90, rect, 100, 200), null);
+});
+
+test('brush indicator diameter follows the displayed source scale', () => {
+  assert.equal(
+    brushIndicatorDiameter(36, { width: 640, height: 480 }, 320, 240),
+    72,
+  );
+  assert.equal(brushIndicatorDiameter(36, null, 320, 240), 0);
+});
+
+test('preview pan is centered at fit and clamped to the zoomed image edges', () => {
+  assert.deepEqual(clampPreviewPan({ x: 100, y: -100 }, 1, 300, 200), {
+    x: 0,
+    y: 0,
+  });
+  assert.deepEqual(clampPreviewPan({ x: 100, y: -100 }, 2, 300, 200), {
+    x: 75,
+    y: -50,
+  });
+});
+
+test('zoomed and panned image coordinates map through letterboxing', () => {
+  const fit = containedImageRect(
+    { left: 10, top: 20, width: 300, height: 300 },
+    400,
+    200,
+  );
+  const viewport = {
+    left: fit.left - fit.width / 2 + 30,
+    top: fit.top - fit.height / 2 - 15,
+    width: fit.width * 2,
+    height: fit.height * 2,
+  };
+  assert.deepEqual(
+    toContainedSourcePoint(
+      viewport.left + viewport.width / 2,
+      viewport.top + viewport.height / 2,
+      viewport,
+      400,
+      200,
+    ),
+    { x: 200, y: 100 },
+  );
+  assert.equal(toContainedSourcePoint(0, 0, viewport, 400, 200), null);
+});
+
+test('crop rectangles normalize, clamp, and keep at least one pixel', () => {
+  assert.deepEqual(normalizeCropRect({ x: 8, y: 7 }, { x: 2, y: 1 }, 10, 8), {
+    x: 2,
+    y: 1,
+    width: 6,
+    height: 6,
+  });
+  assert.deepEqual(normalizeCropRect({ x: -4, y: 3 }, { x: 20, y: 3 }, 10, 8), {
+    x: 0,
+    y: 3,
+    width: 10,
+    height: 1,
+  });
+});
+
+test('cropping returns exact dimensions without changing source pixels', () => {
+  const source = Uint8ClampedArray.from([
+    1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12,
+  ]);
+  const cropped = cropPixels(
+    source,
+    3,
+    2,
+    { x: 1, y: 0, width: 2, height: 2 },
+    2,
+  );
+  assert.deepEqual([...cropped], [3, 4, 5, 6, 9, 10, 11, 12]);
+  assert.deepEqual([...source], [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]);
 });
 
 test('fast strokes interpolate through the endpoint', () => {
@@ -166,6 +244,7 @@ test('render ownership serializes work and rejects stale revisions and files', a
   const ownership = createRenderOwnership();
   ownership.select(1);
   ownership.reviseMask();
+  ownership.reviseCrop();
   const firstToken = ownership.request('transparent');
   ownership.reviseMask();
   assert.equal(ownership.isCurrent(firstToken), false);
@@ -191,6 +270,7 @@ test('only an unclaimed primary pointer can start a stroke', () => {
     isPrimaryPointerStart({ isPrimary: true, button: 0 }, null),
     true,
   );
+  assert.equal(isPrimaryPointerStart({ button: 0 }, null), true);
   assert.equal(
     isPrimaryPointerStart({ isPrimary: false, button: 0 }, null),
     false,

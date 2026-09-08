@@ -241,7 +241,33 @@ fieldset label {
   background-size: 24px 24px;
   background-position: 0 0, 0 12px, 12px -12px, -12px 0;
 }
+.preview-toolbar {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  max-width: calc(100% - 20px);
+  gap: 6px;
+  padding: 4px;
+  border-radius: 12px;
+  background: #ffffffeb;
+  box-shadow: 0 4px 16px #17202a24;
+}
+.preview-tool {
+  min-width: 44px;
+  min-height: 44px;
+  padding: 6px 10px;
+}
+#zoom-output {
+  min-width: 56px;
+  text-align: center;
+  font-weight: 800;
+}
 #preview {
+  position: absolute;
+  inset: 0;
   display: block;
   width: 100%;
   height: 100%;
@@ -249,6 +275,33 @@ fieldset label {
   touch-action: none;
   cursor: crosshair;
   user-select: none;
+  will-change: transform;
+}
+#preview.panning {
+  cursor: grab;
+}
+#preview.panning:active {
+  cursor: grabbing;
+}
+#preview.cropping {
+  cursor: crosshair;
+}
+#brush-indicator {
+  position: absolute;
+  z-index: 2;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  box-shadow: 0 0 0 1px #17202a, 0 1px 4px #17202a80;
+  pointer-events: none;
+  transform: translate(-50%, -50%);
+}
+#crop-selection {
+  position: absolute;
+  z-index: 2;
+  border: 2px solid #ffbf47;
+  background: #ffbf4726;
+  box-shadow: 0 0 0 9999px #17202a66;
+  pointer-events: none;
 }
 .mask-editor {
   display: grid;
