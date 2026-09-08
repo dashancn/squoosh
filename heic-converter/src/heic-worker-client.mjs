@@ -26,8 +26,8 @@ export class HeicWorkerClient {
       if (data.type === 'error') pending.reject(new Error(data.error || 'HEIC 解码失败'));
       else pending.resolve(data);
     };
-    worker.onerror = () => {
-      this.#rejectAll('HEIC 解码资源不可用');
+    worker.onerror = (event) => {
+      this.#rejectAll(event?.message ? `HEIC 解码资源不可用：${event.message}` : 'HEIC 解码资源不可用');
       worker.terminate();
       if (this.#worker === worker) this.#worker = undefined;
     };

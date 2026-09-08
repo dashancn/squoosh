@@ -4,7 +4,6 @@ import {
   MAX_FILES,
   MAX_FILE_BYTES,
   MAX_TOTAL_BYTES,
-  MAX_IMAGE_PIXELS,
   MAX_TOTAL_PIXELS,
   validateFiles,
   validateDecodedImage,
@@ -40,10 +39,18 @@ test('文件总大小上限为 80 MiB：边界允许，超过 1 字节拒绝', (
 });
 
 test('单图解码上限为 30 MP：边界允许，超过 1 像素拒绝', () => {
-  assert.equal(validateDecodedImage({ width: 6000, height: 5000 }, 0), MAX_IMAGE_PIXELS);
+  assert.equal(validateDecodedImage({ width: 6000, height: 5000 }, 0), 30_000_000);
   assert.throws(
-    () => validateDecodedImage({ width: MAX_IMAGE_PIXELS + 1, height: 1 }, 0),
+    () => validateDecodedImage({ width: 6001, height: 5000 }, 0),
     /每张图片解码后不能超过 30 MP/,
+  );
+});
+
+test('单图边长上限为 10000：边界允许，超过 1 像素拒绝', () => {
+  assert.equal(validateDecodedImage({ width: 10000, height: 1 }, 0), 10000);
+  assert.throws(
+    () => validateDecodedImage({ width: 10001, height: 1 }, 0),
+    /边长不能超过 10000/,
   );
 });
 

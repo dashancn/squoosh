@@ -84,11 +84,53 @@ test('抠图固定使用同源 isnet_quint8 资源', async () => {
 
 test('调用抠图模型前会校验编码大小并安全解码检查尺寸', async () => {
   const source = await read('remove-background/src/main.js');
-  assert.match(source, /decodeAndValidateRemovalInput\(input\)/);
+  assert.match(source, /decodeAndValidateRemovalInput\(inferenceInput\)/);
   assert.ok(
-    source.indexOf('decodeAndValidateRemovalInput(input)') <
-      source.indexOf('removeBackground(input'),
+    source.indexOf('decodeAndValidateRemovalInput(inferenceInput)') <
+      source.indexOf('removeBackground(inferenceInput'),
     '输入限制必须在 removeBackground 前执行',
+  );
+});
+
+test('抠图直接接收 HEIC/HEIF，并在推理前转成同名 PNG', async () => {
+  const [html, source] = await Promise.all([
+    read('remove-background/index.html'),
+    read('remove-background/src/main.js'),
+  ]);
+  assert.match(html, /accept="[^\"]*\.heic[^\"]*\.heif/);
+  assert.match(source, /normalizeImageFile\(input/);
+  assert.ok(
+    source.indexOf('normalizeImageFile(input') <
+      source.indexOf('removeBackground('),
+    'HEIC 必须在推理前规范化为 PNG',
+  );
+  assert.match(source, /inferenceInput/);
+});
+
+test('抠图拖放入口直接接受 HEIC/HEIF 并复用选择逻辑', async () => {
+  const [html, source] = await Promise.all([
+    read('remove-background/index.html'),
+    read('remove-background/src/main.js'),
+  ]);
+  assert.match(html, /id="drop-zone"/);
+  assert.match(source, /dropZone\.addEventListener\('drop'/);
+  assert.match(source, /selectFile\(event\.dataTransfer\.files\?\.\[0\]/);
+});
+
+test('全站 CSP 允许抠图所需的 blob 模块与 WASM，同时避免重复策略', async () => {
+  const [page, config] = await Promise.all([
+    read('src/static-build/index.tsx'),
+    read('remove-background/vite.config.js'),
+  ]);
+  assert.match(
+    page,
+    /script-src 'self' blob: 'wasm-unsafe-eval' 'unsafe-eval'/,
+  );
+  assert.match(page, /worker-src 'self' blob:/);
+  assert.doesNotMatch(page, /Cross-Origin-Embedder-Policy/);
+  assert.doesNotMatch(
+    config,
+    /write-remove-background-headers|\/remove-background\/\*/,
   );
 });
 
@@ -103,13 +145,11 @@ test('生产构建接入 /remove-background/ 且保留独立入口', async () =>
 test('抠图生产构建包含 AGPL 许可证并提供本站精确源代码链接', async () => {
   const html = await read('remove-background/index.html');
   assert.match(html, /href="\.\/LICENSE-AGPL\.md"/);
-  assert.match(
-    html,
-    /href="https:\/\/github\.com\/dashancn\/squoosh\/tree\/feat\/independent-image-tools"/,
-  );
+  assert.match(html, /github\.com\/dashancn\/squoosh\/tree\/__SOURCE_COMMIT__/);
   assert.match(html, /本站修改后的完整源代码/);
 
   const config = await read('remove-background/vite.config.js');
   assert.match(config, /LICENSE-AGPL\.md/);
   assert.match(config, /writeBundle/);
+  assert.match(config, /transformIndexHtml/);
 });

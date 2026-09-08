@@ -3,6 +3,7 @@ export const MAX_FILE_BYTES = 20 * 1024 * 1024;
 export const MAX_TOTAL_BYTES = 80 * 1024 * 1024;
 export const MAX_IMAGE_PIXELS = 30_000_000;
 export const MAX_TOTAL_PIXELS = 90_000_000;
+export const MAX_IMAGE_EDGE = 10_000;
 
 export function validateFiles(blobs) {
   if (!Array.isArray(blobs) || blobs.length === 0 || blobs.some((blob) => !(blob instanceof Blob))) {
@@ -24,6 +25,9 @@ export function validateFiles(blobs) {
 }
 
 export function validateDecodedImage(image, decodedPixels) {
+  if (image.width > MAX_IMAGE_EDGE || image.height > MAX_IMAGE_EDGE) {
+    throw new Error('每张图片边长不能超过 10000 像素');
+  }
   const pixels = image.width * image.height;
   if (!Number.isSafeInteger(pixels) || pixels <= 0) {
     throw new Error('图片尺寸无效或无法解码');

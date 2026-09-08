@@ -23,11 +23,15 @@ test('构建后的 AGPL 链接可读取许可证正文', async () => {
   assert.match(license, /GNU Affero General Public License/);
 });
 
-test('构建后的页面保留本站修改源代码链接', async () => {
+test('构建后的页面保留生产提交对应源代码链接', async () => {
   const html = await built('index.html');
-  assert.match(
-    html,
-    /href="https:\/\/github\.com\/dashancn\/squoosh\/tree\/feat\/independent-image-tools"/,
+  const { stdout: sha } = await run('git', ['rev-parse', 'HEAD'], {
+    cwd: root,
+  });
+  assert.ok(
+    html.includes(
+      `href="https://github.com/dashancn/squoosh/tree/${sha.trim()}"`,
+    ),
   );
   assert.match(html, /本站修改后的完整源代码/);
 });

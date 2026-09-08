@@ -8,6 +8,11 @@ const root = path.resolve(new URL('..', import.meta.url).pathname);
 const build = path.join(root, 'build');
 const artifact = path.join(root, 'artifacts', 'remove-background-e2e.png');
 
+const headerText = await readFile(path.join(build, '_headers'), 'utf8');
+const routeCsp = headerText.match(/Content-Security-Policy:\s*([^\n]+)/)?.[1];
+assert.ok(routeCsp, 'generated production CSP missing');
+assert.match(routeCsp, /script-src 'self' blob: 'wasm-unsafe-eval' 'unsafe-eval'/);
+
 const types = new Map([
   ['.html', 'text/html; charset=utf-8'],
   ['.js', 'text/javascript; charset=utf-8'],
@@ -27,7 +32,11 @@ const server = createServer(async (request, response) => {
     const target = path.resolve(build, `.${pathname}`);
     assert.ok(target.startsWith(`${build}${path.sep}`));
     const body = await readFile(target);
-    response.writeHead(200, { 'content-type': types.get(path.extname(target)) || 'application/octet-stream' });
+    const headers = { 'content-type': types.get(path.extname(target)) || 'application/octet-stream' };
+    if (url.pathname.startsWith('/remove-background/')) {
+      headers['content-security-policy'] = routeCsp;
+    }
+    response.writeHead(200, headers);
     response.end(body);
   } catch {
     response.writeHead(404).end('not found');
@@ -44,9 +53,11 @@ const browser = await chromium.launch({
 const page = await browser.newPage({ acceptDownloads: true });
 const requests = [];
 const errors = [];
+const consoleErrors = [];
 const navigations = [];
 page.on('request', (request) => requests.push(request.url()));
 page.on('pageerror', (error) => errors.push(String(error.stack || error)));
+page.on('console', (message) => { if (message.type() === 'error') consoleErrors.push(message.text()); });
 page.on('framenavigated', (frame) => frame === page.mainFrame() && navigations.push(frame.url()));
 
 try {
@@ -75,7 +86,11 @@ try {
   });
   assert.equal(page.url(), initialUrl, 'upload must not navigate');
   await page.click('#start-button');
-  await page.waitForFunction(() => document.querySelector('#progress').value === 100, null, { timeout: 240_000 });
+  try {
+    await page.locator('#status').filter({ hasText: '抠图完成' }).waitFor({ timeout: 240_000 });
+  } catch (error) {
+    throw new Error(`remove-background did not complete: ${await page.locator('#status').textContent()} | page errors: ${errors.join(' | ')} | console errors: ${consoleErrors.join(' | ')}`, { cause: error });
+  }
   assert.equal(page.url(), initialUrl, 'processing must not navigate');
   assert.equal(await page.locator('iframe').count(), 0);
 

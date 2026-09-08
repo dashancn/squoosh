@@ -88,6 +88,12 @@ const imageManagement = { afterInitial, afterAdd, afterRemove, addPickerCleared 
 await page.locator('#files').setInputFiles(
   inputFiles.map((file) => ({ ...file, buffer: Buffer.from(file.buffer) })),
 );
+await page.waitForFunction(
+  (count) =>
+    document.querySelectorAll('.thumbnail-item').length === count &&
+    document.documentElement.dataset.state === 'complete',
+  inputFiles.length,
+);
 await page.selectOption('#mode', 'nine-grid');
 await page.fill('#spacing', '17');
 await page.waitForFunction(() => document.querySelectorAll('.preview-cell').length === 9 && document.documentElement.dataset.state === 'complete');

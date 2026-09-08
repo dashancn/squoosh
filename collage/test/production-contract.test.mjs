@@ -68,6 +68,7 @@ test('页面准确说明本地处理、匿名统计和 Apache 2.0 许可证', as
   assert.match(html, /GoogleChromeLabs/);
   assert.match(html, /Apache 2\.0/);
   assert.match(html, /不提供任何担保/);
+  assert.match(html, /href="\.\.\/LICENSE-SQUOOSH-APACHE-2\.0"/);
   assert.match(html, /href="\.\.\/LICENSE"/);
 });
 
@@ -78,11 +79,25 @@ test('独立构建脚本会将页面复制到 /collage/ 且不依赖主应用状
   assert.doesNotMatch(buildScript, /src\/client|src\/features|rollup/);
 });
 
+test('初始选择和继续添加入口都直接接受 HEIC/HEIF 并规范化', async () => {
+  const [html, source] = await Promise.all([read('index.html'), read('src/app.mjs')]);
+  assert.equal((html.match(/accept="[^\"]*\.heic[^\"]*\.heif/g) || []).length, 2);
+  assert.match(source, /normalizeImageFiles\(selectedFiles/);
+  assert.match(source, /ingestImages\(addImagesInput\.files, 'append'\)/);
+});
+
+test('拖放入口也使用同一 HEIC/HEIF 规范化路径', async () => {
+  const [html, source] = await Promise.all([read('index.html'), read('src/app.mjs')]);
+  assert.match(html, /id="drop-zone"/);
+  assert.match(source, /dropZone\.addEventListener\('drop'/);
+  assert.match(source, /ingestImages\([^,]+,\s*'replace'/);
+});
+
 test('完整构建会发布根 Apache 许可证供拼图相对链接访问', async () => {
   const packageJson = JSON.parse(await read('../package.json'));
   assert.match(packageJson.scripts.build, /build:license/);
   assert.ok(packageJson.scripts['build:license']);
 
   const html = await read('index.html');
-  assert.match(html, /href="\.\.\/LICENSE"/);
+  assert.match(html, /href="\.\.\/LICENSE-SQUOOSH-APACHE-2\.0"/);
 });

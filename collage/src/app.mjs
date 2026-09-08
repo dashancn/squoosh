@@ -1,8 +1,10 @@
 import { createCollage } from './renderer.mjs';
 import { validateFiles } from './limits.mjs';
+import { normalizeImageFiles, terminateSharedHeicDecoder } from '../../heic-converter/src/input-adapter.mjs';
 
 const form = document.querySelector('#controls');
 const filesInput = document.querySelector('#files');
+const dropZone = document.querySelector('#drop-zone');
 const addImagesInput = document.querySelector('#add-images');
 const fileSummary = document.querySelector('#file-summary');
 const modeInput = document.querySelector('#mode');
@@ -217,8 +219,36 @@ function renderCellOverlay() {
   updateFocalControls();
 }
 
-filesInput.addEventListener('change', () => { try { const selectedFiles = [...filesInput.files]; if (selectedFiles.length) replaceImages(selectedFiles); } catch (error) { status.textContent = error instanceof Error ? error.message : String(error); filesInput.value = ''; } });
-addImagesInput.addEventListener('change', () => { try { appendImages([...addImagesInput.files]); } catch (error) { status.textContent = error instanceof Error ? error.message : String(error); } finally { addImagesInput.value = ''; } });
+async function ingestImages(candidateFiles, mode) {
+  const version = ++inputVersion;
+  try {
+    const selectedFiles = [...candidateFiles];
+    if (!selectedFiles.length) return;
+    validateFiles(mode === 'append' ? [...files, ...selectedFiles] : selectedFiles);
+    status.textContent = mode === 'append' ? '正在检查并解码新增图片…' : '正在检查并解码图片…';
+    const normalized = await normalizeImageFiles(selectedFiles);
+    if (version !== inputVersion) return;
+    if (mode === 'append') appendImages(normalized);
+    else replaceImages(normalized);
+  } catch (error) {
+    if (version === inputVersion) status.textContent = error instanceof Error ? error.message : String(error);
+  }
+}
+filesInput.addEventListener('change', async () => {
+  await ingestImages(filesInput.files, 'replace');
+  if (!files.length) filesInput.value = '';
+});
+addImagesInput.addEventListener('change', async () => {
+  await ingestImages(addImagesInput.files, 'append');
+  addImagesInput.value = '';
+});
+dropZone.addEventListener('dragover', (event) => { event.preventDefault(); dropZone.classList.add('dragging'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragging'));
+dropZone.addEventListener('drop', (event) => {
+  event.preventDefault();
+  dropZone.classList.remove('dragging');
+  void ingestImages(event.dataTransfer.files, 'replace');
+});
 focalXInput.addEventListener('input', () => setSelectedFocal('x', focalXInput.value));
 focalYInput.addEventListener('input', () => setSelectedFocal('y', focalYInput.value));
 positionEditor.addEventListener('click', (event) => { const preset = event.target.closest('[data-focal-y]'); if (preset) setSelectedFocal('y', preset.dataset.focalY); });
@@ -310,4 +340,4 @@ function schedulePreview() {
   previewTimer = setTimeout(() => generatePreview(version), 120);
 }
 form.addEventListener('submit', (event) => { event.preventDefault(); inputVersion += 1; generationVersion += 1; clearTimeout(previewTimer); generatePreview(inputVersion); });
-window.addEventListener('pagehide', () => { clearTimeout(previewTimer); if (previewUrl) URL.revokeObjectURL(previewUrl); thumbnailUrls.forEach((url) => URL.revokeObjectURL(url)); });
+window.addEventListener('pagehide', () => { inputVersion += 1; terminateSharedHeicDecoder(); clearTimeout(previewTimer); if (previewUrl) URL.revokeObjectURL(previewUrl); thumbnailUrls.forEach((url) => URL.revokeObjectURL(url)); });

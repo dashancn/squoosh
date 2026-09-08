@@ -54,13 +54,16 @@ test('generated root headers protect the compressor while permitting HEIC worker
   const root = headers.split('\n/heic-converter/*')[0];
   assert.match(root, /Content-Security-Policy:/);
   assert.match(root, /default-src 'self'/);
-  assert.match(root, /script-src 'self' 'unsafe-eval'/);
+  assert.match(
+    root,
+    /script-src 'self' blob: 'wasm-unsafe-eval' 'unsafe-eval'/,
+  );
   assert.match(root, /worker-src 'self' blob:/);
   assert.match(root, /img-src 'self' data: blob:/);
   assert.match(root, /font-src 'self' data:/);
   assert.match(root, /style-src 'self' 'unsafe-inline'/);
   assert.match(root, /connect-src 'self' blob:/);
-  assert.match(root, /Cross-Origin-Embedder-Policy: require-corp/);
-  assert.match(root, /Cross-Origin-Opener-Policy: same-origin/);
-  assert.match(root, /Cross-Origin-Resource-Policy: same-origin/);
+  assert.doesNotMatch(root, /Cross-Origin-Embedder-Policy/);
+  assert.doesNotMatch(root, /Cross-Origin-Opener-Policy/);
+  assert.doesNotMatch(root, /Cross-Origin-Resource-Policy/);
 });

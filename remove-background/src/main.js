@@ -1,7 +1,12 @@
 import { removeBackground } from '@imgly/background-removal';
 import { decodeAndValidateRemovalInput } from './input-limits.js';
+import {
+  normalizeImageFile,
+  terminateSharedHeicDecoder,
+} from '../../heic-converter/src/input-adapter.mjs';
 
 const fileInput = document.querySelector('#file-input');
+const dropZone = document.querySelector('#drop-zone');
 const fileName = document.querySelector('#file-name');
 const startButton = document.querySelector('#start-button');
 const downloadButton = document.querySelector('#download-button');
@@ -69,9 +74,9 @@ async function renderResult() {
   downloadButton.disabled = false;
 }
 
-fileInput.addEventListener('change', () => {
+function selectFile(file) {
   selectedVersion += 1;
-  selectedFile = fileInput.files?.[0] || null;
+  selectedFile = file || null;
   resultImage = null;
   outputBlob = null;
   backgroundOptions.disabled = true;
@@ -85,6 +90,22 @@ fileInput.addEventListener('change', () => {
   setProgress(0, selectedFile ? '图片已选择，点击开始抠图' : '等待选择图片');
   previewEmpty.hidden = false;
   context.clearRect(0, 0, preview.width, preview.height);
+}
+
+fileInput.addEventListener('change', () => {
+  selectFile(fileInput.files?.[0]);
+});
+dropZone.addEventListener('dragover', (event) => {
+  event.preventDefault();
+  dropZone.classList.add('dragging');
+});
+dropZone.addEventListener('dragleave', () =>
+  dropZone.classList.remove('dragging'),
+);
+dropZone.addEventListener('drop', (event) => {
+  event.preventDefault();
+  dropZone.classList.remove('dragging');
+  selectFile(event.dataTransfer.files?.[0]);
 });
 
 startButton.addEventListener('click', async () => {
@@ -98,9 +119,11 @@ startButton.addEventListener('click', async () => {
   setProgress(1, '正在准备图片…');
 
   try {
-    await decodeAndValidateRemovalInput(input);
+    const inferenceInput = await normalizeImageFile(input);
     if (version !== selectedVersion) return;
-    const foreground = await removeBackground(input, {
+    await decodeAndValidateRemovalInput(inferenceInput);
+    if (version !== selectedVersion) return;
+    const foreground = await removeBackground(inferenceInput, {
       publicPath: new URL('./imgly/', location.href).href,
       model: 'isnet_quint8',
       device: 'cpu',
@@ -121,10 +144,14 @@ startButton.addEventListener('click', async () => {
     setProgress(100, '抠图完成，可选择背景并下载 PNG');
   } catch (error) {
     if (version === selectedVersion) {
-      setProgress(
-        0,
-        `抠图失败：${error instanceof Error ? error.message : String(error)}`,
-      );
+      const detail = error instanceof Error ? error.message : String(error);
+      const friendly =
+        /Failed to create session|no available backend|dynamically imported module/i.test(
+          detail,
+        )
+          ? '本地抠图运行资源加载失败，请刷新页面后重试；若仍失败，请确认浏览器允许本站脚本与 WebAssembly。'
+          : detail;
+      setProgress(0, `抠图失败：${friendly}`);
     }
   } finally {
     if (version === selectedVersion) {
@@ -151,4 +178,10 @@ downloadButton.addEventListener('click', () => {
   link.download = `${base}-background-removed.png`;
   link.click();
   setTimeout(() => URL.revokeObjectURL(url), 60_000);
+});
+
+window.addEventListener('pagehide', () => {
+  selectedVersion += 1;
+  terminateSharedHeicDecoder();
+  resultImage?.close?.();
 });

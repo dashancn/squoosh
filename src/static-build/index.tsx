@@ -101,12 +101,9 @@ const toOutput: Output = {
     #/c/*
     #  Cache-Control: max-age=31536000
 
-    # Security headers and COOP+COEP for workers and WebAssembly.
+    # Security headers for browser-local image tools.
     /*
-      Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline' https://stats.i41.cn https://static.cloudflareinsights.com; worker-src 'self' blob:; img-src 'self' data: blob:; font-src 'self' data:; style-src 'self' 'unsafe-inline'; connect-src 'self' blob: https://stats.i41.cn https://cloudflareinsights.com; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'
-      Cross-Origin-Embedder-Policy: require-corp
-      Cross-Origin-Opener-Policy: same-origin
-      Cross-Origin-Resource-Policy: same-origin
+      Content-Security-Policy: default-src 'self'; script-src 'self' blob: 'wasm-unsafe-eval' 'unsafe-eval' 'unsafe-inline' https://stats.i41.cn https://static.cloudflareinsights.com; worker-src 'self' blob:; img-src 'self' data: blob:; font-src 'self' data:; style-src 'self' 'unsafe-inline'; connect-src 'self' blob: https://stats.i41.cn https://cloudflareinsights.com; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'
       Referrer-Policy: no-referrer
       X-Content-Type-Options: nosniff
   `,

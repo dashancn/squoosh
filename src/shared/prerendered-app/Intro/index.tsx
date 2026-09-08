@@ -151,63 +151,63 @@ export default class Intro extends Component<Props, State> {
               <a
                 class={`${style.toolLink} ${style.iPlanNav}`}
                 href="https://www.i41.cn?utm_source=imgzip&utm_medium=tool_referral&utm_campaign=ifangan&utm_content=ecosystem_nav"
-                data-tooltip="了解内容创作与业务增长方案"
+                data-tooltip="i方案是一套面向本地实体商家、内容运营人员和营销服务团队的智能内容工作平台。平台围绕行业、平台、品类、风格和使用场景，提供文案生成、文案诊断、客户跟单话术、文生图、视频包制作和精品模板等能力，帮助用户从内容构思、表单草稿、生成优化到后续复用形成完整工作链路。"
               >
                 i方案
               </a>
               <a
                 class={style.toolLink}
                 href="https://tools.i41.cn"
-                data-tooltip="使用编码、格式化等开发工具"
+                data-tooltip="开发者工具箱汇集编码转换、格式化、加密、网络、文本和图片等常用在线工具，强调快速、易用和浏览器端处理。"
               >
                 开发者工具
               </a>
               <a
                 class={style.toolLink}
                 href="/heic-converter/"
-                data-tooltip="将 HEIC、HEIF、WebP 转为 JPG 或 PNG"
+                data-tooltip="HEIC 转换工具可在浏览器本地将 HEIC、HEIF 和 WebP 转为 JPG 或 PNG。"
               >
                 HEIC 转换
               </a>
               <a
                 class={style.toolLink}
                 href="/remove-background/"
-                data-tooltip="在本地移除图片背景"
+                data-tooltip="智能抠图在浏览器中自动移除图片背景，适合人像和商品图快速换背景。"
               >
                 智能抠图
               </a>
               <a
                 class={style.toolLink}
                 href="/collage/"
-                data-tooltip="将多张图片拼成宫格或长图"
+                data-tooltip="多图拼接支持在浏览器中组合多张图片并调整布局。"
               >
                 多图拼接
               </a>
               <a
                 class={style.toolLink}
                 href="https://pdf.i41.cn"
-                data-tooltip="处理、转换和整理 PDF 文件"
+                data-tooltip="PDF 工具箱提供合并、拆分、压缩、转换、编辑、OCR 和发票拼版等浏览器端 PDF 处理能力。"
               >
                 PDF 工具
               </a>
               <a
                 class={style.toolLink}
                 href="https://watermark.i41.cn"
-                data-tooltip="为证件图片添加安全水印"
+                data-tooltip="证件水印工具支持为身份证、营业执照和合同截图添加用途水印，图片仅在浏览器本地处理。"
               >
                 证件水印
               </a>
               <a
                 class={style.toolLink}
                 href="https://clip.i41.cn"
-                data-tooltip="临时保存和分享文本内容"
+                data-tooltip="临时剪贴板支持客户端加密、自动过期、读取次数限制和阅后即焚，适合跨设备传递临时文本。"
               >
                 临时剪贴板
               </a>
               <a
                 class={style.toolLink}
                 href="https://idphoto.i41.cn"
-                data-tooltip="制作规范尺寸的证件照片"
+                data-tooltip="证件照工作室是一款浏览器端证件照制作工具，支持本地智能抠图、背景换色、常用证件尺寸和 300DPI 多图拼版，照片无需上传到业务服务器。"
               >
                 证件照
               </a>

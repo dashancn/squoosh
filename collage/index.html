@@ -13,15 +13,15 @@
       <div class="header-inner">
         <a class="brand" href="/collage/" aria-label="i41 多图拼接首页"><span aria-hidden="true">图</span>i41 多图拼接</a>
         <nav class="tool-nav" aria-label="图片工具导航">
-          <a class="i-plan-nav" href="https://www.i41.cn?utm_source=imgzip&amp;utm_medium=tool_referral&amp;utm_campaign=ifangan&amp;utm_content=ecosystem_nav" data-tooltip="了解内容创作与业务增长方案">i方案</a>
-          <a href="https://tools.i41.cn" data-tooltip="使用编码、格式化等开发工具">开发者工具</a>
-          <a href="/" data-tooltip="压缩图片体积并对比画质">图片压缩</a>
-          <a href="/heic-converter/" data-tooltip="将 HEIC、HEIF、WebP 转为 JPG 或 PNG">HEIC 转换</a>
-          <a href="/remove-background/" data-tooltip="在本地移除图片背景">智能抠图</a>
-          <a href="https://pdf.i41.cn" data-tooltip="处理、转换和整理 PDF 文件">PDF 工具</a>
-          <a href="https://watermark.i41.cn" data-tooltip="为证件图片添加安全水印">证件水印</a>
-          <a href="https://clip.i41.cn" data-tooltip="临时保存和分享文本内容">临时剪贴板</a>
-          <a href="https://idphoto.i41.cn" data-tooltip="制作规范尺寸的证件照片">证件照</a>
+          <a class="i-plan-nav" href="https://www.i41.cn?utm_source=imgzip&amp;utm_medium=tool_referral&amp;utm_campaign=ifangan&amp;utm_content=ecosystem_nav" data-tooltip="i方案是一套面向本地实体商家、内容运营人员和营销服务团队的智能内容工作平台。平台围绕行业、平台、品类、风格和使用场景，提供文案生成、文案诊断、客户跟单话术、文生图、视频包制作和精品模板等能力，帮助用户从内容构思、表单草稿、生成优化到后续复用形成完整工作链路。">i方案</a>
+          <a href="https://tools.i41.cn" data-tooltip="开发者工具箱汇集编码转换、格式化、加密、网络、文本和图片等常用在线工具，强调快速、易用和浏览器端处理。">开发者工具</a>
+          <a href="/" data-tooltip="图片修改压缩是一款浏览器端在线图片处理工具，支持压缩、调整尺寸和格式转换，图片尽量在本地处理，适合日常上传、分享和网页优化。">图片压缩</a>
+          <a href="/heic-converter/" data-tooltip="HEIC 转换工具可在浏览器本地将 HEIC、HEIF 和 WebP 转为 JPG 或 PNG。">HEIC 转换</a>
+          <a href="/remove-background/" data-tooltip="智能抠图在浏览器中自动移除图片背景，适合人像和商品图快速换背景。">智能抠图</a>
+          <a href="https://pdf.i41.cn" data-tooltip="PDF 工具箱提供合并、拆分、压缩、转换、编辑、OCR 和发票拼版等浏览器端 PDF 处理能力。">PDF 工具</a>
+          <a href="https://watermark.i41.cn" data-tooltip="证件水印工具支持为身份证、营业执照和合同截图添加用途水印，图片仅在浏览器本地处理。">证件水印</a>
+          <a href="https://clip.i41.cn" data-tooltip="临时剪贴板支持客户端加密、自动过期、读取次数限制和阅后即焚，适合跨设备传递临时文本。">临时剪贴板</a>
+          <a href="https://idphoto.i41.cn" data-tooltip="证件照工作室是一款浏览器端证件照制作工具，支持本地智能抠图、背景换色、常用证件尺寸和 300DPI 多图拼版，照片无需上传到业务服务器。">证件照</a>
         </nav>
         <span class="privacy-badge"><span aria-hidden="true">🔒</span> 图片仅在本地处理</span>
       </div>
@@ -41,9 +41,9 @@
 
       <section class="workspace" aria-label="拼图工作区">
         <form id="controls" class="controls">
-          <label class="file-picker">
+          <label id="drop-zone" class="file-picker">
             <span>选择图片</span>
-            <input id="files" type="file" accept="image/*" multiple>
+            <input id="files" type="file" accept=".heic,.heif,image/heic,image/heif,image/*" multiple>
             <small id="file-summary">可一次选择多张 JPG、PNG、WebP 等浏览器支持的图片</small>
           </label>
 
@@ -92,7 +92,7 @@
             <div id="thumbnail-list" class="thumbnail-list" role="list" aria-label="已选图片"></div>
             <label class="add-images-picker">
               <span>继续添加图片</span>
-              <input id="add-images" type="file" accept="image/*" multiple>
+              <input id="add-images" type="file" accept=".heic,.heif,image/heic,image/heif,image/*" multiple>
             </label>
             <div class="focal-controls">
               <label>水平焦点 <output id="focal-x-value">50%</output>
@@ -136,7 +136,7 @@
         <details>
           <summary>隐私、许可与开源说明</summary>
           <p>图片仅在浏览器本地处理，不会上传图片。本站仅进行匿名访问统计，不包含图片内容、文件名或永久标识。</p>
-          <p>本工具基于 GoogleChromeLabs Squoosh 项目整理，依照 <a href="../LICENSE">Apache 2.0</a> 许可证提供，不提供任何担保。</p>
+          <p>本工具基于 GoogleChromeLabs Squoosh 项目整理；Squoosh 上游代码依照 <a href="../LICENSE-SQUOOSH-APACHE-2.0">Apache 2.0</a> 许可证提供，本站整合代码的许可证见 <a href="../LICENSE">AGPL-3.0-only</a>，均不提供任何担保。</p>
         </details>
       </footer>
     </main>

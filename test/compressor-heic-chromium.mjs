@@ -19,13 +19,9 @@ const types = new Map([
 const headerText = await readFile(path.join(build, '_headers'), 'utf8');
 const rootHeaders = headerText.split('\n/heic-converter/*')[0];
 const csp = rootHeaders.match(/Content-Security-Policy:\s*([^\n]+)/)?.[1];
-const coop = rootHeaders.match(/Cross-Origin-Opener-Policy:\s*([^\n]+)/)?.[1];
-const coep = rootHeaders.match(/Cross-Origin-Embedder-Policy:\s*([^\n]+)/)?.[1];
-const corp = rootHeaders.match(/Cross-Origin-Resource-Policy:\s*([^\n]+)/)?.[1];
 assert.ok(csp, 'generated compressor CSP header missing');
-assert.equal(coop, 'same-origin');
-assert.equal(coep, 'require-corp');
-assert.equal(corp, 'same-origin');
+assert.match(csp, /script-src 'self' blob: 'wasm-unsafe-eval' 'unsafe-eval'/);
+assert.doesNotMatch(rootHeaders, /Cross-Origin-(?:Opener|Embedder|Resource)-Policy/);
 const server = createServer(async (request, response) => {
   try {
     let pathname = decodeURIComponent(
@@ -41,9 +37,6 @@ const server = createServer(async (request, response) => {
       'content-type':
         types.get(path.extname(target)) || 'application/octet-stream',
       'content-security-policy': csp,
-      'cross-origin-opener-policy': coop,
-      'cross-origin-embedder-policy': coep,
-      'cross-origin-resource-policy': corp,
     });
     response.end(body);
   } catch {
