@@ -61,6 +61,15 @@ await page.addInitScript(() => {
     }
     return bitmap;
   };
+  const canvasToBlob = HTMLCanvasElement.prototype.toBlob;
+  HTMLCanvasElement.prototype.toBlob = function (...args) {
+    if (globalThis.__failNextCanvasExport) {
+      globalThis.__failNextCanvasExport = false;
+      queueMicrotask(() => args[0](null));
+      return;
+    }
+    return canvasToBlob.apply(this, args);
+  };
 });
 const requests = [];
 const errors = [];
@@ -165,6 +174,46 @@ try {
   }
   assert.equal(page.url(), initialUrl, 'processing must not navigate');
   assert.equal(await page.locator('iframe').count(), 0);
+  assert.equal(
+    await page.locator('#start-button').isEnabled(),
+    true,
+    'Start must be enabled after a completed inference',
+  );
+  await page.click('#start-button');
+  try {
+    await page.locator('#status').filter({ hasText: '抠图完成' }).waitFor({ timeout: 240_000 });
+  } catch (error) {
+    throw new Error(
+      `second remove-background run did not complete: ${await page.locator('#status').textContent()} | page errors: ${errors.join(' | ')} | console errors: ${consoleErrors.join(' | ')}`,
+      { cause: error },
+    );
+  }
+  await page.evaluate(() => {
+    globalThis.__failNextCanvasExport = true;
+  });
+  await page.click('#start-button');
+  try {
+    await page.locator('#status').filter({ hasText: '抠图失败：PNG 导出失败' }).waitFor({ timeout: 240_000 });
+  } catch (error) {
+    throw new Error(
+      `post-extraction export failure was not observed: ${await page.locator('#status').textContent()} | page errors: ${errors.join(' | ')} | console errors: ${consoleErrors.join(' | ')}`,
+      { cause: error },
+    );
+  }
+  assert.equal(
+    await page.locator('#start-button').isEnabled(),
+    true,
+    'Start must recover after a post-extraction export failure',
+  );
+  await page.click('#start-button');
+  try {
+    await page.locator('#status').filter({ hasText: '抠图完成' }).waitFor({ timeout: 240_000 });
+  } catch (error) {
+    throw new Error(
+      `retry after post-extraction export failure did not complete: ${await page.locator('#status').textContent()} | page errors: ${errors.join(' | ')} | console errors: ${consoleErrors.join(' | ')}`,
+      { cause: error },
+    );
+  }
 
   await page.locator('#preview').scrollIntoViewIfNeeded();
   const editorBaseline = await page.locator('#preview').evaluate((canvas) => {

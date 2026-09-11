@@ -608,7 +608,6 @@ startButton.addEventListener('click', async () => {
     sourceWidth = sourceBitmap.width;
     sourceHeight = sourceBitmap.height;
     sourcePixels = pixelsFromBitmap(sourceBitmap);
-    preparedSelection = null;
     selectionPreparation = null;
     originalAlpha = new Uint8ClampedArray(sourceWidth * sourceHeight);
     for (let index = 0; index < originalAlpha.length; index += 1)

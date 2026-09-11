@@ -206,8 +206,18 @@ test('选择图片后先规范化校验并显示原图，推理仅复用当前�
   assert.match(source, /async function selectFile\(file\) \{/);
   assert.match(
     source,
-    /sourcePixels = pixelsFromBitmap\(sourceBitmap\);[\s\S]*?preparedSelection = null;[\s\S]*?selectionPreparation = null;/,
-    '完成推理并提取源像素后应释放规范化输入引用',
+    /sourcePixels = pixelsFromBitmap\(sourceBitmap\);[\s\S]*?selectionPreparation = null;/,
+    '完成推理并提取源像素后应释放已完成的准备 Promise',
+  );
+  assert.doesNotMatch(
+    source,
+    /sourcePixels = pixelsFromBitmap\(sourceBitmap\);\s*preparedSelection = null;/,
+    '当前选择仍拥有规范化 File，供完成后重跑或导出失败后重试',
+  );
+  assert.match(
+    source,
+    /selectedFile = file \|\| null;\s*preparedSelection = null;/,
+    '替换选择时必须立即释放旧选择拥有的规范化 File',
   );
 });
 
