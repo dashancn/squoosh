@@ -22,31 +22,30 @@ test('编码文件超过 20 MiB 一个字节时显示明确中文错误', () => 
   );
 });
 
-test('解码图片采用经移动端峰值预算验证的 1600 万像素上限', () => {
-  assert.equal(4000 * 4000, MAX_DECODED_PIXELS);
-  assert.doesNotThrow(() => validateDecodedDimensions(4000, 4000));
+test('解码图片采用经保守移动端峰值预算验证的 800 万像素上限', () => {
+  assert.equal(4000 * 2000, MAX_DECODED_PIXELS);
+  assert.doesNotThrow(() => validateDecodedDimensions(4000, 2000));
 });
 
-test('解码图片超过 1600 万像素时显示明确中文错误', () => {
-  assert.throws(
-    () => validateDecodedDimensions(4001, 4000),
-    /图片解码后不能超过 1600 万像素/,
-  );
+test('解码图片超过 800 万像素一个像素时显示精确中文错误', () => {
+  assert.throws(() => validateDecodedDimensions(8000001, 1), {
+    message: '图片解码后不能超过 800 万像素',
+  });
 });
 
 test('宽或高恰好 10000 像素时允许处理', () => {
   assert.equal(MAX_DIMENSION, 10000);
-  assert.doesNotThrow(() => validateDecodedDimensions(10000, 1200));
-  assert.doesNotThrow(() => validateDecodedDimensions(1200, 10000));
+  assert.doesNotThrow(() => validateDecodedDimensions(10000, 800));
+  assert.doesNotThrow(() => validateDecodedDimensions(800, 10000));
 });
 
 test('宽或高超过 10000 像素时显示明确中文错误', () => {
   assert.throws(
-    () => validateDecodedDimensions(10001, 1),
+    () => validateDecodedDimensions(10001, 799),
     /图片宽度和高度均不能超过 10000 像素/,
   );
   assert.throws(
-    () => validateDecodedDimensions(1, 10001),
+    () => validateDecodedDimensions(799, 10001),
     /图片宽度和高度均不能超过 10000 像素/,
   );
 });
@@ -55,7 +54,7 @@ test('候选图片先安全解码校验并释放位图', async () => {
   let closed = false;
   const bitmap = {
     width: 4000,
-    height: 3000,
+    height: 2000,
     close() {
       closed = true;
     },

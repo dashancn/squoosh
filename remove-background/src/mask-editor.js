@@ -439,20 +439,48 @@ export function createCoalescedScheduler(run, delay = 80) {
   };
 }
 
+export function editorMemoryInventory(
+  sourcePixels,
+  outputPixels = sourcePixels,
+) {
+  const previewPixels = 1200 * 1200;
+  const allocations = {
+    sourceRgba: sourcePixels * 4,
+    // createMaskHistory(..., { adoptCurrent: true }) keeps these three names
+    // on one Uint8ClampedArray rather than three full-size mask allocations.
+    editMaskCurrentLive: sourcePixels,
+    originalAlpha: sourcePixels,
+    maskHistoryInitial: sourcePixels,
+    // Selection preview may still own the preview canvas backing when the
+    // editable ImageData allocation is created for immediate result preview.
+    previewSourceCanvas: previewPixels * 4,
+    previewImage: previewPixels * 4,
+    fullOrCropOutput: outputPixels * 4,
+    exportCanvasBacking: outputPixels * 4,
+    encodedInputBlob: 20 * 1024 * 1024,
+    // PNG foreground is conservatively bounded by decoded RGBA size.
+    foregroundBlob: sourcePixels * 4,
+    historyEntries: 24 * 1024 * 1024,
+    liveStroke: 8 * 1024 * 1024,
+    // Browser canvas/ImageBitmap bookkeeping, JS objects, and model-runtime
+    // allocations that overlap the editor's foreground phase.
+    runtimeHeadroom: 32 * 1024 * 1024,
+  };
+  return {
+    allocations,
+    totalBytes: Object.values(allocations).reduce(
+      (total, bytes) => total + bytes,
+      0,
+    ),
+    budgetBytes: 256 * 1024 * 1024,
+  };
+}
+
 export function estimateEditorPeakBytes(
   sourcePixels,
   outputPixels = sourcePixels,
-  encodedBytes = 0,
 ) {
-  // source RGBA + original alpha + editable alpha + history delta budget
-  // + crop-sized output RGBA + preview/canvas allowance + encoded input.
-  return (
-    sourcePixels * 6 +
-    Math.min(sourcePixels * 2, 24 * 1024 * 1024) +
-    outputPixels * 4 +
-    16 * 1024 * 1024 +
-    encodedBytes
-  );
+  return editorMemoryInventory(sourcePixels, outputPixels).totalBytes;
 }
 
 export function interpolateStroke(from, to, radius) {

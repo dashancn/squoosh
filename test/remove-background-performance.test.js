@@ -6,8 +6,10 @@ import {
   composeCroppedPixelsAsync,
   createCoalescedScheduler,
   createMaskHistory,
+  editorMemoryInventory,
   estimateEditorPeakBytes,
 } from '../remove-background/src/mask-editor.js';
+import { MAX_DECODED_PIXELS } from '../remove-background/src/input-limits.js';
 
 test('full-resolution composition yields cooperatively and matches synchronous pixels', async () => {
   const width = 64;
@@ -80,13 +82,58 @@ test('slider scheduler debounces and coalesces stale requests', async () => {
   scheduler.cancel();
 });
 
-test('16MP editor live-buffer contract stays within 256 MiB', () => {
-  const estimate = estimateEditorPeakBytes(
-    16_000_000,
-    16_000_000,
-    8 * 1024 * 1024,
+test('decoded-pixel limit has a conservative named allocation inventory below 256 MiB', () => {
+  const inventory = editorMemoryInventory(MAX_DECODED_PIXELS);
+  assert.deepEqual(Object.keys(inventory.allocations), [
+    'sourceRgba',
+    'editMaskCurrentLive',
+    'originalAlpha',
+    'maskHistoryInitial',
+    'previewSourceCanvas',
+    'previewImage',
+    'fullOrCropOutput',
+    'exportCanvasBacking',
+    'encodedInputBlob',
+    'foregroundBlob',
+    'historyEntries',
+    'liveStroke',
+    'runtimeHeadroom',
+  ]);
+  assert.equal(inventory.allocations.sourceRgba, MAX_DECODED_PIXELS * 4);
+  assert.equal(
+    inventory.allocations.editMaskCurrentLive,
+    MAX_DECODED_PIXELS,
+    'editMask, history current, and currentView are one adopted live allocation',
   );
-  assert.ok(estimate <= 256 * 1024 * 1024, `${estimate} exceeds mobile budget`);
+  assert.equal(inventory.allocations.originalAlpha, MAX_DECODED_PIXELS);
+  assert.equal(inventory.allocations.maskHistoryInitial, MAX_DECODED_PIXELS);
+  assert.equal(inventory.allocations.previewSourceCanvas, 1200 * 1200 * 4);
+  assert.equal(inventory.allocations.previewImage, 1200 * 1200 * 4);
+  assert.equal(inventory.allocations.fullOrCropOutput, MAX_DECODED_PIXELS * 4);
+  assert.equal(
+    inventory.allocations.exportCanvasBacking,
+    MAX_DECODED_PIXELS * 4,
+  );
+  assert.equal(inventory.allocations.encodedInputBlob, 20 * 1024 * 1024);
+  assert.equal(inventory.allocations.foregroundBlob, MAX_DECODED_PIXELS * 4);
+  assert.equal(inventory.allocations.historyEntries, 24 * 1024 * 1024);
+  assert.equal(inventory.allocations.liveStroke, 8 * 1024 * 1024);
+  assert.equal(inventory.allocations.runtimeHeadroom, 32 * 1024 * 1024);
+  assert.equal(inventory.totalBytes, 251_600_384);
+  assert.ok(inventory.totalBytes < inventory.budgetBytes);
+  assert.equal(
+    estimateEditorPeakBytes(MAX_DECODED_PIXELS),
+    inventory.totalBytes,
+  );
+});
+
+test('next whole-megapixel limit is not conservatively safe', () => {
+  const nextWholeMegapixel = MAX_DECODED_PIXELS + 1_000_000;
+  const inventory = editorMemoryInventory(nextWholeMegapixel);
+  assert.ok(
+    inventory.totalBytes > inventory.budgetBytes,
+    `${inventory.totalBytes} unexpectedly fits ${inventory.budgetBytes}`,
+  );
 });
 
 test('history can adopt the editable mask and expose its live view without a full-size copy', () => {
