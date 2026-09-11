@@ -51,6 +51,17 @@ const browser = await chromium.launch({
   args: ['--no-sandbox', '--disable-dev-shm-usage'],
 });
 const page = await browser.newPage({ acceptDownloads: true });
+await page.addInitScript(() => {
+  const createBitmap = globalThis.createImageBitmap.bind(globalThis);
+  globalThis.createImageBitmap = async (...args) => {
+    const bitmap = await createBitmap(...args);
+    if (globalThis.__delayNextPreviewBitmap) {
+      globalThis.__delayNextPreviewBitmap = false;
+      await new Promise((resolve) => setTimeout(resolve, 250));
+    }
+    return bitmap;
+  };
+});
 const requests = [];
 const errors = [];
 const consoleErrors = [];
@@ -79,12 +90,73 @@ try {
     const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/png'));
     return Array.from(new Uint8Array(await blob.arrayBuffer()));
   });
+  const replacementBytes = await page.evaluate(async () => {
+    const canvas = document.createElement('canvas');
+    canvas.width = 64;
+    canvas.height = 48;
+    const context = canvas.getContext('2d');
+    context.fillStyle = '#e53935';
+    context.fillRect(0, 0, canvas.width, canvas.height);
+    const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/png'));
+    return Array.from(new Uint8Array(await blob.arrayBuffer()));
+  });
+  await page.evaluate(() => {
+    globalThis.__delayNextPreviewBitmap = true;
+  });
   await page.setInputFiles('#file-input', {
     name: 'chromium-generated.png',
     mimeType: 'image/png',
     buffer: Buffer.from(inputBytes),
   });
+  await page.setInputFiles('#file-input', {
+    name: 'replacement.png',
+    mimeType: 'image/png',
+    buffer: Buffer.from(replacementBytes),
+  });
   assert.equal(page.url(), initialUrl, 'upload must not navigate');
+  await page.waitForFunction(() => {
+    const canvas = document.querySelector('#preview');
+    return canvas.width > 0 && canvas.height > 0 && document.querySelector('#preview-empty').hidden;
+  });
+  const selectionPreview = await page.locator('#preview').evaluate((canvas) => ({
+    width: canvas.width,
+    height: canvas.height,
+    alpha: canvas.getContext('2d').getImageData(
+      Math.floor(canvas.width / 2),
+      Math.floor(canvas.height / 2),
+      1,
+      1,
+    ).data[3],
+  }));
+  assert.deepEqual(selectionPreview, { width: 64, height: 48, alpha: 255 });
+  await new Promise((resolve) => setTimeout(resolve, 300));
+  assert.deepEqual(
+    await page.locator('#preview').evaluate((canvas) => ({
+      width: canvas.width,
+      height: canvas.height,
+      red: canvas.getContext('2d').getImageData(1, 1, 1, 1).data[0],
+    })),
+    { width: 64, height: 48, red: 229 },
+    'stale preview must not overwrite the replacement',
+  );
+  await page.setInputFiles('#file-input', {
+    name: 'chromium-generated.png',
+    mimeType: 'image/png',
+    buffer: Buffer.from(inputBytes),
+  });
+  await page.waitForFunction(() => {
+    const canvas = document.querySelector('#preview');
+    return canvas.width === 320 && canvas.height === 240;
+  });
+  assert.equal(await page.locator('#download-button').isDisabled(), true);
+  assert.equal(
+    await page.locator('#mask-editor-controls').evaluate((fieldset) => fieldset.disabled),
+    true,
+  );
+  assert.equal(
+    await page.locator('#crop-controls').evaluate((fieldset) => fieldset.disabled),
+    true,
+  );
   await page.click('#start-button');
   try {
     await page.locator('#status').filter({ hasText: '抠图完成' }).waitFor({ timeout: 240_000 });
@@ -266,6 +338,8 @@ try {
   await page.click('#apply-crop-button');
   await page.waitForFunction(() => document.querySelector('#preview').width === 160);
   assert.equal(await page.locator('#preview').evaluate((canvas) => `${canvas.width}x${canvas.height}`), '160x120');
+  assert.equal(await page.locator('#crop-selection').getAttribute('hidden'), '');
+  assert.match(await page.locator('#crop-output').textContent(), /^160 × 120 px$/);
   const appliedBox = await page.locator('#preview').boundingBox();
   await page.mouse.move(appliedBox.x + appliedBox.width / 2, appliedBox.y + appliedBox.height / 2);
   await page.waitForFunction(() => !document.querySelector('#brush-indicator').hidden);

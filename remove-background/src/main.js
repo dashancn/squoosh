@@ -1,5 +1,6 @@
 import { removeBackground } from '@imgly/background-removal';
-import { decodeAndValidateRemovalInput } from './input-limits.js';
+import { decodeValidatedRemovalInput } from './input-limits.js';
+import { prepareSelectionPreview } from './selection-preview.js';
 import {
   normalizeImageFile,
   terminateSharedHeicDecoder,
@@ -67,6 +68,8 @@ const MAX_PREVIEW_EDGE = 1200;
 
 let selectedFile = null;
 let selectedVersion = 0;
+let preparedSelection = null;
+let selectionPreparation = null;
 let busy = false;
 let sourceWidth = 0;
 let sourceHeight = 0;
@@ -229,7 +232,8 @@ function displayedCropRect(crop) {
 }
 
 function updateCropSelection() {
-  const crop = cropDraft || appliedCrop;
+  const crop = cropDraft;
+  const outputCrop = cropDraft || appliedCrop;
   const rect = displayedCropRect(crop);
   if (!rect) {
     cropSelection.hidden = true;
@@ -241,8 +245,10 @@ function updateCropSelection() {
     cropSelection.style.height = `${rect.height}px`;
     cropSelection.hidden = false;
   }
-  cropOutput.value = crop
-    ? `${crop.width} × ${crop.height} px${cropDraft ? '（待应用）' : ''}`
+  cropOutput.value = outputCrop
+    ? `${outputCrop.width} × ${outputCrop.height} px${
+        cropDraft ? '（待应用）' : ''
+      }`
     : '完整图片';
   cropOutput.textContent = cropOutput.value;
   updateEditorButtons();
@@ -486,20 +492,60 @@ function clearEditor() {
   updateEditorButtons();
 }
 
-function selectFile(file) {
+function publishSelectionPreview({ version, input, bitmap }) {
+  if (version !== selectedVersion) return;
+  const scale = Math.min(
+    1,
+    MAX_PREVIEW_EDGE / Math.max(bitmap.width, bitmap.height),
+  );
+  preview.width = Math.max(1, Math.round(bitmap.width * scale));
+  preview.height = Math.max(1, Math.round(bitmap.height * scale));
+  previewContext.drawImage(bitmap, 0, 0, preview.width, preview.height);
+  preparedSelection = { version, input };
+  previewEmpty.hidden = true;
+  updatePreviewTransform();
+}
+
+async function selectFile(file) {
   selectedVersion += 1;
+  const version = selectedVersion;
   selectedFile = file || null;
+  preparedSelection = null;
+  selectionPreparation = null;
   clearEditor();
   busy = false;
   backgroundOptions.disabled = true;
-  startButton.disabled = !selectedFile;
+  startButton.disabled = true;
   fileName.textContent = selectedFile
     ? `${selectedFile.name} · ${(selectedFile.size / 1024 / 1024).toFixed(
         2,
       )} MB`
     : '尚未选择图片';
-  setProgress(0, selectedFile ? '图片已选择，点击开始抠图' : '等待选择图片');
+  setProgress(0, selectedFile ? '正在检查并生成原图预览…' : '等待选择图片');
   previewEmpty.hidden = false;
+  if (!selectedFile) return;
+
+  selectionPreparation = prepareSelectionPreview({
+    file: selectedFile,
+    version,
+    isCurrent: (candidateVersion) => candidateVersion === selectedVersion,
+    normalize: normalizeImageFile,
+    decodeValidated: decodeValidatedRemovalInput,
+    publish: publishSelectionPreview,
+  });
+  try {
+    const input = await selectionPreparation;
+    if (version !== selectedVersion || !input) return;
+    startButton.disabled = false;
+    setProgress(0, '原图预览已就绪，点击开始抠图');
+  } catch (error) {
+    if (version !== selectedVersion) return;
+    preparedSelection = null;
+    const detail = error instanceof Error ? error.message : String(error);
+    setProgress(0, `预览失败：${detail}。请重新选择符合限制的有效图片。`);
+    startButton.disabled = true;
+    previewEmpty.hidden = false;
+  }
 }
 
 fileInput.addEventListener('change', () => selectFile(fileInput.files?.[0]));
@@ -518,7 +564,6 @@ dropZone.addEventListener('drop', (event) => {
 
 startButton.addEventListener('click', async () => {
   if (!selectedFile || busy) return;
-  const input = selectedFile;
   const version = selectedVersion;
   busy = true;
   startButton.disabled = true;
@@ -530,10 +575,13 @@ startButton.addEventListener('click', async () => {
   let sourceBitmap;
   let foregroundBitmap;
   try {
-    const inferenceInput = await normalizeImageFile(input);
+    const inferenceInput =
+      preparedSelection?.version === version
+        ? preparedSelection.input
+        : await selectionPreparation;
     if (version !== selectedVersion) return;
-    await decodeAndValidateRemovalInput(inferenceInput);
-    if (version !== selectedVersion) return;
+    if (!inferenceInput || preparedSelection?.version !== version)
+      throw new Error('当前图片尚未通过预览校验，请重新选择图片');
     const foreground = await removeBackground(inferenceInput, {
       publicPath: new URL('./imgly/', location.href).href,
       model: 'isnet_quint8',
@@ -560,6 +608,8 @@ startButton.addEventListener('click', async () => {
     sourceWidth = sourceBitmap.width;
     sourceHeight = sourceBitmap.height;
     sourcePixels = pixelsFromBitmap(sourceBitmap);
+    preparedSelection = null;
+    selectionPreparation = null;
     originalAlpha = new Uint8ClampedArray(sourceWidth * sourceHeight);
     for (let index = 0; index < originalAlpha.length; index += 1)
       originalAlpha[index] = sourcePixels[index * 4 + 3];

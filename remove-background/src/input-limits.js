@@ -28,7 +28,7 @@ export function validateDecodedDimensions(width, height) {
   }
 }
 
-export async function decodeAndValidateRemovalInput(
+export async function decodeValidatedRemovalInput(
   file,
   decode = (candidate) => createImageBitmap(candidate),
 ) {
@@ -43,7 +43,18 @@ export async function decodeAndValidateRemovalInput(
 
   try {
     validateDecodedDimensions(bitmap.width, bitmap.height);
-  } finally {
+    return bitmap;
+  } catch (error) {
     bitmap.close?.();
+    throw error;
+  }
+}
+
+export async function decodeAndValidateRemovalInput(file, decode) {
+  let bitmap;
+  try {
+    bitmap = await decodeValidatedRemovalInput(file, decode);
+  } finally {
+    bitmap?.close?.();
   }
 }

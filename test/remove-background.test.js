@@ -188,14 +188,34 @@ test('抠图固定使用同源 isnet_quint8 资源', async () => {
   assert.ok(resources['/onnxruntime-web/ort-wasm-simd-threaded.wasm']);
 });
 
-test('调用抠图模型前会校验编码大小并安全解码检查尺寸', async () => {
+test('选择图片后先规范化校验并显示原图，推理仅复用当前选择的安全输入', async () => {
   const source = await read('remove-background/src/main.js');
-  assert.match(source, /decodeAndValidateRemovalInput\(inferenceInput\)/);
+  assert.match(source, /prepareSelectionPreview/);
+  assert.match(source, /publishSelectionPreview/);
+  assert.match(source, /previewContext\.drawImage/);
+  assert.match(source, /previewEmpty\.hidden = true/);
+  assert.match(source, /preparedSelection/);
+  assert.match(source, /preparedSelection\?\.version === version/);
+  assert.match(source, /removeBackground\(inferenceInput/);
   assert.ok(
-    source.indexOf('decodeAndValidateRemovalInput(inferenceInput)') <
+    source.indexOf('preparedSelection?.version === version') <
       source.indexOf('removeBackground(inferenceInput'),
-    '输入限制必须在 removeBackground 前执行',
+    '推理前必须确认复用输入仍属于当前选择',
   );
+  assert.match(source, /预览失败：/);
+  assert.match(source, /async function selectFile\(file\) \{/);
+  assert.match(
+    source,
+    /sourcePixels = pixelsFromBitmap\(sourceBitmap\);[\s\S]*?preparedSelection = null;[\s\S]*?selectionPreparation = null;/,
+    '完成推理并提取源像素后应释放规范化输入引用',
+  );
+});
+
+test('应用裁剪后只保留裁剪尺寸状态，不继续显示选择矩形', async () => {
+  const source = await read('remove-background/src/main.js');
+  assert.match(source, /const crop = cropDraft;/);
+  assert.match(source, /const outputCrop = cropDraft \|\| appliedCrop;/);
+  assert.doesNotMatch(source, /const crop = cropDraft \|\| appliedCrop;/);
 });
 
 test('抠图直接接收 HEIC/HEIF，并在推理前转成同名 PNG', async () => {
@@ -204,9 +224,9 @@ test('抠图直接接收 HEIC/HEIF，并在推理前转成同名 PNG', async () 
     read('remove-background/src/main.js'),
   ]);
   assert.match(html, /accept="[^\"]*\.heic[^\"]*\.heif/);
-  assert.match(source, /normalizeImageFile\(input/);
+  assert.match(source, /normalize:\s*normalizeImageFile/);
   assert.ok(
-    source.indexOf('normalizeImageFile(input') <
+    source.indexOf('normalize: normalizeImageFile') <
       source.indexOf('removeBackground('),
     'HEIC 必须在推理前规范化为 PNG',
   );

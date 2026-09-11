@@ -7,6 +7,7 @@ import {
   MAX_DIMENSION,
   validateEncodedFile,
   validateDecodedDimensions,
+  decodeValidatedRemovalInput,
   decodeAndValidateRemovalInput,
 } from '../remove-background/src/input-limits.js';
 
@@ -63,6 +64,29 @@ test('候选图片先安全解码校验并释放位图', async () => {
   await decodeAndValidateRemovalInput(
     { size: MAX_ENCODED_BYTES },
     async () => bitmap,
+  );
+  assert.equal(closed, true);
+});
+
+test('预览解码校验成功时把位图交给调用方管理', async () => {
+  const bitmap = { width: 2, height: 3 };
+  assert.equal(
+    await decodeValidatedRemovalInput({ size: 1 }, async () => bitmap),
+    bitmap,
+  );
+});
+
+test('预览尺寸校验失败时仍释放已解码位图', async () => {
+  let closed = false;
+  await assert.rejects(
+    decodeValidatedRemovalInput({ size: 1 }, async () => ({
+      width: MAX_DIMENSION + 1,
+      height: 1,
+      close() {
+        closed = true;
+      },
+    })),
+    /不能超过 10000 像素/,
   );
   assert.equal(closed, true);
 });
