@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
 
 import {
   inspectImageHeader,
@@ -14,7 +15,7 @@ const ascii = (value) => [...value].map((character) => character.charCodeAt(0));
 const file = (bytes, name = 'camera.bin', type = 'application/octet-stream') =>
   new File([Uint8Array.from(bytes)], name, { type });
 
-function jpeg(width, height, orientation = 1) {
+function jpeg(width, height, orientation = 1, afterExif = []) {
   const exif =
     orientation === 1
       ? []
@@ -57,6 +58,7 @@ function jpeg(width, height, orientation = 1) {
     0xff,
     0xd8,
     ...exif,
+    ...afterExif,
     0xff,
     0xc0,
     0,
@@ -81,7 +83,7 @@ function jpeg(width, height, orientation = 1) {
   ];
 }
 
-function png(width, height, apng = false) {
+function png(width, height, apng = false, bitDepth = 8, colorType = 6) {
   return [
     137,
     80,
@@ -98,8 +100,8 @@ function png(width, height, apng = false) {
     ...ascii('IHDR'),
     ...be32(width),
     ...be32(height),
-    8,
-    6,
+    bitDepth,
+    colorType,
     0,
     0,
     0,
@@ -194,6 +196,16 @@ function avif(width, height) {
   return [...ftyp, ...meta];
 }
 
+const le32 = (value) =>
+  [value, value >>> 8, value >>> 16, value >>> 24].map((x) => x & 255);
+const app1 = (payload) => [
+  0xff,
+  0xe1,
+  (payload.length + 2) >>> 8,
+  (payload.length + 2) & 255,
+  ...payload,
+];
+
 test('JPEG dimensions use EXIF display orientation without trusting MIME or extension', async () => {
   assert.deepEqual(
     await inspectImageHeader(
@@ -218,6 +230,18 @@ test('JPEG dimensions use EXIF display orientation without trusting MIME or exte
   });
 });
 
+test('JPEG preserves the first valid EXIF orientation across later non-EXIF APP1 metadata', async () => {
+  const xmp = app1(ascii('http://ns.adobe.com/xap/1.0/\0<x:xmpmeta/>'));
+  assert.deepEqual(await inspectImageHeader(file(jpeg(4000, 3000, 6, xmp))), {
+    format: 'jpeg',
+    encodedWidth: 4000,
+    encodedHeight: 3000,
+    width: 3000,
+    height: 4000,
+    orientation: 6,
+  });
+});
+
 test('PNG and APNG dimensions come from a strict IHDR', async () => {
   assert.deepEqual(await inspectImageHeader(file(png(640, 480))), {
     format: 'png',
@@ -233,6 +257,46 @@ test('PNG and APNG dimensions come from a strict IHDR', async () => {
   );
 });
 
+test('PNG accepts every legal bit-depth/color-type pair and rejects every illegal pair', async () => {
+  const legal = new Set([
+    '1/0',
+    '2/0',
+    '4/0',
+    '8/0',
+    '16/0',
+    '8/2',
+    '16/2',
+    '1/3',
+    '2/3',
+    '4/3',
+    '8/3',
+    '8/4',
+    '16/4',
+    '8/6',
+    '16/6',
+  ]);
+  for (const bitDepth of [1, 2, 4, 8, 16]) {
+    for (const colorType of [0, 2, 3, 4, 6]) {
+      const candidate = inspectImageHeader(
+        file(png(32, 24, false, bitDepth, colorType)),
+      );
+      if (legal.has(`${bitDepth}/${colorType}`)) {
+        assert.equal(
+          (await candidate).format,
+          'png',
+          `${bitDepth}/${colorType}`,
+        );
+      } else {
+        await assert.rejects(
+          candidate,
+          /无法从文件头可靠读取/,
+          `${bitDepth}/${colorType}`,
+        );
+      }
+    }
+  }
+});
+
 test('WebP VP8, VP8L, and VP8X dimension encodings are inspected', async () => {
   for (const [bytes, expected] of [
     [webpVp8(801, 601), [801, 601]],
@@ -243,6 +307,64 @@ test('WebP VP8, VP8L, and VP8X dimension encodings are inspected', async () => {
     assert.equal(result.format, 'webp');
     assert.deepEqual([result.width, result.height], expected);
   }
+});
+
+test('WebP dimensions are accepted when the valid RIFF fixture exceeds the bounded header slice', async () => {
+  const bytes = await readFile(
+    new URL('fixtures/large-valid.webp', import.meta.url),
+  );
+  const result = await inspectImageHeader(
+    new File([bytes], 'large-valid.webp'),
+  );
+  assert.ok(bytes.length > 1024 * 1024);
+  assert.deepEqual(
+    [result.format, result.width, result.height],
+    ['webp', 1024, 1024],
+  );
+});
+
+test('WebP validates inspected chunk arithmetic and bounded skips', async () => {
+  const tooLarge = webpVp8x(640, 480);
+  tooLarge.splice(16, 4, ...le32(12));
+  await assert.rejects(
+    inspectImageHeader(file(tooLarge)),
+    /无法从文件头可靠读取/,
+  );
+
+  const vp8lChunk = webpVp8l(77, 55).slice(12);
+  const oddUnknownChunk = [
+    ...ascii('RIFF'),
+    ...le32(4 + 10 + vp8lChunk.length),
+    ...ascii('WEBP'),
+    ...ascii('JUNK'),
+    ...le32(1),
+    0,
+    0,
+    ...vp8lChunk,
+  ];
+  const result = await inspectImageHeader(file(oddUnknownChunk));
+  assert.deepEqual([result.width, result.height], [77, 55]);
+
+  const truncatedUnknownChunk = [
+    ...ascii('RIFF'),
+    ...le32(4 + 8 + 1024 * 1024),
+    ...ascii('WEBP'),
+    ...ascii('JUNK'),
+    ...le32(1024 * 1024),
+    0,
+  ];
+  await assert.rejects(
+    inspectImageHeader(
+      new File(
+        [
+          Uint8Array.from(truncatedUnknownChunk),
+          new Uint8Array(1024 * 1024 - 1),
+        ],
+        'unprovable.webp',
+      ),
+    ),
+    /无法从文件头可靠读取/,
+  );
 });
 
 test('AVIF resolves the primary item ispe dimensions through pitm/ipma/ipco', async () => {
@@ -259,6 +381,20 @@ test('AVIF resolves the primary item ispe dimensions through pitm/ipma/ipco', as
   );
 });
 
+test('AVIF metadata remains inspectable before a large mdat fixture crosses the bounded header slice', async () => {
+  const bytes = await readFile(
+    new URL('fixtures/large-valid.avif', import.meta.url),
+  );
+  const result = await inspectImageHeader(
+    new File([bytes], 'large-valid.avif'),
+  );
+  assert.ok(bytes.length > 1024 * 1024);
+  assert.deepEqual(
+    [result.format, result.width, result.height],
+    ['avif', 1, 1],
+  );
+});
+
 test('unknown, truncated, malformed, and unprovable headers fail closed in Chinese', async () => {
   for (const bytes of [
     ascii('not an image'),
@@ -266,6 +402,7 @@ test('unknown, truncated, malformed, and unprovable headers fail closed in Chine
     jpeg(10, 10).slice(0, 8),
     [...ascii('RIFF'), 4, 0, 0, 0, ...ascii('WEBP')],
     box('ftyp', [...ascii('avif'), 0, 0, 0, 0, ...ascii('avif')]),
+    [...avif(40, 30), 0, 0, 0, 8],
   ])
     await assert.rejects(
       inspectImageHeader(file(bytes)),

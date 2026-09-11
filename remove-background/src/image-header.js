@@ -59,7 +59,7 @@ function dimensions(format, encodedWidth, encodedHeight, orientation = 1) {
 }
 
 function parseExifOrientation(bytes, start, end) {
-  if (end - start < 14 || text(bytes, start, 6) !== 'Exif\0\0') return 1;
+  if (end - start < 14 || text(bytes, start, 6) !== 'Exif\0\0') return null;
   const tiff = start + 6;
   const endian = text(bytes, tiff, 2);
   if (endian !== 'II' && endian !== 'MM') throw error();
@@ -81,13 +81,14 @@ function parseExifOrientation(bytes, start, end) {
     if (value < 1 || value > 8) throw error();
     return value;
   }
-  return 1;
+  return null;
 }
 
 function parseJpeg(bytes) {
   if (bytes.length < 4 || bytes[0] !== 0xff || bytes[1] !== 0xd8) throw error();
   let offset = 2;
   let orientation = 1;
+  let hasExifOrientation = false;
   while (offset < bytes.length) {
     while (offset < bytes.length && bytes[offset] === 0xff) offset += 1;
     if (offset >= bytes.length) throw error();
@@ -103,8 +104,13 @@ function parseJpeg(bytes) {
     if (length < 2 || offset + length > bytes.length) throw error();
     const payload = offset + 2;
     const end = offset + length;
-    if (marker === 0xe1)
-      orientation = parseExifOrientation(bytes, payload, end);
+    if (marker === 0xe1 && !hasExifOrientation) {
+      const parsedOrientation = parseExifOrientation(bytes, payload, end);
+      if (parsedOrientation !== null) {
+        orientation = parsedOrientation;
+        hasExifOrientation = true;
+      }
+    }
     if (JPEG_SOF.has(marker)) {
       if (length < 8 || bytes[payload] === 0) throw error();
       return dimensions(
@@ -128,9 +134,15 @@ function parsePng(bytes) {
   if (u32(bytes, 8) !== 13 || text(bytes, 12, 4) !== 'IHDR') throw error();
   const bitDepth = bytes[24];
   const colorType = bytes[25];
+  const legalBitDepths = {
+    0: [1, 2, 4, 8, 16],
+    2: [8, 16],
+    3: [1, 2, 4, 8],
+    4: [8, 16],
+    6: [8, 16],
+  };
   if (
-    ![1, 2, 4, 8, 16].includes(bitDepth) ||
-    ![0, 2, 3, 4, 6].includes(colorType) ||
+    !legalBitDepths[colorType]?.includes(bitDepth) ||
     bytes[26] !== 0 ||
     bytes[27] !== 0 ||
     bytes[28] > 1
@@ -139,7 +151,7 @@ function parsePng(bytes) {
   return dimensions('png', u32(bytes, 16), u32(bytes, 20));
 }
 
-function parseWebp(bytes) {
+function parseWebp(bytes, fileSize) {
   if (
     bytes.length < 20 ||
     text(bytes, 0, 4) !== 'RIFF' ||
@@ -147,37 +159,59 @@ function parseWebp(bytes) {
   )
     throw error();
   const riffEnd = u32(bytes, 4, true) + 8;
-  if (riffEnd > bytes.length || riffEnd < 20) throw error();
-  const kind = text(bytes, 12, 4);
-  const chunkSize = u32(bytes, 16, true);
-  if (20 + chunkSize > riffEnd) throw error();
-  if (kind === 'VP8X') {
-    if (chunkSize !== 10 || bytes.length < 30) throw error();
-    return dimensions('webp', u24le(bytes, 24) + 1, u24le(bytes, 27) + 1);
-  }
-  if (kind === 'VP8L') {
-    if (chunkSize < 5 || bytes.length < 25 || bytes[20] !== 0x2f) throw error();
-    const bits = u32(bytes, 21, true);
-    return dimensions(
-      'webp',
-      (bits & 0x3fff) + 1,
-      ((bits >>> 14) & 0x3fff) + 1,
-    );
-  }
-  if (kind === 'VP8 ') {
+  if (riffEnd > fileSize || riffEnd < 20) throw error();
+  let offset = 12;
+  while (offset + 8 <= bytes.length && offset + 8 <= riffEnd) {
+    const kind = text(bytes, offset, 4);
+    const chunkSize = u32(bytes, offset + 4, true);
+    const payload = offset + 8;
+    const chunkEnd = payload + chunkSize;
+    const paddedEnd = chunkEnd + (chunkSize & 1);
     if (
-      chunkSize < 10 ||
-      bytes.length < 30 ||
-      bytes[23] !== 0x9d ||
-      bytes[24] !== 0x01 ||
-      bytes[25] !== 0x2a
+      !Number.isSafeInteger(paddedEnd) ||
+      chunkEnd > riffEnd ||
+      paddedEnd > riffEnd
     )
       throw error();
-    return dimensions(
-      'webp',
-      u16(bytes, 26, true) & 0x3fff,
-      u16(bytes, 28, true) & 0x3fff,
-    );
+    if (kind === 'VP8X') {
+      if (chunkSize !== 10 || chunkEnd > bytes.length) throw error();
+      return dimensions(
+        'webp',
+        u24le(bytes, payload + 4) + 1,
+        u24le(bytes, payload + 7) + 1,
+      );
+    }
+    if (kind === 'VP8L') {
+      if (
+        chunkSize < 5 ||
+        payload + 5 > bytes.length ||
+        bytes[payload] !== 0x2f
+      )
+        throw error();
+      const bits = u32(bytes, payload + 1, true);
+      return dimensions(
+        'webp',
+        (bits & 0x3fff) + 1,
+        ((bits >>> 14) & 0x3fff) + 1,
+      );
+    }
+    if (kind === 'VP8 ') {
+      if (
+        chunkSize < 10 ||
+        payload + 10 > bytes.length ||
+        bytes[payload + 3] !== 0x9d ||
+        bytes[payload + 4] !== 0x01 ||
+        bytes[payload + 5] !== 0x2a
+      )
+        throw error();
+      return dimensions(
+        'webp',
+        u16(bytes, payload + 6, true) & 0x3fff,
+        u16(bytes, payload + 8, true) & 0x3fff,
+      );
+    }
+    if (paddedEnd > bytes.length) throw error();
+    offset = paddedEnd;
   }
   throw error();
 }
@@ -203,16 +237,41 @@ function oneBox(list, type) {
   if (matches.length !== 1) throw error();
   return matches[0];
 }
-function parseAvif(bytes) {
-  const top = boxes(bytes, 0, bytes.length);
+function topLevelBoxes(bytes, fileSize) {
+  const result = [];
+  let offset = 0;
+  while (offset < fileSize) {
+    if (offset + 8 > bytes.length) {
+      if (offset < bytes.length || bytes.length === fileSize) throw error();
+      break;
+    }
+    let size = u32(bytes, offset);
+    const type = text(bytes, offset + 4, 4);
+    if (size === 1) throw error();
+    if (size === 0) size = fileSize - offset;
+    const end = offset + size;
+    if (size < 8 || !Number.isSafeInteger(end) || end > fileSize) throw error();
+    result.push({
+      type,
+      start: offset + 8,
+      end,
+      complete: end <= bytes.length,
+    });
+    if (end > bytes.length) break;
+    offset = end;
+  }
+  return result;
+}
+function parseAvif(bytes, fileSize) {
+  const top = topLevelBoxes(bytes, fileSize);
   const ftyp = oneBox(top, 'ftyp');
-  if (ftyp.end - ftyp.start < 8) throw error();
+  if (!ftyp.complete || ftyp.end - ftyp.start < 8) throw error();
   let avif = AVIF_BRANDS.has(text(bytes, ftyp.start, 4));
   for (let offset = ftyp.start + 8; offset + 4 <= ftyp.end; offset += 4)
     avif ||= AVIF_BRANDS.has(text(bytes, offset, 4));
   if (!avif) throw error();
   const meta = oneBox(top, 'meta');
-  if (meta.end - meta.start < 4) throw error();
+  if (!meta.complete || meta.end - meta.start < 4) throw error();
   const children = boxes(bytes, meta.start + 4, meta.end);
   const pitm = oneBox(children, 'pitm');
   const pitmVersion = bytes[pitm.start];
@@ -281,9 +340,9 @@ export async function inspectImageHeader(input) {
     if (PNG_SIGNATURE.every((value, index) => bytes[index] === value))
       return parsePng(bytes);
     if (text(bytes, 0, Math.min(4, bytes.length)) === 'RIFF')
-      return parseWebp(bytes);
+      return parseWebp(bytes, input.size);
     if (bytes.length >= 12 && text(bytes, 4, 4) === 'ftyp')
-      return parseAvif(bytes);
+      return parseAvif(bytes, input.size);
   } catch (cause) {
     if (cause instanceof Error && /无法从文件头可靠读取/.test(cause.message))
       throw cause;
