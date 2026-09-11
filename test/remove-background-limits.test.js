@@ -22,15 +22,15 @@ test('编码文件超过 20 MiB 一个字节时显示明确中文错误', () => 
   );
 });
 
-test('解码图片采用经移动端峰值预算验证的 1200 万像素上限', () => {
-  assert.equal(4000 * 3000, MAX_DECODED_PIXELS);
-  assert.doesNotThrow(() => validateDecodedDimensions(4000, 3000));
+test('解码图片采用经移动端峰值预算验证的 1600 万像素上限', () => {
+  assert.equal(4000 * 4000, MAX_DECODED_PIXELS);
+  assert.doesNotThrow(() => validateDecodedDimensions(4000, 4000));
 });
 
-test('解码图片超过 1200 万像素时显示明确中文错误', () => {
+test('解码图片超过 1600 万像素时显示明确中文错误', () => {
   assert.throws(
-    () => validateDecodedDimensions(4001, 3000),
-    /图片解码后不能超过 1200 万像素/,
+    () => validateDecodedDimensions(4001, 4000),
+    /图片解码后不能超过 1600 万像素/,
   );
 });
 

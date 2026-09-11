@@ -111,28 +111,41 @@ function integerRatio(value, maximumDenominator = 10_000) {
   return [bestNumerator, bestDenominator];
 }
 
+export function isAspectRatioSupported(width, height, ratio) {
+  if (!Number.isFinite(ratio) || ratio <= 0) return true;
+  const [unitWidth, unitHeight] = integerRatio(ratio);
+  return width >= unitWidth && height >= unitHeight;
+}
+
 export function normalizeAspectCropRect(start, end, width, height, ratio) {
   if (!Number.isFinite(ratio) || ratio <= 0)
     return normalizeCropRect(start, end, width, height);
+  const [unitWidth, unitHeight] = integerRatio(ratio);
+  const availableUnits = Math.floor(
+    Math.min(width / unitWidth, height / unitHeight),
+  );
+  if (availableUnits < 1) return null;
   const sx = clamp(Math.round(start.x), 0, width - 1);
   const sy = clamp(Math.round(start.y), 0, height - 1);
   const signX = end.x < sx ? -1 : 1;
   const signY = end.y < sy ? -1 : 1;
   const availableWidth = Math.max(0, signX > 0 ? width - sx : sx);
   const availableHeight = Math.max(0, signY > 0 ? height - sy : sy);
-  const [unitWidth, unitHeight] = integerRatio(ratio);
+  const directionalUnits = Math.floor(
+    Math.min(availableWidth / unitWidth, availableHeight / unitHeight),
+  );
   const requestedUnits = Math.floor(
     Math.min(
       Math.abs(end.x - sx) / unitWidth,
       Math.abs(end.y - sy) / unitHeight,
     ),
   );
-  const availableUnits = Math.floor(
-    Math.min(availableWidth / unitWidth, availableHeight / unitHeight),
+  const units = Math.max(
+    1,
+    Math.min(requestedUnits || 1, directionalUnits || 1, availableUnits),
   );
-  const units = Math.max(1, Math.min(requestedUnits || 1, availableUnits));
-  const cropWidth = Math.min(width, unitWidth * units);
-  const cropHeight = Math.min(height, unitHeight * units);
+  const cropWidth = unitWidth * units;
+  const cropHeight = unitHeight * units;
   return {
     x: clamp(signX > 0 ? sx : sx - cropWidth, 0, width - cropWidth),
     y: clamp(signY > 0 ? sy : sy - cropHeight, 0, height - cropHeight),
@@ -654,6 +667,7 @@ export function createMaskHistory(
       current = new Uint8ClampedArray(initial);
       entries = [];
       position = 0;
+      entryBytes = 0;
       return this.current();
     },
     clear() {
@@ -661,6 +675,7 @@ export function createMaskHistory(
       current.fill(0);
       entries = [];
       position = 0;
+      entryBytes = 0;
     },
   };
 }

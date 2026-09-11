@@ -59,6 +59,22 @@ test('Chromium exposes enhancement controls, accessible states and reset default
     await page.locator('#crop-aspect option').allTextContents(),
     ['自由', '原图', '1:1', '3:4', '4:3', '16:9'],
   );
+  assert.deepEqual(
+    await page
+      .locator('#crop-aspect option')
+      .evaluateAll((options) =>
+        options.map((option) => [option.value, option.disabled]),
+      ),
+    [
+      ['free', false],
+      ['original', true],
+      ['1:1', true],
+      ['3:4', true],
+      ['4:3', true],
+      ['16:9', true],
+    ],
+    'presets remain unavailable until an active image can represent them',
+  );
   assert.equal(await page.locator('#cleanup-level').inputValue(), 'off');
   assert.equal(
     await page.locator('#adjustments-panel').evaluate((node) => node.open),

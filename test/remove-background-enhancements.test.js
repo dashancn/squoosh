@@ -4,6 +4,7 @@ import { readFile } from 'node:fs/promises';
 import {
   applyBrushStamp,
   composeCroppedPixels,
+  isAspectRatioSupported,
   normalizeAspectCropRect,
   parseHexColor,
 } from '../remove-background/src/mask-editor.js';
@@ -100,6 +101,55 @@ test('aspect crop follows drag direction, stays bounded, and yields exact ratios
   }
 });
 
+test('aspect presets reject images smaller than their minimum integer ratio unit', () => {
+  assert.equal(isAspectRatioSupported(16, 9, 16 / 9), true);
+  assert.equal(isAspectRatioSupported(15, 9, 16 / 9), false);
+  assert.equal(isAspectRatioSupported(16, 8, 16 / 9), false);
+  assert.equal(
+    normalizeAspectCropRect({ x: 0, y: 0 }, { x: 14, y: 8 }, 15, 9, 16 / 9),
+    null,
+  );
+  assert.equal(
+    normalizeAspectCropRect({ x: 0, y: 0 }, { x: 15, y: 7 }, 16, 8, 16 / 9),
+    null,
+  );
+});
+
+test('aspect crop stays exact for every small supported size, zero drag, direction, and bound', () => {
+  for (let width = 16; width <= 35; width += 1) {
+    for (let height = 9; height <= 25; height += 1) {
+      for (const start of [
+        { x: 0, y: 0 },
+        { x: width - 1, y: 0 },
+        { x: 0, y: height - 1 },
+        { x: width - 1, y: height - 1 },
+        { x: Math.floor(width / 2), y: Math.floor(height / 2) },
+      ]) {
+        for (const end of [
+          start,
+          { x: -width, y: -height },
+          { x: width * 2, y: -height },
+          { x: -width, y: height * 2 },
+          { x: width * 2, y: height * 2 },
+        ]) {
+          const crop = normalizeAspectCropRect(
+            start,
+            end,
+            width,
+            height,
+            16 / 9,
+          );
+          assert.ok(crop);
+          assert.equal(crop.width * 9, crop.height * 16);
+          assert.ok(crop.x >= 0 && crop.y >= 0);
+          assert.ok(crop.x + crop.width <= width);
+          assert.ok(crop.y + crop.height <= height);
+        }
+      }
+    }
+  }
+});
+
 test('hex colors sanitize and custom RGB composes exactly', () => {
   assert.deepEqual(parseHexColor('#1a2B3c'), [26, 43, 60]);
   assert.deepEqual(parseHexColor('abc'), [170, 187, 204]);
@@ -168,4 +218,6 @@ test('all enhancement controls expose accessible defaults and reset hooks', asyn
     assert.match(html, new RegExp(`id="${id}"[^>]*value="0"`));
   assert.match(html, /id="reset-adjustments"/);
   assert.match(source, /reviseEffects/);
+  assert.match(source, /option\.disabled = !isAspectRatioSupported/);
+  assert.match(source, /updateCropAspectAvailability\(\)/);
 });

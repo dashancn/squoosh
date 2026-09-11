@@ -20,6 +20,7 @@ import {
   normalizeAspectCropRect,
   parseHexColor,
   interpolateStroke,
+  isAspectRatioSupported,
   isPrimaryPointerStart,
   mergeBounds,
   toContainedSourcePoint,
@@ -181,7 +182,40 @@ function effectOptions() {
   };
 }
 
+function cropAspectRatios() {
+  const activeCrop = appliedCrop || {
+    width: sourceWidth,
+    height: sourceHeight,
+  };
+  return {
+    original: sourceHeight ? sourceWidth / sourceHeight : 1,
+    '1:1': 1,
+    '3:4': 3 / 4,
+    '4:3': 4 / 3,
+    '16:9': 16 / 9,
+    activeWidth: activeCrop.width,
+    activeHeight: activeCrop.height,
+  };
+}
+
+function updateCropAspectAvailability() {
+  const ratios = cropAspectRatios();
+  for (const option of cropAspect.options) {
+    if (option.value === 'free') {
+      option.disabled = false;
+      continue;
+    }
+    option.disabled = !isAspectRatioSupported(
+      ratios.activeWidth,
+      ratios.activeHeight,
+      ratios[option.value],
+    );
+  }
+  if (cropAspect.selectedOptions[0]?.disabled) cropAspect.value = 'free';
+}
+
 function updateEditorButtons() {
+  updateCropAspectAvailability();
   undoButton.disabled = !maskHistory?.canUndo();
   redoButton.disabled = !maskHistory?.canRedo();
   resetMaskButton.disabled = !maskHistory;
@@ -838,13 +872,7 @@ preview.addEventListener('pointerdown', (event) => {
     event.preventDefault();
     activePointer = event.pointerId;
     cropStart = point;
-    const ratios = {
-      original: sourceWidth / sourceHeight,
-      '1:1': 1,
-      '3:4': 3 / 4,
-      '4:3': 4 / 3,
-      '16:9': 16 / 9,
-    };
+    const ratios = cropAspectRatios();
     cropDraft =
       cropAspect.value === 'free'
         ? normalizeCropRect(point, point, sourceWidth, sourceHeight)
@@ -906,13 +934,7 @@ preview.addEventListener('pointermove', (event) => {
     const point = eventSourcePoint(event);
     if (!point) return;
     event.preventDefault();
-    const ratios = {
-      original: sourceWidth / sourceHeight,
-      '1:1': 1,
-      '3:4': 3 / 4,
-      '4:3': 4 / 3,
-      '16:9': 16 / 9,
-    };
+    const ratios = cropAspectRatios();
     cropDraft =
       cropAspect.value === 'free'
         ? normalizeCropRect(cropStart, point, sourceWidth, sourceHeight)
@@ -1161,6 +1183,8 @@ downloadButton.addEventListener('click', () => {
   link.click();
   setTimeout(() => URL.revokeObjectURL(url), 60_000);
 });
+
+updateCropAspectAvailability();
 
 window.addEventListener('pagehide', () => {
   selectedVersion += 1;

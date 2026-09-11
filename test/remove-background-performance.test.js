@@ -80,10 +80,10 @@ test('slider scheduler debounces and coalesces stale requests', async () => {
   scheduler.cancel();
 });
 
-test('12MP editor live-buffer contract stays within 256 MiB', () => {
+test('16MP editor live-buffer contract stays within 256 MiB', () => {
   const estimate = estimateEditorPeakBytes(
-    12_000_000,
-    12_000_000,
+    16_000_000,
+    16_000_000,
     8 * 1024 * 1024,
   );
   assert.ok(estimate <= 256 * 1024 * 1024, `${estimate} exceeds mobile budget`);
@@ -118,6 +118,24 @@ test('stroke history obeys its explicit byte budget', () => {
     'eviction must not revert the current mask',
   );
 });
+
+for (const operation of ['reset', 'clear']) {
+  test(`history ${operation} releases its byte budget before commit and undo`, () => {
+    const history = createMaskHistory(new Uint8ClampedArray([255, 255]), 20, 7);
+    assert.equal(history.commit(new Uint8ClampedArray([0, 255])), true);
+    history[operation]();
+    const baseline = history.current();
+    const changed = new Uint8ClampedArray(baseline);
+    changed[1] = baseline[1] === 0 ? 255 : 0;
+    assert.equal(history.commit(changed), true);
+    assert.equal(
+      history.canUndo(),
+      true,
+      'new entry must fit the released budget',
+    );
+    assert.deepEqual(history.undo(), baseline);
+  });
+}
 
 test('production path closes decoded bitmaps before first export and avoids sync full export', async () => {
   const source = await readFile(
