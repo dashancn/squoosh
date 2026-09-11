@@ -163,7 +163,7 @@ test('Chromium makes a 4000x3000 JPEG preview-ready and enables Start after safe
   await page.close();
 });
 
-test('Chromium preprocessing preserves transparent pixels', async () => {
+test('Chromium preprocessing preserves transparent PNG bytes mislabeled JPEG', async () => {
   const page = await browser.newPage();
   await page.goto(
     `http://127.0.0.1:${server.address().port}/remove-background/`,
@@ -178,7 +178,7 @@ test('Chromium preprocessing preserves transparent pixels', async () => {
     const blob = await new Promise((resolve) =>
       canvas.toBlob(resolve, 'image/png'),
     );
-    const file = new File([blob], 'alpha-camera.png', { type: 'image/png' });
+    const file = new File([blob], 'alpha-camera.jpg', { type: 'image/jpeg' });
     const transfer = new DataTransfer();
     transfer.items.add(file);
     const input = document.querySelector('#file-input');
