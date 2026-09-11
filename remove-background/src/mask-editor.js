@@ -90,32 +90,52 @@ export function normalizeCropRect(start, end, width, height) {
   };
 }
 
+function integerRatio(value, maximumDenominator = 10_000) {
+  let bestNumerator = 1;
+  let bestDenominator = 1;
+  let bestError = Math.abs(value - 1);
+  for (
+    let denominator = 1;
+    denominator <= maximumDenominator;
+    denominator += 1
+  ) {
+    const numerator = Math.max(1, Math.round(value * denominator));
+    const error = Math.abs(value - numerator / denominator);
+    if (error < bestError) {
+      bestNumerator = numerator;
+      bestDenominator = denominator;
+      bestError = error;
+      if (error <= Number.EPSILON * Math.max(1, value)) break;
+    }
+  }
+  return [bestNumerator, bestDenominator];
+}
+
 export function normalizeAspectCropRect(start, end, width, height, ratio) {
   if (!Number.isFinite(ratio) || ratio <= 0)
     return normalizeCropRect(start, end, width, height);
-  const sx = clamp(start.x, 0, width - 1);
-  const sy = clamp(start.y, 0, height - 1);
+  const sx = clamp(Math.round(start.x), 0, width - 1);
+  const sy = clamp(Math.round(start.y), 0, height - 1);
   const signX = end.x < sx ? -1 : 1;
   const signY = end.y < sy ? -1 : 1;
-  const availableWidth = signX > 0 ? width - sx : sx;
-  const availableHeight = signY > 0 ? height - sy : sy;
-  let cropWidth = Math.min(Math.abs(end.x - sx), availableWidth);
-  let cropHeight = Math.min(Math.abs(end.y - sy), availableHeight);
-  if (cropWidth / Math.max(1, cropHeight) > ratio)
-    cropWidth = cropHeight * ratio;
-  else cropHeight = cropWidth / ratio;
-  cropWidth = Math.max(
-    1,
-    Math.floor(Math.min(cropWidth, availableHeight * ratio)),
+  const availableWidth = Math.max(0, signX > 0 ? width - sx : sx);
+  const availableHeight = Math.max(0, signY > 0 ? height - sy : sy);
+  const [unitWidth, unitHeight] = integerRatio(ratio);
+  const requestedUnits = Math.floor(
+    Math.min(
+      Math.abs(end.x - sx) / unitWidth,
+      Math.abs(end.y - sy) / unitHeight,
+    ),
   );
-  cropHeight = Math.max(1, Math.round(cropWidth / ratio));
-  if (cropHeight > availableHeight) {
-    cropHeight = Math.max(1, Math.floor(availableHeight));
-    cropWidth = Math.max(1, Math.round(cropHeight * ratio));
-  }
+  const availableUnits = Math.floor(
+    Math.min(availableWidth / unitWidth, availableHeight / unitHeight),
+  );
+  const units = Math.max(1, Math.min(requestedUnits || 1, availableUnits));
+  const cropWidth = Math.min(width, unitWidth * units);
+  const cropHeight = Math.min(height, unitHeight * units);
   return {
-    x: Math.floor(signX > 0 ? sx : sx - cropWidth),
-    y: Math.floor(signY > 0 ? sy : sy - cropHeight),
+    x: clamp(signX > 0 ? sx : sx - cropWidth, 0, width - cropWidth),
+    y: clamp(signY > 0 ? sy : sy - cropHeight, 0, height - cropHeight),
     width: cropWidth,
     height: cropHeight,
   };
@@ -204,12 +224,14 @@ export function composePixelAt(
   let red = sourcePixels[sourceOffset];
   let green = sourcePixels[sourceOffset + 1];
   let blue = sourcePixels[sourceOffset + 2];
-  const cleanupStrength =
-    options.cleanup === 'medium'
-      ? 0.45
-      : options.cleanup === 'light'
-      ? 0.22
-      : 0;
+  const computed = options._computed;
+  const cleanupStrength = computed
+    ? computed.cleanupStrength
+    : options.cleanup === 'medium'
+    ? 0.45
+    : options.cleanup === 'light'
+    ? 0.22
+    : 0;
   if (cleanupStrength && alpha > 0 && alpha < 255) {
     let totalRed = 0;
     let totalGreen = 0;
@@ -241,13 +263,16 @@ export function composePixelAt(
     }
   }
   const adjustments = options.adjustments || {};
-  const brightness =
-    clamp(Number(adjustments.brightness) || 0, -100, 100) * 2.55;
+  const brightness = computed
+    ? computed.brightness
+    : clamp(Number(adjustments.brightness) || 0, -100, 100) * 2.55;
   const contrastValue = clamp(Number(adjustments.contrast) || 0, -100, 100);
-  const contrast =
-    (259 * (contrastValue + 255)) / (255 * (259 - contrastValue));
-  const saturation =
-    1 + clamp(Number(adjustments.saturation) || 0, -100, 100) / 100;
+  const contrast = computed
+    ? computed.contrast
+    : (259 * (contrastValue + 255)) / (255 * (259 - contrastValue));
+  const saturation = computed
+    ? computed.saturation
+    : 1 + clamp(Number(adjustments.saturation) || 0, -100, 100) / 100;
   red = contrast * (red - 128) + 128 + brightness;
   green = contrast * (green - 128) + 128 + brightness;
   blue = contrast * (blue - 128) + 128 + brightness;
@@ -308,6 +333,115 @@ export function composeCroppedPixels(
   return output;
 }
 
+export async function composeCroppedPixelsAsync(
+  sourcePixels,
+  mask,
+  width,
+  height,
+  crop,
+  background,
+  options = {},
+  control = {},
+) {
+  const safeCrop = normalizeCropRect(
+    { x: crop.x, y: crop.y },
+    { x: crop.x + crop.width, y: crop.y + crop.height },
+    width,
+    height,
+  );
+  const adjustments = options.adjustments || {};
+  const contrastValue = clamp(Number(adjustments.contrast) || 0, -100, 100);
+  const computedOptions = {
+    ...options,
+    _computed: {
+      cleanupStrength:
+        options.cleanup === 'medium'
+          ? 0.45
+          : options.cleanup === 'light'
+          ? 0.22
+          : 0,
+      brightness: clamp(Number(adjustments.brightness) || 0, -100, 100) * 2.55,
+      contrast: (259 * (contrastValue + 255)) / (255 * (259 - contrastValue)),
+      saturation:
+        1 + clamp(Number(adjustments.saturation) || 0, -100, 100) / 100,
+    },
+  };
+  const output = new Uint8ClampedArray(safeCrop.width * safeCrop.height * 4);
+  const rowsPerChunk = Math.max(1, control.rowsPerChunk || 16);
+  const yieldControl =
+    control.yieldControl || (() => new Promise(requestAnimationFrame));
+  try {
+    for (let y = 0; y < safeCrop.height; y += 1) {
+      if (control.isCancelled?.()) throw new Error('Composition cancelled');
+      for (let x = 0; x < safeCrop.width; x += 1) {
+        composePixelAt(
+          sourcePixels,
+          mask,
+          width,
+          height,
+          safeCrop.x + x,
+          safeCrop.y + y,
+          background,
+          computedOptions,
+          output,
+          (y * safeCrop.width + x) * 4,
+        );
+      }
+      if ((y + 1) % rowsPerChunk === 0 && y + 1 < safeCrop.height)
+        await yieldControl();
+    }
+    if (control.isCancelled?.()) throw new Error('Composition cancelled');
+    return output;
+  } catch (error) {
+    output.fill(0);
+    throw error;
+  }
+}
+
+export function createCoalescedScheduler(run, delay = 80) {
+  let timer = null;
+  let generation = 0;
+  let pendingResolve = null;
+  return {
+    schedule(value) {
+      generation += 1;
+      const scheduledGeneration = generation;
+      clearTimeout(timer);
+      pendingResolve?.();
+      return new Promise((resolve) => {
+        pendingResolve = resolve;
+        timer = setTimeout(async () => {
+          if (scheduledGeneration === generation) await run(value);
+          pendingResolve = null;
+          resolve();
+        }, delay);
+      });
+    },
+    cancel() {
+      generation += 1;
+      clearTimeout(timer);
+      pendingResolve?.();
+      pendingResolve = null;
+    },
+  };
+}
+
+export function estimateEditorPeakBytes(
+  sourcePixels,
+  outputPixels = sourcePixels,
+  encodedBytes = 0,
+) {
+  // source RGBA + original alpha + editable alpha + history delta budget
+  // + crop-sized output RGBA + preview/canvas allowance + encoded input.
+  return (
+    sourcePixels * 6 +
+    Math.min(sourcePixels * 2, 24 * 1024 * 1024) +
+    outputPixels * 4 +
+    16 * 1024 * 1024 +
+    encodedBytes
+  );
+}
+
 export function interpolateStroke(from, to, radius) {
   const distance = Math.hypot(to.x - from.x, to.y - from.y);
   const spacing = Math.max(1, radius * 0.4);
@@ -356,12 +490,14 @@ export function applyBrushStamp(
               1,
             );
       const index = y * width + x;
-      const next = Math.round(
-        mode === 'restore'
-          ? mask[index] + (originalAlpha[index] - mask[index]) * strength
-          : mask[index] * (1 - strength),
-      );
-      if (mask[index] === next) continue;
+      const current = mask[index];
+      const target = mode === 'restore' ? originalAlpha[index] : 0;
+      const distanceToTarget = target - current;
+      let next = Math.round(current + distanceToTarget * strength);
+      if (strength > 0 && next === current && distanceToTarget !== 0)
+        next = current + Math.sign(distanceToTarget);
+      next = clamp(next, Math.min(current, target), Math.max(current, target));
+      if (current === next) continue;
       onChange?.(index, mask[index], next);
       mask[index] = next;
       changed = true;
@@ -424,34 +560,53 @@ export function isPrimaryPointerStart(event, activePointer) {
   );
 }
 
-export function createMaskHistory(initialMask, limit = 20) {
+export function createMaskHistory(
+  initialMask,
+  limit = 20,
+  byteLimit = Number.POSITIVE_INFINITY,
+  options = {},
+) {
   const initial = new Uint8ClampedArray(initialMask);
-  let current = new Uint8ClampedArray(initial);
+  let current = options.adoptCurrent
+    ? initialMask
+    : new Uint8ClampedArray(initial);
   const maximum = Math.max(0, limit - 1);
+  const maximumBytes = Math.max(0, byteLimit);
   let entries = [];
   let position = 0;
+  let entryBytes = 0;
 
   const applyEntry = (entry, values) => {
     for (let index = 0; index < entry.indices.length; index += 1)
       current[entry.indices[index]] = values[index];
   };
 
+  const sizeOf = (entry) =>
+    entry.indices.byteLength + entry.before.byteLength + entry.after.byteLength;
   const storeEntry = (entry) => {
     if (!entry.indices.length) return false;
+    for (const discarded of entries.slice(position))
+      entryBytes -= sizeOf(discarded);
     entries = entries.slice(0, position);
-    entries.push({
+    const stored = {
       indices: new Uint32Array(entry.indices),
       before: new Uint8ClampedArray(entry.before),
       after: new Uint8ClampedArray(entry.after),
-    });
-    applyEntry(entries.at(-1), entries.at(-1).after);
-    if (entries.length > maximum) entries.shift();
+    };
+    entries.push(stored);
+    entryBytes += sizeOf(stored);
+    applyEntry(stored, stored.after);
+    while (entries.length > maximum || entryBytes > maximumBytes) {
+      const discarded = entries.shift();
+      entryBytes -= sizeOf(discarded);
+    }
     position = entries.length;
     return true;
   };
 
   return {
     current: () => new Uint8ClampedArray(current),
+    currentView: () => current,
     canUndo: () => position > 0,
     canRedo: () => position < entries.length,
     commitEntry(entry) {

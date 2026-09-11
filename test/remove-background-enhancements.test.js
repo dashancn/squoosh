@@ -37,6 +37,22 @@ test('soft brush uses radial alpha and repeated erase/restore stamps converge', 
   const hard = new Uint8ClampedArray(alpha);
   applyBrushStamp(hard, alpha, 11, 11, 5, 5, 4, 'erase', undefined, 100);
   assert.equal(hard[5 * 11 + 8], 0);
+
+  const quantized = new Uint8ClampedArray(alpha);
+  for (let count = 0; count < 600; count += 1)
+    applyBrushStamp(quantized, alpha, 11, 11, 5, 5, 4, 'erase', undefined, 1);
+  assert.equal(
+    quantized[5 * 11 + 8],
+    0,
+    'soft erase must not stall above zero',
+  );
+  for (let count = 0; count < 600; count += 1)
+    applyBrushStamp(quantized, alpha, 11, 11, 5, 5, 4, 'restore', undefined, 1);
+  assert.equal(
+    quantized[5 * 11 + 8],
+    alpha[5 * 11 + 8],
+    'soft restore must reach original alpha despite Uint8 quantization',
+  );
 });
 
 test('aspect crop follows drag direction, stays bounded, and yields exact ratios', () => {
@@ -52,8 +68,36 @@ test('aspect crop follows drag direction, stays bounded, and yields exact ratios
       80,
       16 / 9,
     ),
-    { x: 10, y: 10, width: 89, height: 50 },
+    { x: 10, y: 10, width: 80, height: 45 },
   );
+  for (const [start, end, expected] of [
+    [
+      { x: 10, y: 10 },
+      { x: 10, y: 10 },
+      { x: 10, y: 10, width: 16, height: 9 },
+    ],
+    [
+      { x: 95, y: 75 },
+      { x: -50, y: -50 },
+      { x: 15, y: 30, width: 80, height: 45 },
+    ],
+    [
+      { x: 5, y: 75 },
+      { x: 500, y: -50 },
+      { x: 5, y: 30, width: 80, height: 45 },
+    ],
+    [
+      { x: 95, y: 5 },
+      { x: -50, y: 500 },
+      { x: 15, y: 5, width: 80, height: 45 },
+    ],
+  ]) {
+    const crop = normalizeAspectCropRect(start, end, 100, 80, 16 / 9);
+    assert.deepEqual(crop, expected);
+    assert.equal(crop.width * 9, crop.height * 16);
+    assert.ok(crop.x >= 0 && crop.y >= 0);
+    assert.ok(crop.x + crop.width <= 100 && crop.y + crop.height <= 80);
+  }
 });
 
 test('hex colors sanitize and custom RGB composes exactly', () => {

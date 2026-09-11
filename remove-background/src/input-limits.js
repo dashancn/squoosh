@@ -1,5 +1,7 @@
 export const MAX_ENCODED_BYTES = 20 * 1024 * 1024;
-export const MAX_DECODED_PIXELS = 30_000_000;
+// 12 MP keeps the editor's measured worst-case live pixel buffers below a
+// 256 MiB mobile tab budget; the previous 30 MP limit could exceed 600 MiB.
+export const MAX_DECODED_PIXELS = 12_000_000;
 export const MAX_DIMENSION = 10_000;
 
 export function validateEncodedFile(file) {
@@ -24,7 +26,7 @@ export function validateDecodedDimensions(width, height) {
     throw new Error('图片宽度和高度均不能超过 10000 像素');
   }
   if (width * height > MAX_DECODED_PIXELS) {
-    throw new Error('图片解码后不能超过 3000 万像素');
+    throw new Error('图片解码后不能超过 1200 万像素');
   }
 }
 

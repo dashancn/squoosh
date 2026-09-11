@@ -350,6 +350,29 @@ try {
   assert.equal(await page.locator('#brush-indicator').getAttribute('hidden'), '');
   await page.click('#zoom-reset-button');
   await page.locator('#preview').scrollIntoViewIfNeeded();
+  const zeroDragBox = await page.locator('#preview').boundingBox();
+  await page.selectOption('#crop-aspect', '16:9');
+  await page.locator('#preview').evaluate(
+    (canvas, { x, y }) => {
+      for (const [type, buttons] of [['pointerdown', 1], ['pointerup', 0]]) {
+        const event = new PointerEvent(type, {
+          bubbles: true,
+          pointerId: 24,
+          button: 0,
+          buttons,
+          clientX: x,
+          clientY: y,
+        });
+        Object.defineProperty(event, 'isPrimary', { value: true });
+        canvas.dispatchEvent(event);
+      }
+    },
+    { x: zeroDragBox.x + zeroDragBox.width / 2, y: zeroDragBox.y + zeroDragBox.height / 2 },
+  );
+  assert.match(await page.locator('#crop-output').textContent(), /16 × 9 px/, 'preset must apply from pointerdown without a drag');
+  await page.click('#reset-crop-button');
+  await page.click('#crop-mode-button');
+  await page.selectOption('#crop-aspect', 'free');
   const cropBox = await page.locator('#preview').boundingBox();
   const cropDrawScale = Math.min(cropBox.width / 320, cropBox.height / 240);
   const cropDrawWidth = 320 * cropDrawScale;

@@ -10,8 +10,9 @@ import {
   brushIndicatorDiameter,
   brushIndicatorVisible,
   clampPreviewPan,
-  composeCroppedPixels,
+  composeCroppedPixelsAsync,
   composePixelAt,
+  createCoalescedScheduler,
   containedImageRect,
   createMaskHistory,
   createRenderOwnership,
@@ -441,7 +442,7 @@ function exportResult() {
           width: sourceWidth,
           height: sourceHeight,
         };
-        let output = composeCroppedPixels(
+        let output = await composeCroppedPixelsAsync(
           sourcePixels,
           editMask,
           sourceWidth,
@@ -449,6 +450,7 @@ function exportResult() {
           crop,
           background,
           effectOptions(),
+          { isCancelled: () => !renderOwnership.isCurrent(token) },
         );
         if (!renderOwnership.isCurrent(token)) {
           output.fill(0);
@@ -468,6 +470,7 @@ function exportResult() {
         if (renderOwnership.publish(token, blob))
           downloadButton.disabled = false;
       } catch (error) {
+        if (!renderOwnership.isCurrent(token)) return;
         if (renderOwnership.fail(token)) {
           downloadButton.disabled = true;
           throw error;
@@ -509,6 +512,7 @@ function releaseActivePointer() {
 }
 
 function clearEditor() {
+  effectExportScheduler?.cancel?.();
   comparingOriginal = false;
   compareHolding = false;
   compareButton.classList.remove('active');
@@ -670,7 +674,13 @@ startButton.addEventListener('click', async () => {
     for (let index = 0; index < originalAlpha.length; index += 1)
       originalAlpha[index] = sourcePixels[index * 4 + 3];
     editMask = alphaFromBitmap(foregroundBitmap);
-    maskHistory = createMaskHistory(editMask, 20);
+    maskHistory = createMaskHistory(editMask, 20, 24 * 1024 * 1024, {
+      adoptCurrent: true,
+    });
+    sourceBitmap.close?.();
+    foregroundBitmap.close?.();
+    sourceBitmap = null;
+    foregroundBitmap = null;
     renderOwnership.select(version);
     makePreview();
     backgroundOptions.disabled = false;
@@ -828,7 +838,23 @@ preview.addEventListener('pointerdown', (event) => {
     event.preventDefault();
     activePointer = event.pointerId;
     cropStart = point;
-    cropDraft = normalizeCropRect(point, point, sourceWidth, sourceHeight);
+    const ratios = {
+      original: sourceWidth / sourceHeight,
+      '1:1': 1,
+      '3:4': 3 / 4,
+      '4:3': 4 / 3,
+      '16:9': 16 / 9,
+    };
+    cropDraft =
+      cropAspect.value === 'free'
+        ? normalizeCropRect(point, point, sourceWidth, sourceHeight)
+        : normalizeAspectCropRect(
+            point,
+            point,
+            sourceWidth,
+            sourceHeight,
+            ratios[cropAspect.value],
+          );
     try {
       preview.setPointerCapture(event.pointerId);
     } catch {
@@ -1019,7 +1045,8 @@ previewPanel.addEventListener(
 );
 undoButton.addEventListener('click', async () => {
   if (!maskHistory?.canUndo()) return;
-  editMask = maskHistory.undo();
+  maskHistory.undo();
+  editMask = maskHistory.currentView();
   renderOwnership.reviseMask();
   updatePreviewBounds();
   updateEditorButtons();
@@ -1027,7 +1054,8 @@ undoButton.addEventListener('click', async () => {
 });
 redoButton.addEventListener('click', async () => {
   if (!maskHistory?.canRedo()) return;
-  editMask = maskHistory.redo();
+  maskHistory.redo();
+  editMask = maskHistory.currentView();
   renderOwnership.reviseMask();
   updatePreviewBounds();
   updateEditorButtons();
@@ -1035,7 +1063,8 @@ redoButton.addEventListener('click', async () => {
 });
 resetMaskButton.addEventListener('click', async () => {
   if (!maskHistory) return;
-  editMask = maskHistory.reset();
+  maskHistory.reset();
+  editMask = maskHistory.currentView();
   renderOwnership.reviseMask();
   updatePreviewBounds();
   updateEditorButtons();
@@ -1061,10 +1090,11 @@ customBackgroundColor.addEventListener('input', () => {
   updatePreviewBounds();
   runExport();
 });
+const effectExportScheduler = createCoalescedScheduler(() => runExport(), 100);
 const updateEffects = () => {
   renderOwnership.reviseEffects();
   updatePreviewBounds();
-  runExport();
+  effectExportScheduler.schedule();
 };
 cleanupLevel.addEventListener('change', updateEffects);
 for (const control of [brightness, contrast, saturation]) {
