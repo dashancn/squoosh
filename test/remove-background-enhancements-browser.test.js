@@ -114,6 +114,103 @@ test('Chromium exposes enhancement controls, accessible states and reset default
   );
 });
 
+test('Chromium makes a 4000x3000 JPEG preview-ready and enables Start after safe optimization', async () => {
+  const page = await browser.newPage();
+  await page.goto(
+    `http://127.0.0.1:${server.address().port}/remove-background/`,
+  );
+  await page.evaluate(async () => {
+    const canvas = document.createElement('canvas');
+    canvas.width = 4000;
+    canvas.height = 3000;
+    const context = canvas.getContext('2d');
+    context.fillStyle = '#c86432';
+    context.fillRect(0, 0, canvas.width, canvas.height);
+    const blob = await new Promise((resolve) =>
+      canvas.toBlob(resolve, 'image/jpeg', 0.9),
+    );
+    const file = new File([blob], 'camera-12mp.jpg', {
+      type: 'image/jpeg',
+    });
+    const transfer = new DataTransfer();
+    transfer.items.add(file);
+    const input = document.querySelector('#file-input');
+    Object.defineProperty(input, 'files', {
+      configurable: true,
+      value: transfer.files,
+    });
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+    canvas.width = 0;
+    canvas.height = 0;
+  });
+
+  await page.waitForFunction(
+    () =>
+      !document.querySelector('#start-button').disabled &&
+      document.querySelector('#status').textContent.includes('已优化'),
+  );
+  assert.match(
+    await page.locator('#status').textContent(),
+    /4000 × 3000 → 3265 × 2449 px.*预览已就绪/,
+  );
+  assert.match(
+    await page.locator('#file-name').textContent(),
+    /camera-12mp\.jpg.*4000 × 3000 → 3265 × 2449 px/,
+  );
+  assert.equal(await page.locator('#preview-empty').isHidden(), true);
+  assert.equal(await page.locator('#preview').getAttribute('width'), '1200');
+  assert.equal(await page.locator('#preview').getAttribute('height'), '900');
+  await page.close();
+});
+
+test('Chromium preprocessing preserves transparent pixels', async () => {
+  const page = await browser.newPage();
+  await page.goto(
+    `http://127.0.0.1:${server.address().port}/remove-background/`,
+  );
+  const result = await page.evaluate(async () => {
+    const canvas = document.createElement('canvas');
+    canvas.width = 4000;
+    canvas.height = 3000;
+    const context = canvas.getContext('2d');
+    context.fillStyle = '#ff0000';
+    context.fillRect(2000, 0, 2000, 3000);
+    const blob = await new Promise((resolve) =>
+      canvas.toBlob(resolve, 'image/png'),
+    );
+    const file = new File([blob], 'alpha-camera.png', { type: 'image/png' });
+    const transfer = new DataTransfer();
+    transfer.items.add(file);
+    const input = document.querySelector('#file-input');
+    Object.defineProperty(input, 'files', {
+      configurable: true,
+      value: transfer.files,
+    });
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+    canvas.width = 0;
+    canvas.height = 0;
+    await new Promise((resolve, reject) => {
+      const deadline = performance.now() + 10000;
+      const check = () => {
+        if (!document.querySelector('#start-button').disabled) return resolve();
+        if (performance.now() > deadline)
+          return reject(new Error('preview timeout'));
+        requestAnimationFrame(check);
+      };
+      check();
+    });
+    const preview = document.querySelector('#preview');
+    const pixels = preview.getContext('2d').getImageData(0, 0, 1200, 900).data;
+    return {
+      transparentAlpha: pixels[3],
+      opaqueAlpha: pixels[600 * 4 + 3],
+    };
+  });
+  assert.equal(result.transparentAlpha, 0);
+  assert.equal(result.opaqueAlpha, 255);
+  await page.close();
+});
+
 test('Chromium aspect recrop path uses active-crop local coordinates', async () => {
   const main = await readFile(
     path.join(root, 'remove-background/src/main.js'),

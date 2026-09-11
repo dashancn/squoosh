@@ -42,7 +42,18 @@ test('valid selection publishes normalized preview input and releases its bitmap
   });
 
   assert.equal(result, normalized);
-  assert.deepEqual(published, [{ version: 4, input: normalized, bitmap }]);
+  assert.deepEqual(published, [
+    {
+      version: 4,
+      input: normalized,
+      bitmap,
+      originalWidth: 320,
+      originalHeight: 240,
+      processedWidth: 320,
+      processedHeight: 240,
+      optimized: false,
+    },
+  ]);
   assert.equal(closed, true);
 });
 
@@ -110,4 +121,86 @@ test('decode errors do not publish an inference-ready input', async () => {
     /无法解码图片/,
   );
   assert.deepEqual(published, []);
+});
+
+test('4000x3000 selection publishes processed input and dimensions', async () => {
+  const original = { name: 'camera.jpg', type: 'image/jpeg' };
+  const processed = { name: 'camera.jpg', type: 'image/jpeg' };
+  const originalBitmap = { width: 4000, height: 3000 };
+  const processedBitmap = { width: 3265, height: 2449 };
+  const published = [];
+
+  const result = await prepareSelectionPreview({
+    file: original,
+    version: 7,
+    isCurrent: () => true,
+    normalize: async (file) => file,
+    decodeValidated: async () => originalBitmap,
+    preprocess: async ({ input, bitmap }) => {
+      assert.equal(input, original);
+      assert.equal(bitmap, originalBitmap);
+      return {
+        input: processed,
+        bitmap: processedBitmap,
+        originalWidth: 4000,
+        originalHeight: 3000,
+        processedWidth: 3265,
+        processedHeight: 2449,
+        optimized: true,
+      };
+    },
+    publish: (value) => published.push(value),
+  });
+
+  assert.equal(result, processed);
+  assert.equal(published[0].input, processed);
+  assert.equal(published[0].bitmap, processedBitmap);
+  assert.equal(published[0].optimized, true);
+  assert.equal(published[0].originalWidth, 4000);
+  assert.equal(published[0].processedWidth, 3265);
+});
+
+test('stale replacement after resize closes original and processed bitmaps', async () => {
+  const resize = deferred();
+  const resizeStarted = deferred();
+  let current = true;
+  const closed = [];
+  const originalBitmap = {
+    width: 4000,
+    height: 3000,
+    close: () => closed.push('original'),
+  };
+  const processedBitmap = {
+    width: 3265,
+    height: 2449,
+    close: () => closed.push('processed'),
+  };
+  const published = [];
+  const pending = prepareSelectionPreview({
+    file: { name: 'old.jpg' },
+    version: 1,
+    isCurrent: () => current,
+    normalize: async (file) => file,
+    decodeValidated: async () => originalBitmap,
+    preprocess: async () => {
+      resizeStarted.resolve();
+      return resize.promise;
+    },
+    publish: (value) => published.push(value),
+  });
+  await resizeStarted.promise;
+  current = false;
+  resize.resolve({
+    input: { name: 'old.jpg' },
+    bitmap: processedBitmap,
+    originalWidth: 4000,
+    originalHeight: 3000,
+    processedWidth: 3265,
+    processedHeight: 2449,
+    optimized: true,
+  });
+
+  assert.equal(await pending, null);
+  assert.deepEqual(published, []);
+  assert.deepEqual(closed.sort(), ['original', 'processed']);
 });

@@ -1,6 +1,7 @@
 import { removeBackground } from '@imgly/background-removal';
 import { decodeValidatedRemovalInput } from './input-limits.js';
 import { prepareSelectionPreview } from './selection-preview.js';
+import { preprocessRemovalInput } from './preprocess-input.js';
 import {
   normalizeImageFile,
   terminateSharedHeicDecoder,
@@ -595,7 +596,16 @@ function clearEditor() {
   updateEditorButtons();
 }
 
-function publishSelectionPreview({ version, input, bitmap }) {
+function publishSelectionPreview({
+  version,
+  input,
+  bitmap,
+  originalWidth,
+  originalHeight,
+  processedWidth,
+  processedHeight,
+  optimized,
+}) {
   if (version !== selectedVersion) return;
   const scale = Math.min(
     1,
@@ -604,7 +614,15 @@ function publishSelectionPreview({ version, input, bitmap }) {
   preview.width = Math.max(1, Math.round(bitmap.width * scale));
   preview.height = Math.max(1, Math.round(bitmap.height * scale));
   previewContext.drawImage(bitmap, 0, 0, preview.width, preview.height);
-  preparedSelection = { version, input };
+  preparedSelection = {
+    version,
+    input,
+    originalWidth,
+    originalHeight,
+    processedWidth,
+    processedHeight,
+    optimized,
+  };
   previewEmpty.hidden = true;
   updatePreviewTransform();
 }
@@ -634,13 +652,20 @@ async function selectFile(file) {
     isCurrent: (candidateVersion) => candidateVersion === selectedVersion,
     normalize: normalizeImageFile,
     decodeValidated: decodeValidatedRemovalInput,
+    preprocess: preprocessRemovalInput,
     publish: publishSelectionPreview,
   });
   try {
     const input = await selectionPreparation;
     if (version !== selectedVersion || !input) return;
     startButton.disabled = false;
-    setProgress(0, '原图预览已就绪，点击开始抠图');
+    if (preparedSelection.optimized) {
+      const note = `已优化：${preparedSelection.originalWidth} × ${preparedSelection.originalHeight} → ${preparedSelection.processedWidth} × ${preparedSelection.processedHeight} px`;
+      fileName.textContent += ` · ${note}`;
+      setProgress(0, `${note}，预览已就绪，点击开始抠图`);
+    } else {
+      setProgress(0, '原图预览已就绪，点击开始抠图');
+    }
   } catch (error) {
     if (version !== selectedVersion) return;
     preparedSelection = null;

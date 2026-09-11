@@ -4,9 +4,12 @@ import assert from 'node:assert/strict';
 import {
   MAX_ENCODED_BYTES,
   MAX_DECODED_PIXELS,
+  MAX_PRE_RESIZE_PIXELS,
   MAX_DIMENSION,
+  processedDimensions,
   validateEncodedFile,
   validateDecodedDimensions,
+  validatePreResizeDimensions,
   decodeValidatedRemovalInput,
   decodeAndValidateRemovalInput,
 } from '../remove-background/src/input-limits.js';
@@ -30,6 +33,33 @@ test('解码图片采用经保守移动端峰值预算验证的 800 万像素上
 test('解码图片超过 800 万像素一个像素时显示精确中文错误', () => {
   assert.throws(() => validateDecodedDimensions(8000001, 1), {
     message: '图片解码后不能超过 800 万像素',
+  });
+});
+
+test('4000x3000 相机图片精确缩放到不超过 800 万像素', () => {
+  assert.deepEqual(processedDimensions(4000, 3000), {
+    width: 3265,
+    height: 2449,
+  });
+  assert.ok(3265 * 2449 <= MAX_DECODED_PIXELS);
+  assert.deepEqual(processedDimensions(4000, 2000), {
+    width: 4000,
+    height: 2000,
+  });
+});
+
+test('预缩放解码上限允许常见高像素相机图片且限制瞬时 RGBA 内存', () => {
+  assert.equal(MAX_PRE_RESIZE_PIXELS, 30_000_000);
+  assert.ok(
+    MAX_PRE_RESIZE_PIXELS * 4 + MAX_DECODED_PIXELS * 8 + MAX_ENCODED_BYTES <
+      256 * 1024 * 1024,
+  );
+  assert.doesNotThrow(() => validatePreResizeDimensions(7500, 4000));
+});
+
+test('真正过大的图片在预缩放前显示明确中文错误', () => {
+  assert.throws(() => validatePreResizeDimensions(7500, 4001), {
+    message: '图片解码后超过预处理安全上限（3000 万像素）',
   });
 });
 
