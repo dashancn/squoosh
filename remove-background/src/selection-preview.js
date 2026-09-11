@@ -3,6 +3,7 @@ export async function prepareSelectionPreview({
   version,
   isCurrent,
   normalize,
+  normalizeOptions,
   decodeValidated,
   preprocess = ({ input, bitmap }) => ({
     input,
@@ -15,7 +16,7 @@ export async function prepareSelectionPreview({
   }),
   publish,
 }) {
-  const input = await normalize(file);
+  const input = await normalize(file, normalizeOptions);
   if (!isCurrent(version)) return null;
 
   let bitmap;

@@ -1,4 +1,7 @@
+import { inspectRemovalInput } from './image-header.js';
+
 export const MAX_ENCODED_BYTES = 20 * 1024 * 1024;
+export const MAX_HEIC_ENCODED_BYTES = 8 * 1024 * 1024;
 export const MAX_PROCESSED_ENCODED_BYTES = 8 * 1024 * 1024;
 export const PREPROCESSING_MEMORY_BUDGET_BYTES = 256 * 1024 * 1024;
 const PREPROCESSING_RUNTIME_HEADROOM_BYTES = 32 * 1024 * 1024;
@@ -10,6 +13,51 @@ export const MAX_DECODED_PIXELS = 8_000_000;
 // inventory below 256 MiB while covering common phone and camera photos.
 export const MAX_PRE_RESIZE_PIXELS = 30_000_000;
 export const MAX_DIMENSION = 10_000;
+
+export function heicPreprocessingInventory({
+  width,
+  height,
+  originalEncodedBytes,
+  convertedEncodedBytes,
+}) {
+  if (
+    !Number.isSafeInteger(width) ||
+    !Number.isSafeInteger(height) ||
+    width <= 0 ||
+    height <= 0
+  )
+    throw new Error('无法证明 HEIC 预处理资源安全');
+  if (width > MAX_DIMENSION || height > MAX_DIMENSION)
+    throw new Error('HEIC 图片边长超过 10000 像素');
+  if (width * height > MAX_DECODED_PIXELS)
+    throw new Error('HEIC 图片不能超过 800 万像素');
+  if (
+    !Number.isSafeInteger(originalEncodedBytes) ||
+    originalEncodedBytes < 0 ||
+    originalEncodedBytes > MAX_HEIC_ENCODED_BYTES
+  )
+    throw new Error('HEIC 文件不能超过 8 MiB');
+  if (
+    !Number.isSafeInteger(convertedEncodedBytes) ||
+    convertedEncodedBytes < 0 ||
+    convertedEncodedBytes > MAX_PROCESSED_ENCODED_BYTES
+  )
+    throw new Error('转换后的 HEIC 图片不能超过 8 MiB');
+  const pixels = width * height;
+  return {
+    allocations: {
+      originalHeicFile: originalEncodedBytes,
+      workerArrayBuffer: originalEncodedBytes,
+      decodedRgba: pixels * 4,
+      conversionImageData: pixels * 4,
+      conversionCanvasBacking: pixels * 4,
+      convertedPng: convertedEncodedBytes,
+    },
+    completeBudgetProof: false,
+    unbounded:
+      'libheif 与 libde265 的 WASM heap、内部解码表面及浏览器复制无法由应用代码可靠计量',
+  };
+}
 
 function safeAllocationBytes(value) {
   if (!Number.isSafeInteger(value) || value < 0)
@@ -138,6 +186,7 @@ export async function decodeValidatedRemovalInput(
   decode = (candidate) => createImageBitmap(candidate),
 ) {
   validateEncodedFile(file);
+  await inspectRemovalInput(file);
 
   let bitmap;
   try {

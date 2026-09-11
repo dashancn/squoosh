@@ -12,6 +12,7 @@ const header = (brand) => {
   bytes.set(new TextEncoder().encode(brand), 8);
   return bytes;
 };
+const MiB = 1024 * 1024;
 
 test('HEIC adapter recognizes only supported real ftyp major brands', () => {
   for (const brand of [
@@ -71,4 +72,36 @@ test('adapter rejects oversized input and HEIC dimensions before conversion', as
     convert: async () => { converted = true; },
   }) }), /10000/);
   assert.equal(converted, false);
+});
+
+test('removal policy caps HEIC bytes, dimensions, and converted PNG before decode', async () => {
+  let operations = [];
+  const client = {
+    inspect: async () => { operations.push('inspect'); return { isHeic: true, width: 4000, height: 2001 }; },
+    convert: async () => { operations.push('convert'); return { buffer: new ArrayBuffer(8), mimeType: 'image/png' }; },
+  };
+  const limits = { maxFileBytes: 8 * MiB, maxPixels: 8_000_000, maxEdge: 10_000, maxOutputBytes: 8 * MiB };
+  await assert.rejects(normalizeImageFile(new File([header('heic'), new Uint8Array(8 * MiB)], 'large.heic'), {
+    createClient: () => client, limits,
+  }), /HEIC 文件不能超过 8 MiB/);
+  assert.deepEqual(operations, []);
+
+  operations = [];
+  await assert.rejects(normalizeImageFile(new File([header('heic')], 'pixels.heic'), {
+    createClient: () => client, limits,
+  }), /HEIC 图片不能超过 800 万像素/);
+  assert.deepEqual(operations, ['inspect']);
+
+  const png = new Uint8Array(8 * MiB + 1); png.set([137,80,78,71,13,10,26,10]);
+  await assert.rejects(normalizeImageFile(new File([header('heic')], 'output.heic'), {
+    createClient: () => ({ inspect: async () => ({ isHeic: true, width: 2000, height: 2000 }), convert: async () => ({ buffer: png.buffer, mimeType: 'image/png' }) }), limits,
+  }), /转换后的 HEIC 图片不能超过 8 MiB/);
+
+  const validPng = new Uint8Array([137,80,78,71,13,10,26,10,1]);
+  let resourceArgs;
+  await normalizeImageFile(new File([header('heic')], 'bounded.heic'), {
+    createClient: () => ({ inspect: async () => ({ isHeic: true, width: 2000, height: 2000 }), convert: async () => ({ buffer: validPng.buffer, mimeType: 'image/png' }) }),
+    limits: { ...limits, resourceInventory: (args) => { resourceArgs = args; } },
+  });
+  assert.deepEqual(resourceArgs, { width: 2000, height: 2000, originalEncodedBytes: 12, convertedEncodedBytes: 9 });
 });

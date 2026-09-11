@@ -1,11 +1,19 @@
 import { removeBackground } from '@imgly/background-removal';
-import { decodeValidatedRemovalInput } from './input-limits.js';
+import {
+  decodeValidatedRemovalInput,
+  MAX_HEIC_ENCODED_BYTES,
+  MAX_DECODED_PIXELS,
+  MAX_DIMENSION,
+  MAX_PROCESSED_ENCODED_BYTES,
+  heicPreprocessingInventory,
+} from './input-limits.js';
 import { createSelectionPreparationQueue } from './selection-preview.js';
 import { preprocessRemovalInput } from './preprocess-input.js';
 import {
   normalizeImageFile,
   terminateSharedHeicDecoder,
 } from '../../heic-converter/src/input-adapter.mjs';
+
 import {
   applyBrushStamp,
   brushIndicatorDiameter,
@@ -85,6 +93,13 @@ const backgrounds = {
   red: [229, 57, 53],
 };
 const MAX_PREVIEW_EDGE = 1200;
+const removalHeicLimits = {
+  maxFileBytes: MAX_HEIC_ENCODED_BYTES,
+  maxPixels: MAX_DECODED_PIXELS,
+  maxEdge: MAX_DIMENSION,
+  maxOutputBytes: MAX_PROCESSED_ENCODED_BYTES,
+  resourceInventory: heicPreprocessingInventory,
+};
 
 let selectedFile = null;
 let selectedVersion = 0;
@@ -652,6 +667,7 @@ async function selectFile(file) {
     version,
     isCurrent: (candidateVersion) => candidateVersion === selectedVersion,
     normalize: normalizeImageFile,
+    normalizeOptions: { limits: removalHeicLimits },
     decodeValidated: decodeValidatedRemovalInput,
     preprocess: preprocessRemovalInput,
     publish: publishSelectionPreview,

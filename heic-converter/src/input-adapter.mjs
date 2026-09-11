@@ -40,20 +40,48 @@ function verifyPng(buffer, mimeType) {
   }
 }
 
-export async function normalizeImageFile(file, { createClient = defaultCreateClient } = {}) {
+export async function normalizeImageFile(file, {
+  createClient = defaultCreateClient,
+  limits = {
+    maxFileBytes: MAX_FILE_BYTES,
+    maxPixels: 30_000_000,
+    maxEdge: 10_000,
+    maxOutputBytes: Number.POSITIVE_INFINITY,
+  },
+} = {}) {
   if (!file || !Number.isFinite(file.size) || file.size < 0) {
     throw new Error('无法读取图片文件大小，请重新选择图片');
   }
   if (file.size > MAX_FILE_BYTES) throw new Error(`${file.name || '图片'} 超过 20 MiB`);
   const header = new Uint8Array(await file.slice(0, 12).arrayBuffer());
   if (!heicCandidateFromHeader(header)) return file;
+  if (file.size > limits.maxFileBytes) {
+    if (limits.maxFileBytes === 8 * 1024 * 1024)
+      throw new Error('HEIC 文件不能超过 8 MiB');
+    throw new Error(`${file.name || 'HEIC 图片'} 超过文件大小限制`);
+  }
 
   const client = createClient();
   const inspection = await client.inspect(file);
   if (!inspection.isHeic) throw new Error(`${file.name} 的 HEIC/HEIF 签名无效`);
-  validateDimensions(inspection.width, inspection.height);
+  if (!Number.isSafeInteger(inspection.width) || !Number.isSafeInteger(inspection.height) || inspection.width <= 0 || inspection.height <= 0)
+    throw new Error('无法可靠读取 HEIC 图片尺寸');
+  if (inspection.width > limits.maxEdge || inspection.height > limits.maxEdge)
+    throw new Error('HEIC 图片边长超过 10000 像素');
+  if (inspection.width * inspection.height > limits.maxPixels) {
+    if (limits.maxPixels === 8_000_000) throw new Error('HEIC 图片不能超过 800 万像素');
+    validateDimensions(inspection.width, inspection.height);
+  }
   const { buffer, mimeType } = await client.convert(file);
   verifyPng(buffer, mimeType);
+  if (buffer.byteLength > limits.maxOutputBytes)
+    throw new Error('转换后的 HEIC 图片不能超过 8 MiB');
+  limits.resourceInventory?.({
+    width: inspection.width,
+    height: inspection.height,
+    originalEncodedBytes: file.size,
+    convertedEncodedBytes: buffer.byteLength,
+  });
   return new File([buffer], pngFilename(file.name), {
     type: 'image/png',
     lastModified: file.lastModified,

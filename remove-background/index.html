@@ -36,14 +36,14 @@
         <p class="eyebrow">浏览器本地处理</p>
         <h1>智能移除图片背景</h1>
         <p>选择一张图片，确认后开始抠图。结果可切换透明、白、蓝或红色背景，并下载 PNG。</p>
-        <p class="resource-note">首次抠图需从本站加载约 54MB 的模型与运行资源，之后浏览器通常会缓存。编码文件最多 20 MiB；预缩放解码最多 3000 万像素且宽高均不超过 10000 像素，超出 800 万像素时自动缩小到不超过 800 万像素；优化后的编码文件最多 8 MiB。编辑器按 256 MiB 内存预算设计。</p>
+        <p class="resource-note">首次抠图需从本站加载约 54MB 的模型与运行资源，之后浏览器通常会缓存。普通编码文件最多 20 MiB；JPEG、PNG/APNG、WebP、可可靠解析主图尺寸的 AVIF 会先按真实文件签名检查文件头，再进行解码；预缩放解码最多 3000 万像素且边长不超过 10000 像素，超出 800 万像素时自动缩小到不超过 800 万像素。HEIC/HEIF 最多 8 MiB，并在转换前由 libheif 检查为不超过 800 万像素、边长不超过 10000 像素。优化后的编码文件最多 8 MiB；HEIC 转换后的 PNG 同样最多 8 MiB。编辑器按 256 MiB 内存预算设计；HEIC 解码器内部 WASM 分配无法由页面完整计量，因此不宣称 HEIC 预处理峰值受 256 MiB 完整证明。</p>
       </section>
 
       <section class="tool-panel" aria-label="智能抠图操作区">
         <div class="controls">
           <label id="drop-zone" class="upload" for="file-input">
             <strong>选择图片</strong>
-            <span>支持 HEIC、HEIF 和浏览器可解码的常见图片格式</span>
+            <span>支持 JPEG、PNG/APNG、WebP、可解析主图尺寸的 AVIF，以及受更严格限制的 HEIC/HEIF</span>
           </label>
           <input id="file-input" type="file" accept=".heic,.heif,image/heic,image/heif,image/*" />
           <p id="file-name" class="file-name">尚未选择图片</p>

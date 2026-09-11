@@ -8,6 +8,8 @@ import {
   MAX_PROCESSED_ENCODED_BYTES,
   PREPROCESSING_MEMORY_BUDGET_BYTES,
   MAX_DIMENSION,
+  MAX_HEIC_ENCODED_BYTES,
+  heicPreprocessingInventory,
   preprocessingMemoryInventory,
   processedDimensions,
   validateEncodedFile,
@@ -16,6 +18,79 @@ import {
   decodeValidatedRemovalInput,
   decodeAndValidateRemovalInput,
 } from '../remove-background/src/input-limits.js';
+
+const pngFile = (width = 1, height = 1) =>
+  new File(
+    [
+      Uint8Array.from([
+        137,
+        80,
+        78,
+        71,
+        13,
+        10,
+        26,
+        10,
+        0,
+        0,
+        0,
+        13,
+        73,
+        72,
+        68,
+        82,
+        width >>> 24,
+        (width >>> 16) & 255,
+        (width >>> 8) & 255,
+        width & 255,
+        height >>> 24,
+        (height >>> 16) & 255,
+        (height >>> 8) & 255,
+        height & 255,
+        8,
+        6,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+      ]),
+    ],
+    'test.png',
+    { type: 'image/png' },
+  );
+
+test('HEIC 预处理采用更严格边界并公开无法计量的 WASM 风险', () => {
+  assert.equal(MAX_HEIC_ENCODED_BYTES, 8 * 1024 * 1024);
+  const inventory = heicPreprocessingInventory({
+    width: 4000,
+    height: 2000,
+    originalEncodedBytes: MAX_HEIC_ENCODED_BYTES,
+    convertedEncodedBytes: MAX_PROCESSED_ENCODED_BYTES,
+  });
+  assert.deepEqual(Object.keys(inventory.allocations), [
+    'originalHeicFile',
+    'workerArrayBuffer',
+    'decodedRgba',
+    'conversionImageData',
+    'conversionCanvasBacking',
+    'convertedPng',
+  ]);
+  assert.equal(inventory.completeBudgetProof, false);
+  assert.match(inventory.unbounded, /libheif.*libde265.*WASM/);
+  assert.throws(
+    () =>
+      heicPreprocessingInventory({
+        width: 4001,
+        height: 2000,
+        originalEncodedBytes: 1,
+        convertedEncodedBytes: 1,
+      }),
+    /800 万像素/,
+  );
+});
 
 test('编码文件恰好 20 MiB 时允许处理', () => {
   assert.doesNotThrow(() => validateEncodedFile({ size: MAX_ENCODED_BYTES }));
@@ -154,17 +229,14 @@ test('候选图片先安全解码校验并释放位图', async () => {
     },
   };
 
-  await decodeAndValidateRemovalInput(
-    { size: MAX_ENCODED_BYTES },
-    async () => bitmap,
-  );
+  await decodeAndValidateRemovalInput(pngFile(4000, 2000), async () => bitmap);
   assert.equal(closed, true);
 });
 
 test('预览解码校验成功时把位图交给调用方管理', async () => {
   const bitmap = { width: 2, height: 3 };
   assert.equal(
-    await decodeValidatedRemovalInput({ size: 1 }, async () => bitmap),
+    await decodeValidatedRemovalInput(pngFile(2, 3), async () => bitmap),
     bitmap,
   );
 });
@@ -172,7 +244,7 @@ test('预览解码校验成功时把位图交给调用方管理', async () => {
 test('预览尺寸校验失败时仍释放已解码位图', async () => {
   let closed = false;
   await assert.rejects(
-    decodeValidatedRemovalInput({ size: 1 }, async () => ({
+    decodeValidatedRemovalInput(pngFile(), async () => ({
       width: MAX_DIMENSION + 1,
       height: 1,
       close() {
@@ -186,7 +258,7 @@ test('预览尺寸校验失败时仍释放已解码位图', async () => {
 
 test('无法解码的候选图片显示明确中文错误', async () => {
   await assert.rejects(
-    decodeAndValidateRemovalInput({ size: 1 }, async () => {
+    decodeAndValidateRemovalInput(pngFile(), async () => {
       throw new Error('decoder detail');
     }),
     /无法解码图片，请选择有效的图片文件/,
