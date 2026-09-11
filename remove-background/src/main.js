@@ -15,9 +15,10 @@ import {
   createCoalescedScheduler,
   containedImageRect,
   createMaskHistory,
+  createStrokeRecorder,
   createRenderOwnership,
   normalizeCropRect,
-  normalizeAspectCropRect,
+  normalizeAspectCropWithin,
   parseHexColor,
   interpolateStroke,
   isAspectRatioSupported,
@@ -102,6 +103,7 @@ let lastPoint = null;
 let strokeChanged = false;
 let strokeBounds = null;
 let strokeRecorder = null;
+const LIVE_STROKE_BYTE_BUDGET = 8 * 1024 * 1024;
 let previewZoom = 1;
 let previewPan = { x: 0, y: 0 };
 let panMode = false;
@@ -196,6 +198,12 @@ function cropAspectRatios() {
     activeWidth: activeCrop.width,
     activeHeight: activeCrop.height,
   };
+}
+
+function activeCropBounds() {
+  return (
+    appliedCrop || { x: 0, y: 0, width: sourceWidth, height: sourceHeight }
+  );
 }
 
 function updateCropAspectAvailability() {
@@ -832,10 +840,7 @@ function stamp(point) {
     point.y,
     Number(brushSize.value) / 2,
     brushMode,
-    (index, before) => {
-      if (strokeRecorder && !strokeRecorder.has(index))
-        strokeRecorder.set(index, before);
-    },
+    (index, before) => strokeRecorder?.record(index, before) ?? false,
     Number(brushHardness.value),
   );
   if (result.changed) {
@@ -876,11 +881,10 @@ preview.addEventListener('pointerdown', (event) => {
     cropDraft =
       cropAspect.value === 'free'
         ? normalizeCropRect(point, point, sourceWidth, sourceHeight)
-        : normalizeAspectCropRect(
+        : normalizeAspectCropWithin(
             point,
             point,
-            sourceWidth,
-            sourceHeight,
+            activeCropBounds(),
             ratios[cropAspect.value],
           );
     try {
@@ -899,9 +903,14 @@ preview.addEventListener('pointerdown', (event) => {
   lastPoint = point;
   strokeChanged = false;
   strokeBounds = null;
-  strokeRecorder = new Map();
+  strokeRecorder = createStrokeRecorder(
+    editMask.length,
+    LIVE_STROKE_BYTE_BUDGET,
+  );
   const bounds = stamp(point);
   if (bounds) updatePreviewBounds(bounds);
+  if (strokeRecorder.isExhausted())
+    status.textContent = '笔画已达到安全内存上限，请松开后继续绘制';
 });
 
 preview.addEventListener('pointermove', (event) => {
@@ -938,11 +947,10 @@ preview.addEventListener('pointermove', (event) => {
     cropDraft =
       cropAspect.value === 'free'
         ? normalizeCropRect(cropStart, point, sourceWidth, sourceHeight)
-        : normalizeAspectCropRect(
+        : normalizeAspectCropWithin(
             cropStart,
             point,
-            sourceWidth,
-            sourceHeight,
+            activeCropBounds(),
             ratios[cropAspect.value],
           );
     updateCropSelection();
@@ -958,8 +966,13 @@ preview.addEventListener('pointermove', (event) => {
   const samples = lastPoint
     ? interpolateStroke(lastPoint, point, Number(brushSize.value) / 2)
     : [point];
-  for (const sample of samples)
+  for (const sample of samples) {
     changedBounds = mergeBounds(changedBounds, stamp(sample));
+    if (strokeRecorder?.isExhausted()) {
+      status.textContent = '笔画已达到安全内存上限，请松开后继续绘制';
+      break;
+    }
+  }
   lastPoint = point;
   if (changedBounds) updatePreviewBounds(changedBounds);
 });
@@ -985,17 +998,9 @@ async function finishStroke(event) {
     updateCropSelection();
     return;
   }
-  const indices = strokeRecorder
-    ? Uint32Array.from(strokeRecorder.keys())
-    : new Uint32Array();
-  const before = new Uint8ClampedArray(indices.length);
-  const after = new Uint8ClampedArray(indices.length);
-  for (let index = 0; index < indices.length; index += 1) {
-    before[index] = strokeRecorder.get(indices[index]);
-    after[index] = editMask[indices[index]];
-  }
+  const entry = strokeRecorder?.finish(editMask);
   const changed =
-    strokeChanged && maskHistory?.commitEntry({ indices, before, after });
+    strokeChanged && entry && maskHistory?.commitEntry(entry, { adopt: true });
   strokeChanged = false;
   strokeBounds = null;
   strokeRecorder = null;

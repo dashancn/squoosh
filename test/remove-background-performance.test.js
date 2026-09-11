@@ -6,6 +6,7 @@ import {
   composeCroppedPixelsAsync,
   createCoalescedScheduler,
   createMaskHistory,
+  createStrokeRecorder,
   editorMemoryInventory,
   estimateEditorPeakBytes,
 } from '../remove-background/src/mask-editor.js';
@@ -96,7 +97,7 @@ test('decoded-pixel limit has a conservative named allocation inventory below 25
     'encodedInputBlob',
     'foregroundBlob',
     'historyEntries',
-    'liveStroke',
+    'liveStrokePhasePeak',
     'runtimeHeadroom',
   ]);
   assert.equal(inventory.allocations.sourceRgba, MAX_DECODED_PIXELS * 4);
@@ -117,13 +118,39 @@ test('decoded-pixel limit has a conservative named allocation inventory below 25
   assert.equal(inventory.allocations.encodedInputBlob, 20 * 1024 * 1024);
   assert.equal(inventory.allocations.foregroundBlob, MAX_DECODED_PIXELS * 4);
   assert.equal(inventory.allocations.historyEntries, 24 * 1024 * 1024);
-  assert.equal(inventory.allocations.liveStroke, 8 * 1024 * 1024);
+  assert.equal(inventory.allocations.liveStrokePhasePeak, 8 * 1024 * 1024);
   assert.equal(inventory.allocations.runtimeHeadroom, 32 * 1024 * 1024);
   assert.equal(inventory.totalBytes, 251_600_384);
   assert.ok(inventory.totalBytes < inventory.budgetBytes);
   assert.equal(
     estimateEditorPeakBytes(MAX_DECODED_PIXELS),
     inventory.totalBytes,
+  );
+  assert.deepEqual(inventory.strokePhases, {
+    recording: {
+      dedupeBits: 1_000_000,
+      indicesCapacity: 4_925_736,
+      beforeCapacity: 1_231_434,
+      totalBytes: 7_157_170,
+    },
+    finalizing: {
+      dedupeBits: 1_000_000,
+      indicesCapacity: 4_925_736,
+      beforeCapacity: 1_231_434,
+      afterCapacity: 1_231_434,
+      totalBytes: 8_388_604,
+    },
+    adoptedHistory: {
+      indicesCapacity: 4_925_736,
+      beforeCapacity: 1_231_434,
+      afterCapacity: 1_231_434,
+      totalBytes: 7_388_604,
+    },
+  });
+  assert.ok(
+    Math.max(
+      ...Object.values(inventory.strokePhases).map((phase) => phase.totalBytes),
+    ) <= inventory.allocations.liveStrokePhasePeak,
   );
 });
 
@@ -164,6 +191,45 @@ test('stroke history obeys its explicit byte budget', () => {
     0,
     'eviction must not revert the current mask',
   );
+});
+
+test('broad 8 MP stroke recording stays within its explicit live byte budget', () => {
+  const pixelCount = 8_000_000;
+  const byteBudget = 8 * 1024 * 1024;
+  const mask = new Uint8ClampedArray(pixelCount).fill(255);
+  const recorder = createStrokeRecorder(pixelCount, byteBudget);
+  let accepted = 0;
+  for (let index = 0; index < pixelCount; index += 1) {
+    if (!recorder.record(index, mask[index])) break;
+    mask[index] = 0;
+    accepted += 1;
+  }
+  assert.ok(accepted > 1_000_000, 'budget should allow a useful broad stroke');
+  assert.ok(accepted < pixelCount, '8 MiB must not pretend to record all 8 MP');
+  assert.equal(recorder.record(accepted, 255), false);
+  const entry = recorder.finish(mask);
+  assert.equal(entry.indices.length, accepted);
+  assert.equal(entry.before.length, accepted);
+  assert.equal(entry.after.length, accepted);
+  assert.ok(entry.ownedByteLength <= byteBudget);
+  assert.ok(recorder.peakBytes() <= byteBudget);
+});
+
+test('stroke recorder deduplicates and history adopts finalized storage', () => {
+  const mask = new Uint8ClampedArray([255, 255, 255]);
+  const recorder = createStrokeRecorder(mask.length, 64);
+  assert.equal(recorder.record(1, 255), true);
+  mask[1] = 128;
+  assert.equal(recorder.record(1, 128), true);
+  mask[1] = 0;
+  const entry = recorder.finish(mask);
+  assert.deepEqual([...entry.indices], [1]);
+  assert.deepEqual([...entry.before], [255]);
+  assert.deepEqual([...entry.after], [0]);
+  const history = createMaskHistory(mask, 20, 64, { adoptCurrent: true });
+  assert.equal(history.commitEntry(entry, { adopt: true }), true);
+  assert.equal(history.entryStorageBytes(), entry.ownedByteLength);
+  assert.deepEqual([...history.undo()], [255, 255, 255]);
 });
 
 for (const operation of ['reset', 'clear']) {

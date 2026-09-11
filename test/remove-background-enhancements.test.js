@@ -6,6 +6,7 @@ import {
   composeCroppedPixels,
   isAspectRatioSupported,
   normalizeAspectCropRect,
+  normalizeAspectCropWithin,
   parseHexColor,
 } from '../remove-background/src/mask-editor.js';
 
@@ -147,6 +148,41 @@ test('aspect crop stays exact for every small supported size, zero drag, directi
         }
       }
     }
+  }
+});
+
+test('aspect recrop is normalized locally and never escapes the applied crop', () => {
+  const applied = { x: 100, y: 50, width: 80, height: 45 };
+  const cases = [
+    [
+      { x: 100, y: 50 },
+      { x: 100, y: 50 },
+    ],
+    [
+      { x: 179, y: 50 },
+      { x: 0, y: 500 },
+    ],
+    [
+      { x: 100, y: 94 },
+      { x: 500, y: 0 },
+    ],
+    [
+      { x: 179, y: 94 },
+      { x: 0, y: 0 },
+    ],
+    [
+      { x: 140, y: 72 },
+      { x: 500, y: 500 },
+    ],
+  ];
+  for (const [start, end] of cases) {
+    const crop = normalizeAspectCropWithin(start, end, applied, 16 / 9);
+    assert.ok(crop);
+    assert.equal(crop.width * 9, crop.height * 16);
+    assert.ok(crop.x >= applied.x);
+    assert.ok(crop.y >= applied.y);
+    assert.ok(crop.x + crop.width <= applied.x + applied.width);
+    assert.ok(crop.y + crop.height <= applied.y + applied.height);
   }
 });
 

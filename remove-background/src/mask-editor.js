@@ -154,6 +154,21 @@ export function normalizeAspectCropRect(start, end, width, height, ratio) {
   };
 }
 
+export function normalizeAspectCropWithin(start, end, bounds, ratio) {
+  const localStart = { x: start.x - bounds.x, y: start.y - bounds.y };
+  const localEnd = { x: end.x - bounds.x, y: end.y - bounds.y };
+  const local = normalizeAspectCropRect(
+    localStart,
+    localEnd,
+    bounds.width,
+    bounds.height,
+    ratio,
+  );
+  return local
+    ? { ...local, x: local.x + bounds.x, y: local.y + bounds.y }
+    : null;
+}
+
 export function parseHexColor(value) {
   const match = String(value ?? '')
     .trim()
@@ -444,6 +459,36 @@ export function editorMemoryInventory(
   outputPixels = sourcePixels,
 ) {
   const previewPixels = 1200 * 1200;
+  const liveStrokeBudget = 8 * 1024 * 1024;
+  const dedupeBits = Math.ceil(sourcePixels / 8);
+  const strokeCapacity = Math.max(
+    0,
+    Math.floor((liveStrokeBudget - dedupeBits) / 6),
+  );
+  const indicesCapacity = strokeCapacity * Uint32Array.BYTES_PER_ELEMENT;
+  const beforeCapacity = strokeCapacity;
+  const afterCapacity = strokeCapacity;
+  const strokePhases = {
+    recording: {
+      dedupeBits,
+      indicesCapacity,
+      beforeCapacity,
+      totalBytes: dedupeBits + indicesCapacity + beforeCapacity,
+    },
+    finalizing: {
+      dedupeBits,
+      indicesCapacity,
+      beforeCapacity,
+      afterCapacity,
+      totalBytes: dedupeBits + indicesCapacity + beforeCapacity + afterCapacity,
+    },
+    adoptedHistory: {
+      indicesCapacity,
+      beforeCapacity,
+      afterCapacity,
+      totalBytes: indicesCapacity + beforeCapacity + afterCapacity,
+    },
+  };
   const allocations = {
     sourceRgba: sourcePixels * 4,
     // createMaskHistory(..., { adoptCurrent: true }) keeps these three names
@@ -461,13 +506,14 @@ export function editorMemoryInventory(
     // PNG foreground is conservatively bounded by decoded RGBA size.
     foregroundBlob: sourcePixels * 4,
     historyEntries: 24 * 1024 * 1024,
-    liveStroke: 8 * 1024 * 1024,
+    liveStrokePhasePeak: liveStrokeBudget,
     // Browser canvas/ImageBitmap bookkeeping, JS objects, and model-runtime
     // allocations that overlap the editor's foreground phase.
     runtimeHeadroom: 32 * 1024 * 1024,
   };
   return {
     allocations,
+    strokePhases,
     totalBytes: Object.values(allocations).reduce(
       (total, bytes) => total + bytes,
       0,
@@ -494,6 +540,58 @@ export function interpolateStroke(from, to, radius) {
       y: from.y + (to.y - from.y) * amount,
     };
   });
+}
+
+export function createStrokeRecorder(pixelCount, byteBudget) {
+  const safePixelCount = Math.max(0, Math.floor(pixelCount));
+  const maximumBytes = Math.max(0, Math.floor(byteBudget));
+  const seen = new Uint8Array(Math.ceil(safePixelCount / 8));
+  const capacity = Math.max(
+    0,
+    Math.min(safePixelCount, Math.floor((maximumBytes - seen.byteLength) / 6)),
+  );
+  const indices = new Uint32Array(capacity);
+  const before = new Uint8ClampedArray(capacity);
+  let length = 0;
+  let exhausted = capacity === 0;
+  let finished = false;
+  const recordingBytes =
+    seen.byteLength + indices.byteLength + before.byteLength;
+  const finalizedBytes = indices.byteLength + before.byteLength + capacity;
+
+  return {
+    record(index, value) {
+      if (finished || index < 0 || index >= safePixelCount) return false;
+      const byteIndex = index >> 3;
+      const bit = 1 << (index & 7);
+      if (seen[byteIndex] & bit) return true;
+      if (length >= capacity) {
+        exhausted = true;
+        return false;
+      }
+      seen[byteIndex] |= bit;
+      indices[length] = index;
+      before[length] = value;
+      length += 1;
+      if (length >= capacity) exhausted = true;
+      return true;
+    },
+    isExhausted: () => exhausted,
+    peakBytes: () => Math.max(recordingBytes, seen.byteLength + finalizedBytes),
+    finish(mask) {
+      if (finished) throw new Error('Stroke recorder already finished');
+      finished = true;
+      const after = new Uint8ClampedArray(capacity);
+      for (let offset = 0; offset < length; offset += 1)
+        after[offset] = mask[indices[offset]];
+      return {
+        indices: indices.subarray(0, length),
+        before: before.subarray(0, length),
+        after: after.subarray(0, length),
+        ownedByteLength: finalizedBytes,
+      };
+    },
+  };
 }
 
 export function applyBrushStamp(
@@ -539,7 +637,7 @@ export function applyBrushStamp(
         next = current + Math.sign(distanceToTarget);
       next = clamp(next, Math.min(current, target), Math.max(current, target));
       if (current === next) continue;
-      onChange?.(index, mask[index], next);
+      if (onChange?.(index, mask[index], next) === false) continue;
       mask[index] = next;
       changed = true;
     }
@@ -623,17 +721,20 @@ export function createMaskHistory(
   };
 
   const sizeOf = (entry) =>
+    entry.ownedByteLength ??
     entry.indices.byteLength + entry.before.byteLength + entry.after.byteLength;
-  const storeEntry = (entry) => {
+  const storeEntry = (entry, adopt = false) => {
     if (!entry.indices.length) return false;
     for (const discarded of entries.slice(position))
       entryBytes -= sizeOf(discarded);
     entries = entries.slice(0, position);
-    const stored = {
-      indices: new Uint32Array(entry.indices),
-      before: new Uint8ClampedArray(entry.before),
-      after: new Uint8ClampedArray(entry.after),
-    };
+    const stored = adopt
+      ? entry
+      : {
+          indices: new Uint32Array(entry.indices),
+          before: new Uint8ClampedArray(entry.before),
+          after: new Uint8ClampedArray(entry.after),
+        };
     entries.push(stored);
     entryBytes += sizeOf(stored);
     applyEntry(stored, stored.after);
@@ -650,14 +751,14 @@ export function createMaskHistory(
     currentView: () => current,
     canUndo: () => position > 0,
     canRedo: () => position < entries.length,
-    commitEntry(entry) {
+    commitEntry(entry, commitOptions = {}) {
       if (
         !entry ||
         entry.indices.length !== entry.before.length ||
         entry.indices.length !== entry.after.length
       )
         throw new Error('Invalid mask history entry');
-      return storeEntry(entry);
+      return storeEntry(entry, commitOptions.adopt === true);
     },
     commit(mask) {
       let count = 0;
@@ -705,6 +806,7 @@ export function createMaskHistory(
       position = 0;
       entryBytes = 0;
     },
+    entryStorageBytes: () => entryBytes,
   };
 }
 

@@ -14,8 +14,17 @@ const server = createServer(async (request, response) => {
       new URL(request.url, 'http://localhost').pathname,
     );
     if (pathname.endsWith('/')) pathname += 'index.html';
-    const target = path.resolve(build, `.${pathname}`);
-    assert.ok(target.startsWith(`${build}${path.sep}`));
+    const sourceModule = path.join(
+      root,
+      'remove-background/src/mask-editor.js',
+    );
+    const target =
+      pathname === '/__source__/mask-editor.js'
+        ? sourceModule
+        : path.resolve(build, `.${pathname}`);
+    assert.ok(
+      target === sourceModule || target.startsWith(`${build}${path.sep}`),
+    );
     const types = {
       '.html': 'text/html; charset=utf-8',
       '.js': 'text/javascript',
@@ -103,4 +112,47 @@ test('Chromium exposes enhancement controls, accessible states and reset default
     await page.locator('input[name="background"][value="custom"]').isChecked(),
     false,
   );
+});
+
+test('Chromium aspect recrop path uses active-crop local coordinates', async () => {
+  const main = await readFile(
+    path.join(root, 'remove-background/src/main.js'),
+    'utf8',
+  );
+  assert.match(main, /normalizeAspectCropWithin/);
+  assert.match(main, /activeCropBounds\(\)/);
+  assert.doesNotMatch(
+    main,
+    /normalizeAspectCropRect\(\s*cropStart,\s*point,\s*sourceWidth,\s*sourceHeight/s,
+  );
+  const page = await browser.newPage();
+  await page.goto(
+    `http://127.0.0.1:${server.address().port}/remove-background/`,
+  );
+  const crops = await page.evaluate(async () => {
+    const { normalizeAspectCropWithin } = await import(
+      '/__source__/mask-editor.js'
+    );
+    const applied = { x: 100, y: 50, width: 80, height: 45 };
+    return [
+      normalizeAspectCropWithin(
+        { x: 100, y: 50 },
+        { x: 100, y: 50 },
+        applied,
+        16 / 9,
+      ),
+      normalizeAspectCropWithin(
+        { x: 179, y: 94 },
+        { x: 0, y: 0 },
+        applied,
+        16 / 9,
+      ),
+    ];
+  });
+  for (const crop of crops) {
+    assert.ok(crop.x >= 100 && crop.y >= 50);
+    assert.ok(crop.x + crop.width <= 180);
+    assert.ok(crop.y + crop.height <= 95);
+  }
+  await page.close();
 });
