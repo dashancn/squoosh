@@ -173,6 +173,25 @@ test('页面准确说明 54MB 首次资源、隐私和 IMG.LY AGPL 归属', asyn
   await stat(new URL('../remove-background/LICENSE-AGPL.md', import.meta.url));
 });
 
+test('页面与资源文档准确区分输入、预缩放、处理输出和编辑器限制', async () => {
+  const [html, limits] = await Promise.all([
+    read('remove-background/index.html'),
+    read('remove-background/RESOURCE-LIMITS.md'),
+  ]);
+  for (const text of [
+    '编码文件最多 20 MiB',
+    '预缩放解码最多 3000 万像素',
+    '自动缩小到不超过 800 万像素',
+    '优化后的编码文件最多 8 MiB',
+    '编辑器按 256 MiB 内存预算设计',
+  ]) {
+    assert.match(html, new RegExp(text));
+    assert.match(limits, new RegExp(text));
+  }
+  assert.doesNotMatch(html, /图片解码后最多 800 万像素/);
+  assert.doesNotMatch(limits, /输入文件最多 20 MiB，解码后最多 800 万像素/);
+});
+
 test('抠图固定使用同源 isnet_quint8 资源', async () => {
   const source = await read('remove-background/src/main.js');
   const resources = JSON.parse(
@@ -190,7 +209,7 @@ test('抠图固定使用同源 isnet_quint8 资源', async () => {
 
 test('选择图片后先规范化校验并显示原图，推理仅复用当前选择的安全输入', async () => {
   const source = await read('remove-background/src/main.js');
-  assert.match(source, /prepareSelectionPreview/);
+  assert.match(source, /createSelectionPreparationQueue/);
   assert.match(source, /publishSelectionPreview/);
   assert.match(source, /previewContext\.drawImage/);
   assert.match(source, /previewEmpty\.hidden = true/);

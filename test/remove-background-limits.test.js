@@ -5,7 +5,10 @@ import {
   MAX_ENCODED_BYTES,
   MAX_DECODED_PIXELS,
   MAX_PRE_RESIZE_PIXELS,
+  MAX_PROCESSED_ENCODED_BYTES,
+  PREPROCESSING_MEMORY_BUDGET_BYTES,
   MAX_DIMENSION,
+  preprocessingMemoryInventory,
   processedDimensions,
   validateEncodedFile,
   validateDecodedDimensions,
@@ -55,6 +58,67 @@ test('预缩放解码上限允许常见高像素相机图片且限制瞬时 RGBA
       256 * 1024 * 1024,
   );
   assert.doesNotThrow(() => validatePreResizeDimensions(7500, 4000));
+});
+
+test('预处理峰值清单包含所有同时存活分配并保守低于 256 MiB', () => {
+  const processed = processedDimensions(7500, 4000);
+  const inventory = preprocessingMemoryInventory({
+    sourceWidth: 7500,
+    sourceHeight: 4000,
+    processedWidth: processed.width,
+    processedHeight: processed.height,
+    originalEncodedBytes: MAX_ENCODED_BYTES,
+    processedEncodedBytes: MAX_PROCESSED_ENCODED_BYTES,
+  });
+  assert.deepEqual(Object.keys(inventory.allocations), [
+    'sourceBitmap',
+    'resizeCanvasBacking',
+    'processedBitmap',
+    'originalEncodedFile',
+    'processedEncodedBlob',
+    'runtimeHeadroom',
+  ]);
+  assert.equal(inventory.allocations.sourceBitmap, 30_000_000 * 4);
+  assert.equal(
+    inventory.allocations.resizeCanvasBacking,
+    processed.width * processed.height * 4,
+  );
+  assert.equal(
+    inventory.allocations.processedBitmap,
+    processed.width * processed.height * 4,
+  );
+  assert.equal(inventory.allocations.originalEncodedFile, MAX_ENCODED_BYTES);
+  assert.equal(inventory.allocations.processedEncodedBlob, 8 * 1024 * 1024);
+  assert.equal(inventory.budgetBytes, PREPROCESSING_MEMORY_BUDGET_BYTES);
+  assert.ok(inventory.totalBytes < 256 * 1024 * 1024);
+});
+
+test('预处理内存证明对越界输出和无法证明的数值 fail closed', () => {
+  const processed = processedDimensions(7500, 4000);
+  const base = {
+    sourceWidth: 7500,
+    sourceHeight: 4000,
+    processedWidth: processed.width,
+    processedHeight: processed.height,
+    originalEncodedBytes: MAX_ENCODED_BYTES,
+    processedEncodedBytes: MAX_PROCESSED_ENCODED_BYTES,
+  };
+  assert.throws(
+    () =>
+      preprocessingMemoryInventory({
+        ...base,
+        processedEncodedBytes: MAX_PROCESSED_ENCODED_BYTES + 1,
+      }),
+    /优化后的图片文件不能超过 8 MiB/,
+  );
+  assert.throws(
+    () => preprocessingMemoryInventory({ ...base, sourceWidth: Number.NaN }),
+    /无法证明图片预处理内存安全/,
+  );
+  assert.throws(
+    () => preprocessingMemoryInventory({ ...base, sourceHeight: 4001 }),
+    /无法证明图片预处理内存安全/,
+  );
 });
 
 test('真正过大的图片在预缩放前显示明确中文错误', () => {

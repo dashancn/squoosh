@@ -1,4 +1,5 @@
 import {
+  preprocessingMemoryInventory,
   processedDimensions,
   validateDecodedDimensions,
 } from './input-limits.js';
@@ -76,6 +77,14 @@ export async function preprocessRemovalInput({
     context.drawImage(bitmap, 0, 0, dimensions.width, dimensions.height);
     const type = (await isJpeg(input)) ? 'image/jpeg' : 'image/png';
     const blob = await canvasBlob(canvas, type);
+    preprocessingMemoryInventory({
+      sourceWidth: originalWidth,
+      sourceHeight: originalHeight,
+      processedWidth: dimensions.width,
+      processedHeight: dimensions.height,
+      originalEncodedBytes: input.size,
+      processedEncodedBytes: blob.size,
+    });
     const processedInput = new File([blob], outputName(input.name, type), {
       type,
       lastModified: input.lastModified,

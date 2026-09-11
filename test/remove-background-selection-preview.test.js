@@ -1,7 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { prepareSelectionPreview } from '../remove-background/src/selection-preview.js';
+import {
+  createSelectionPreparationQueue,
+  prepareSelectionPreview,
+} from '../remove-background/src/selection-preview.js';
 
 function deferred() {
   let resolve;
@@ -203,4 +206,50 @@ test('stale replacement after resize closes original and processed bitmaps', asy
   assert.equal(await pending, null);
   assert.deepEqual(published, []);
   assert.deepEqual(closed.sort(), ['original', 'processed']);
+});
+
+test('rapid replacements serialize preparation and supersede intermediate queued selections', async () => {
+  const queue = createSelectionPreparationQueue();
+  const gates = new Map();
+  const started = [];
+  const published = [];
+  let currentVersion = 1;
+  let active = 0;
+  let maxActive = 0;
+  const options = (version) => ({
+    file: { name: `${version}.jpg` },
+    version,
+    isCurrent: (candidate) => candidate === currentVersion,
+    normalize: async (file) => file,
+    decodeValidated: async (file) => {
+      active += 1;
+      maxActive = Math.max(maxActive, active);
+      started.push(file.name);
+      const gate = deferred();
+      gates.set(file.name, gate);
+      await gate.promise;
+      active -= 1;
+      return { width: 2, height: 2, close() {} };
+    },
+    publish: ({ version: publishedVersion }) =>
+      published.push(publishedVersion),
+  });
+
+  const first = queue.prepare(options(1));
+  await Promise.resolve();
+  currentVersion = 2;
+  const second = queue.prepare(options(2));
+  currentVersion = 3;
+  const third = queue.prepare(options(3));
+
+  assert.equal(await second, null);
+  assert.deepEqual(started, ['1.jpg']);
+  gates.get('1.jpg').resolve();
+  assert.equal(await first, null);
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.deepEqual(started, ['1.jpg', '3.jpg']);
+  gates.get('3.jpg').resolve();
+  assert.equal((await third).name, '3.jpg');
+  assert.equal(maxActive, 1);
+  assert.deepEqual(published, [3]);
 });

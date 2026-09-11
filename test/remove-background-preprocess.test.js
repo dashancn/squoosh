@@ -154,3 +154,44 @@ test('canvas backing storage is cleared when signature reading fails', async () 
   assert.equal(fake.canvas.width, 0);
   assert.equal(fake.canvas.height, 0);
 });
+
+for (const candidate of [
+  {
+    label: 'high-entropy PNG',
+    bytes: [137, 80, 78, 71, 13, 10, 26, 10],
+    name: 'noise.png',
+    type: 'image/png',
+  },
+  {
+    label: 'high-entropy JPEG',
+    bytes: [255, 216, 255, 224],
+    name: 'noise.jpg',
+    type: 'image/jpeg',
+  },
+]) {
+  test(`${candidate.label} is rejected when its resized encoded Blob exceeds the cap`, async () => {
+    const oversized = new Blob([new Uint8Array(8 * 1024 * 1024 + 1)], {
+      type: candidate.type,
+    });
+    const fake = fakeCanvas(oversized);
+    let decoded = false;
+    const input = new File([Uint8Array.from(candidate.bytes)], candidate.name, {
+      type: candidate.type,
+    });
+    await assert.rejects(
+      preprocessRemovalInput({
+        input,
+        bitmap: { width: 7500, height: 4000 },
+        createCanvas: () => fake.canvas,
+        decode: async () => {
+          decoded = true;
+          return { width: 3265, height: 2449 };
+        },
+      }),
+      /优化后的图片文件不能超过 8 MiB/,
+    );
+    assert.equal(decoded, false);
+    assert.equal(fake.canvas.width, 0);
+    assert.equal(fake.canvas.height, 0);
+  });
+}

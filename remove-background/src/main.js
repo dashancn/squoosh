@@ -1,6 +1,6 @@
 import { removeBackground } from '@imgly/background-removal';
 import { decodeValidatedRemovalInput } from './input-limits.js';
-import { prepareSelectionPreview } from './selection-preview.js';
+import { createSelectionPreparationQueue } from './selection-preview.js';
 import { preprocessRemovalInput } from './preprocess-input.js';
 import {
   normalizeImageFile,
@@ -90,6 +90,7 @@ let selectedFile = null;
 let selectedVersion = 0;
 let preparedSelection = null;
 let selectionPreparation = null;
+const selectionPreparationQueue = createSelectionPreparationQueue();
 let busy = false;
 let sourceWidth = 0;
 let sourceHeight = 0;
@@ -646,7 +647,7 @@ async function selectFile(file) {
   previewEmpty.hidden = false;
   if (!selectedFile) return;
 
-  selectionPreparation = prepareSelectionPreview({
+  selectionPreparation = selectionPreparationQueue.prepare({
     file: selectedFile,
     version,
     isCurrent: (candidateVersion) => candidateVersion === selectedVersion,

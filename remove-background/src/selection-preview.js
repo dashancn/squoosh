@@ -32,3 +32,41 @@ export async function prepareSelectionPreview({
     bitmap?.close?.();
   }
 }
+
+export function createSelectionPreparationQueue() {
+  let running = false;
+  let pending = null;
+
+  async function drain() {
+    if (running) return;
+    running = true;
+    try {
+      while (pending) {
+        const item = pending;
+        pending = null;
+        if (!item.options.isCurrent(item.options.version)) {
+          item.resolve(null);
+          continue;
+        }
+        try {
+          item.resolve(await prepareSelectionPreview(item.options));
+        } catch (error) {
+          item.reject(error);
+        }
+      }
+    } finally {
+      running = false;
+      if (pending) void drain();
+    }
+  }
+
+  return {
+    prepare(options) {
+      return new Promise((resolve, reject) => {
+        pending?.resolve(null);
+        pending = { options, resolve, reject };
+        void drain();
+      });
+    },
+  };
+}
