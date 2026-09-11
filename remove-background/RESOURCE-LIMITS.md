@@ -4,4 +4,4 @@
 
 800 万像素是 256 MiB 移动端标签页预算下通过保守分配清单的最高整百万像素上限。清单按最坏的未裁剪导出计算，并同时保留：原图 RGBA、可编辑蒙版、原始 alpha、蒙版历史初始快照、选择预览画布、结果预览 ImageData、导出输出、导出画布 backing、输入与前景 Blob、历史与正在绘制的笔画预算，以及 32 MiB 浏览器/模型运行时余量。笔画的 8 MiB 清单明确覆盖录制（位图去重、索引、before）、完成（再加入 after）和直接转交历史后三个阶段的峰值；达到上限后停止应用新的蒙版像素并提示松开后继续，不会产生无法撤销的越界修改。
 
-`editMask`、`maskHistory` 的 current 和 `currentView()` 通过 `adoptCurrent` 共享同一个实时蒙版分配；历史 initial 仍单独计入。800 万像素估算为 251,600,384 bytes（239.94 MiB），低于 268,435,456 bytes；下一个整百万像素档 900 万估算为 270,600,384 bytes（258.06 MiB），超过预算。
+`editMask`、`maskHistory` 的 current live view 和 `currentView()` 通过 `adoptCurrent` 共享同一个实时蒙版分配；历史 initial 仍单独计入。undo、redo 和 reset 都原地修改这块实时蒙版（reset 使用 `current.set(initial)`），返回实时 view，不产生防御性全尺寸蒙版快照；只有显式调用 `current()` 才创建快照。800 万像素各导航阶段的实时蒙版为 8,000,000 bytes，返回快照为 0 bytes。完整最坏阶段估算仍为 251,600,384 bytes（239.94 MiB），其中已包含 32 MiB 浏览器/模型运行时余量，并且距 268,435,456 bytes 硬预算另有 16,835,072 bytes（16.06 MiB）余量；下一个整百万像素档 900 万估算为 270,600,384 bytes（258.06 MiB），超过预算。

@@ -1073,7 +1073,6 @@ previewPanel.addEventListener(
 undoButton.addEventListener('click', async () => {
   if (!maskHistory?.canUndo()) return;
   maskHistory.undo();
-  editMask = maskHistory.currentView();
   renderOwnership.reviseMask();
   updatePreviewBounds();
   updateEditorButtons();
@@ -1082,7 +1081,6 @@ undoButton.addEventListener('click', async () => {
 redoButton.addEventListener('click', async () => {
   if (!maskHistory?.canRedo()) return;
   maskHistory.redo();
-  editMask = maskHistory.currentView();
   renderOwnership.reviseMask();
   updatePreviewBounds();
   updateEditorButtons();
@@ -1091,7 +1089,6 @@ redoButton.addEventListener('click', async () => {
 resetMaskButton.addEventListener('click', async () => {
   if (!maskHistory) return;
   maskHistory.reset();
-  editMask = maskHistory.currentView();
   renderOwnership.reviseMask();
   updatePreviewBounds();
   updateEditorButtons();

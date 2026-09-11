@@ -489,6 +489,11 @@ export function editorMemoryInventory(
       totalBytes: indicesCapacity + beforeCapacity + afterCapacity,
     },
   };
+  const historyNavigationPhase = {
+    liveMaskBytes: sourcePixels,
+    returnSnapshotBytes: 0,
+    totalBytes: sourcePixels,
+  };
   const allocations = {
     sourceRgba: sourcePixels * 4,
     // createMaskHistory(..., { adoptCurrent: true }) keeps these three names
@@ -514,6 +519,7 @@ export function editorMemoryInventory(
   return {
     allocations,
     strokePhases,
+    historyNavigationPhase,
     totalBytes: Object.values(allocations).reduce(
       (total, bytes) => total + bytes,
       0,
@@ -783,21 +789,21 @@ export function createMaskHistory(
         position -= 1;
         applyEntry(entries[position], entries[position].before);
       }
-      return this.current();
+      return current;
     },
     redo() {
       if (position < entries.length) {
         applyEntry(entries[position], entries[position].after);
         position += 1;
       }
-      return this.current();
+      return current;
     },
     reset() {
-      current = new Uint8ClampedArray(initial);
+      current.set(initial);
       entries = [];
       position = 0;
       entryBytes = 0;
-      return this.current();
+      return current;
     },
     clear() {
       initial.fill(0);

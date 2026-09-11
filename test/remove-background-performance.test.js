@@ -147,6 +147,11 @@ test('decoded-pixel limit has a conservative named allocation inventory below 25
       totalBytes: 7_388_604,
     },
   });
+  assert.deepEqual(inventory.historyNavigationPhase, {
+    liveMaskBytes: MAX_DECODED_PIXELS,
+    returnSnapshotBytes: 0,
+    totalBytes: MAX_DECODED_PIXELS,
+  });
   assert.ok(
     Math.max(
       ...Object.values(inventory.strokePhases).map((phase) => phase.totalBytes),
@@ -172,6 +177,31 @@ test('history can adopt the editable mask and expose its live view without a ful
     mask,
     'public snapshot API remains defensive',
   );
+});
+
+test('history navigation mutates one adopted live mask without return snapshots', () => {
+  const mask = new Uint8ClampedArray([255, 128, 0]);
+  const history = createMaskHistory(mask, 20, 1024, { adoptCurrent: true });
+  const live = history.currentView();
+  assert.equal(history.commit(new Uint8ClampedArray([0, 128, 0])), true);
+
+  assert.equal(history.undo(), live);
+  assert.equal(history.currentView(), live);
+  assert.deepEqual([...live], [255, 128, 0]);
+
+  assert.equal(history.redo(), live);
+  assert.equal(history.currentView(), live);
+  assert.deepEqual([...live], [0, 128, 0]);
+
+  assert.equal(history.reset(), live);
+  assert.equal(history.currentView(), live);
+  assert.equal(history.currentView(), mask);
+  assert.deepEqual([...live], [255, 128, 0]);
+
+  const snapshot = history.current();
+  assert.notEqual(snapshot, live);
+  snapshot[0] = 7;
+  assert.equal(live[0], 255, 'explicit current() snapshots remain defensive');
 });
 
 test('stroke history obeys its explicit byte budget', () => {
@@ -264,4 +294,12 @@ test('production path closes decoded bitmaps before first export and avoids sync
   assert.doesNotMatch(source, /let output = composeCroppedPixels\(/);
   assert.match(source, /composeCroppedPixelsAsync/);
   assert.match(source, /createCoalescedScheduler/);
+  assert.doesNotMatch(
+    source,
+    /editMask\s*=\s*maskHistory\.(?:undo|redo|reset)\s*\(/,
+  );
+  assert.doesNotMatch(
+    source,
+    /maskHistory\.(?:undo|redo|reset)\s*\(\);\s*editMask\s*=\s*maskHistory\.currentView\s*\(\)/s,
+  );
 });
