@@ -39,6 +39,35 @@ function text(bytes, offset, length) {
   if (offset < 0 || offset + length > bytes.length) throw error();
   return String.fromCharCode(...bytes.subarray(offset, offset + length));
 }
+function requireBytes(offset, length, end) {
+  if (
+    !Number.isSafeInteger(offset) ||
+    !Number.isSafeInteger(length) ||
+    !Number.isSafeInteger(end) ||
+    offset < 0 ||
+    length < 0 ||
+    offset + length > end
+  )
+    throw error();
+}
+function boundedU16(bytes, offset, end) {
+  requireBytes(offset, 2, end);
+  return u16(bytes, offset);
+}
+function boundedU32(bytes, offset, end) {
+  requireBytes(offset, 4, end);
+  return u32(bytes, offset);
+}
+function crc32(bytes, start, end) {
+  requireBytes(start, end - start, bytes.length);
+  let crc = 0xffffffff;
+  for (let offset = start; offset < end; offset += 1) {
+    crc ^= bytes[offset];
+    for (let bit = 0; bit < 8; bit += 1)
+      crc = (crc >>> 1) ^ (crc & 1 ? 0xedb88320 : 0);
+  }
+  return (crc ^ 0xffffffff) >>> 0;
+}
 function dimensions(format, encodedWidth, encodedHeight, orientation = 1) {
   if (
     !Number.isSafeInteger(encodedWidth) ||
@@ -127,11 +156,12 @@ function parseJpeg(bytes) {
 
 function parsePng(bytes) {
   if (
-    bytes.length < 29 ||
+    bytes.length < 33 ||
     !PNG_SIGNATURE.every((value, index) => bytes[index] === value)
   )
     throw error();
   if (u32(bytes, 8) !== 13 || text(bytes, 12, 4) !== 'IHDR') throw error();
+  if (crc32(bytes, 12, 29) !== u32(bytes, 29)) throw error();
   const bitDepth = bytes[24];
   const colorType = bytes[25];
   const legalBitDepths = {
@@ -265,62 +295,112 @@ function topLevelBoxes(bytes, fileSize) {
 function parseAvif(bytes, fileSize) {
   const top = topLevelBoxes(bytes, fileSize);
   const ftyp = oneBox(top, 'ftyp');
-  if (!ftyp.complete || ftyp.end - ftyp.start < 8) throw error();
+  const ftypLength = ftyp.end - ftyp.start;
+  if (!ftyp.complete || ftypLength < 8 || (ftypLength - 8) % 4 !== 0)
+    throw error();
   let avif = AVIF_BRANDS.has(text(bytes, ftyp.start, 4));
-  for (let offset = ftyp.start + 8; offset + 4 <= ftyp.end; offset += 4)
+  for (let offset = ftyp.start + 8; offset < ftyp.end; offset += 4)
     avif ||= AVIF_BRANDS.has(text(bytes, offset, 4));
   if (!avif) throw error();
+
   const meta = oneBox(top, 'meta');
-  if (!meta.complete || meta.end - meta.start < 4) throw error();
+  if (!meta.complete) throw error();
+  requireBytes(meta.start, 4, meta.end);
+  if (
+    bytes[meta.start] !== 0 ||
+    bytes[meta.start + 1] !== 0 ||
+    bytes[meta.start + 2] !== 0 ||
+    bytes[meta.start + 3] !== 0
+  )
+    throw error();
   const children = boxes(bytes, meta.start + 4, meta.end);
+
   const pitm = oneBox(children, 'pitm');
+  requireBytes(pitm.start, 4, pitm.end);
   const pitmVersion = bytes[pitm.start];
+  if (
+    (pitmVersion !== 0 && pitmVersion !== 1) ||
+    bytes[pitm.start + 1] !== 0 ||
+    bytes[pitm.start + 2] !== 0 ||
+    bytes[pitm.start + 3] !== 0
+  )
+    throw error();
   const primaryId =
     pitmVersion === 0
-      ? u16(bytes, pitm.start + 4)
-      : pitmVersion === 1
-      ? u32(bytes, pitm.start + 4)
-      : 0;
-  if (!primaryId) throw error();
+      ? boundedU16(bytes, pitm.start + 4, pitm.end)
+      : boundedU32(bytes, pitm.start + 4, pitm.end);
+  if (!primaryId || pitm.start + (pitmVersion === 0 ? 6 : 8) !== pitm.end)
+    throw error();
+
   const iprp = oneBox(children, 'iprp');
-  const properties = boxes(
-    bytes,
-    oneBox(boxes(bytes, iprp.start, iprp.end), 'ipco').start,
-    oneBox(boxes(bytes, iprp.start, iprp.end), 'ipco').end,
-  );
-  const ipma = oneBox(boxes(bytes, iprp.start, iprp.end), 'ipma');
+  const propertyChildren = boxes(bytes, iprp.start, iprp.end);
+  const ipco = oneBox(propertyChildren, 'ipco');
+  const properties = boxes(bytes, ipco.start, ipco.end);
+  const ipma = oneBox(propertyChildren, 'ipma');
+
+  requireBytes(ipma.start, 8, ipma.end);
   const version = bytes[ipma.start];
   const flags =
     (bytes[ipma.start + 1] << 16) |
     (bytes[ipma.start + 2] << 8) |
     bytes[ipma.start + 3];
+  if ((version !== 0 && version !== 1) || (flags !== 0 && flags !== 1))
+    throw error();
   let offset = ipma.start + 4;
-  const count = u32(bytes, offset);
+  const count = boundedU32(bytes, offset, ipma.end);
   offset += 4;
+  const itemIdLength = version === 0 ? 2 : 4;
+  const associationLength = flags === 1 ? 2 : 1;
+  if (count > Math.floor((ipma.end - offset) / (itemIdLength + 1)))
+    throw error();
+
   let propertyIndex = 0;
   for (let entry = 0; entry < count; entry += 1) {
-    const itemId = version < 1 ? u16(bytes, offset) : u32(bytes, offset);
-    offset += version < 1 ? 2 : 4;
-    const associations = bytes[offset++];
-    for (let association = 0; association < associations; association += 1) {
-      const raw = flags & 1 ? u16(bytes, offset) : bytes[offset];
-      offset += flags & 1 ? 2 : 1;
-      const index = raw & (flags & 1 ? 0x7fff : 0x7f);
+    requireBytes(offset, itemIdLength + 1, ipma.end);
+    const itemId =
+      version === 0
+        ? boundedU16(bytes, offset, ipma.end)
+        : boundedU32(bytes, offset, ipma.end);
+    if (!itemId) throw error();
+    offset += itemIdLength;
+    const associationCount = bytes[offset];
+    offset += 1;
+    requireBytes(offset, associationCount * associationLength, ipma.end);
+    for (
+      let association = 0;
+      association < associationCount;
+      association += 1
+    ) {
+      const raw =
+        associationLength === 2
+          ? boundedU16(bytes, offset, ipma.end)
+          : bytes[offset];
+      offset += associationLength;
+      const index = raw & (associationLength === 2 ? 0x7fff : 0x7f);
+      if (index > properties.length) throw error();
       if (
         itemId === primaryId &&
         index &&
-        properties[index - 1]?.type === 'ispe'
+        properties[index - 1].type === 'ispe'
       )
         propertyIndex = index;
     }
   }
-  if (!propertyIndex) throw error();
+  if (offset !== ipma.end || !propertyIndex) throw error();
+
   const ispe = properties[propertyIndex - 1];
-  if (ispe.end - ispe.start !== 12 || bytes[ispe.start] !== 0) throw error();
+  if (
+    ispe.end - ispe.start !== 12 ||
+    bytes[ispe.start] !== 0 ||
+    bytes[ispe.start + 1] !== 0 ||
+    bytes[ispe.start + 2] !== 0 ||
+    bytes[ispe.start + 3] !== 0
+  )
+    throw error();
   return dimensions(
     'avif',
-    u32(bytes, ispe.start + 4),
-    u32(bytes, ispe.start + 8),
+    boundedU32(bytes, ispe.start + 4, ispe.end),
+    boundedU32(bytes, ispe.start + 8, ispe.end),
   );
 }
 

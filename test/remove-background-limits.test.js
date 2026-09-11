@@ -19,8 +19,38 @@ import {
   decodeAndValidateRemovalInput,
 } from '../remove-background/src/input-limits.js';
 
-const pngFile = (width = 1, height = 1) =>
-  new File(
+function crc32(bytes) {
+  let crc = 0xffffffff;
+  for (const byte of bytes) {
+    crc ^= byte;
+    for (let bit = 0; bit < 8; bit += 1)
+      crc = (crc >>> 1) ^ (crc & 1 ? 0xedb88320 : 0);
+  }
+  return (crc ^ 0xffffffff) >>> 0;
+}
+
+const pngFile = (width = 1, height = 1) => {
+  const ihdr = [
+    73,
+    72,
+    68,
+    82,
+    width >>> 24,
+    (width >>> 16) & 255,
+    (width >>> 8) & 255,
+    width & 255,
+    height >>> 24,
+    (height >>> 16) & 255,
+    (height >>> 8) & 255,
+    height & 255,
+    8,
+    6,
+    0,
+    0,
+    0,
+  ];
+  const crc = crc32(ihdr);
+  return new File(
     [
       Uint8Array.from([
         137,
@@ -35,32 +65,17 @@ const pngFile = (width = 1, height = 1) =>
         0,
         0,
         13,
-        73,
-        72,
-        68,
-        82,
-        width >>> 24,
-        (width >>> 16) & 255,
-        (width >>> 8) & 255,
-        width & 255,
-        height >>> 24,
-        (height >>> 16) & 255,
-        (height >>> 8) & 255,
-        height & 255,
-        8,
-        6,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
+        ...ihdr,
+        crc >>> 24,
+        (crc >>> 16) & 255,
+        (crc >>> 8) & 255,
+        crc & 255,
       ]),
     ],
     'test.png',
     { type: 'image/png' },
   );
+};
 
 test('HEIC 预处理采用更严格边界并公开无法计量的 WASM 风险', () => {
   assert.equal(MAX_HEIC_ENCODED_BYTES, 8 * 1024 * 1024);

@@ -15,6 +15,16 @@ const ascii = (value) => [...value].map((character) => character.charCodeAt(0));
 const file = (bytes, name = 'camera.bin', type = 'application/octet-stream') =>
   new File([Uint8Array.from(bytes)], name, { type });
 
+function crc32(bytes) {
+  let crc = 0xffffffff;
+  for (const byte of bytes) {
+    crc ^= byte;
+    for (let bit = 0; bit < 8; bit += 1)
+      crc = (crc >>> 1) ^ (crc & 1 ? 0xedb88320 : 0);
+  }
+  return (crc ^ 0xffffffff) >>> 0;
+}
+
 function jpeg(width, height, orientation = 1, afterExif = []) {
   const exif =
     orientation === 1
@@ -84,6 +94,16 @@ function jpeg(width, height, orientation = 1, afterExif = []) {
 }
 
 function png(width, height, apng = false, bitDepth = 8, colorType = 6) {
+  const ihdr = [
+    ...ascii('IHDR'),
+    ...be32(width),
+    ...be32(height),
+    bitDepth,
+    colorType,
+    0,
+    0,
+    0,
+  ];
   return [
     137,
     80,
@@ -97,18 +117,8 @@ function png(width, height, apng = false, bitDepth = 8, colorType = 6) {
     0,
     0,
     13,
-    ...ascii('IHDR'),
-    ...be32(width),
-    ...be32(height),
-    bitDepth,
-    colorType,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
+    ...ihdr,
+    ...be32(crc32(ihdr)),
     ...(apng
       ? [0, 0, 0, 8, ...ascii('acTL'), 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0]
       : []),
@@ -194,6 +204,19 @@ function avif(width, height) {
   const iprp = box('iprp', [...ipco, ...ipma]);
   const meta = box('meta', [0, 0, 0, 0, ...pitm, ...iprp]);
   return [...ftyp, ...meta];
+}
+
+function avifWithIpma(ipmaPayload, afterIpma = []) {
+  const ftyp = box('ftyp', [...ascii('avif'), 0, 0, 0, 0, ...ascii('avif')]);
+  const pitm = box('pitm', [0, 0, 0, 0, 0, 1]);
+  const ispe = box('ispe', [0, 0, 0, 0, ...be32(40), ...be32(30)]);
+  const ipco = box('ipco', ispe);
+  const iprp = box('iprp', [
+    ...ipco,
+    ...box('ipma', ipmaPayload),
+    ...afterIpma,
+  ]);
+  return [...ftyp, ...box('meta', [0, 0, 0, 0, ...pitm, ...iprp])];
 }
 
 const le32 = (value) =>
@@ -297,6 +320,26 @@ test('PNG accepts every legal bit-depth/color-type pair and rejects every illega
   }
 });
 
+test('PNG rejects a missing, truncated, or bad IHDR CRC before decode', async () => {
+  const valid = png(640, 480);
+  const badCrc = [...valid];
+  badCrc[32] ^= 1;
+  for (const bytes of [valid.slice(0, 29), valid.slice(0, 32), badCrc]) {
+    let decoded = false;
+    await assert.rejects(
+      decodeValidatedRemovalInput(
+        file(bytes, 'invalid.png', 'image/png'),
+        async () => {
+          decoded = true;
+          return { width: 640, height: 480 };
+        },
+      ),
+      /无法从文件头可靠读取/,
+    );
+    assert.equal(decoded, false);
+  }
+});
+
 test('WebP VP8, VP8L, and VP8X dimension encodings are inspected', async () => {
   for (const [bytes, expected] of [
     [webpVp8(801, 601), [801, 601]],
@@ -379,6 +422,47 @@ test('AVIF resolves the primary item ispe dimensions through pitm/ipma/ipco', as
       orientation: 1,
     },
   );
+});
+
+test('AVIF ipma cannot consume entry bytes fabricated by a sibling box', async () => {
+  const truncatedIpma = [0, 0, 0, 0, ...be32(2), 0, 1, 1, 1];
+  const sibling = box('free', [1]);
+  let decoded = false;
+  await assert.rejects(
+    decodeValidatedRemovalInput(
+      file(avifWithIpma(truncatedIpma, sibling)),
+      async () => {
+        decoded = true;
+        return { width: 40, height: 30 };
+      },
+    ),
+    /无法从文件头可靠读取/,
+  );
+  assert.equal(decoded, false);
+});
+
+test('AVIF rejects truncated and malformed ipma fields before decode', async () => {
+  const valid = [0, 0, 0, 0, ...be32(1), 0, 1, 1, 1];
+  const malformed = [
+    valid.slice(0, 3),
+    [2, 0, 0, 0, ...be32(1), 0, 1, 1, 1],
+    [0, 0, 0, 2, ...be32(1), 0, 1, 1, 1],
+    [0, 0, 0, 0, ...be32(2), 0, 1, 1, 1],
+    [0, 0, 0, 0, ...be32(1), 0, 0, 1, 1],
+    [0, 0, 0, 0, ...be32(1), 0, 1, 2, 1],
+    [...valid, 0],
+  ];
+  for (const payload of malformed) {
+    let decoded = false;
+    await assert.rejects(
+      decodeValidatedRemovalInput(file(avifWithIpma(payload)), async () => {
+        decoded = true;
+        return { width: 40, height: 30 };
+      }),
+      /无法从文件头可靠读取/,
+    );
+    assert.equal(decoded, false);
+  }
 });
 
 test('AVIF metadata remains inspectable before a large mdat fixture crosses the bounded header slice', async () => {
