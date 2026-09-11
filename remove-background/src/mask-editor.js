@@ -90,6 +90,51 @@ export function normalizeCropRect(start, end, width, height) {
   };
 }
 
+export function normalizeAspectCropRect(start, end, width, height, ratio) {
+  if (!Number.isFinite(ratio) || ratio <= 0)
+    return normalizeCropRect(start, end, width, height);
+  const sx = clamp(start.x, 0, width - 1);
+  const sy = clamp(start.y, 0, height - 1);
+  const signX = end.x < sx ? -1 : 1;
+  const signY = end.y < sy ? -1 : 1;
+  const availableWidth = signX > 0 ? width - sx : sx;
+  const availableHeight = signY > 0 ? height - sy : sy;
+  let cropWidth = Math.min(Math.abs(end.x - sx), availableWidth);
+  let cropHeight = Math.min(Math.abs(end.y - sy), availableHeight);
+  if (cropWidth / Math.max(1, cropHeight) > ratio)
+    cropWidth = cropHeight * ratio;
+  else cropHeight = cropWidth / ratio;
+  cropWidth = Math.max(
+    1,
+    Math.floor(Math.min(cropWidth, availableHeight * ratio)),
+  );
+  cropHeight = Math.max(1, Math.round(cropWidth / ratio));
+  if (cropHeight > availableHeight) {
+    cropHeight = Math.max(1, Math.floor(availableHeight));
+    cropWidth = Math.max(1, Math.round(cropHeight * ratio));
+  }
+  return {
+    x: Math.floor(signX > 0 ? sx : sx - cropWidth),
+    y: Math.floor(signY > 0 ? sy : sy - cropHeight),
+    width: cropWidth,
+    height: cropHeight,
+  };
+}
+
+export function parseHexColor(value) {
+  const match = String(value ?? '')
+    .trim()
+    .match(/^#?([\da-f]{3}|[\da-f]{6})$/i);
+  if (!match) return null;
+  const hex =
+    match[1].length === 3
+      ? [...match[1]].map((part) => part + part).join('')
+      : match[1];
+  return [0, 2, 4].map((offset) =>
+    Number.parseInt(hex.slice(offset, offset + 2), 16),
+  );
+}
+
 export function cropPixels(pixels, width, height, crop, channels = 4) {
   const safeCrop = normalizeCropRect(
     { x: crop.x, y: crop.y },
@@ -111,6 +156,122 @@ export function cropPixels(pixels, width, height, crop, channels = 4) {
   return output;
 }
 
+function adjustRgb(red, green, blue, values, precomputed = false) {
+  const brightness = precomputed
+    ? values.brightness
+    : clamp(Number(values.brightness) || 0, -100, 100) * 2.55;
+  const contrast = precomputed
+    ? values.contrast
+    : (() => {
+        const value = clamp(Number(values.contrast) || 0, -100, 100);
+        return (259 * (value + 255)) / (255 * (259 - value));
+      })();
+  const saturation = precomputed
+    ? values.saturation
+    : 1 + clamp(Number(values.saturation) || 0, -100, 100) / 100;
+  red = contrast * (red - 128) + 128 + brightness;
+  green = contrast * (green - 128) + 128 + brightness;
+  blue = contrast * (blue - 128) + 128 + brightness;
+  const luminance = red * 0.2126 + green * 0.7152 + blue * 0.0722;
+  return [
+    clamp(luminance + (red - luminance) * saturation, 0, 255),
+    clamp(luminance + (green - luminance) * saturation, 0, 255),
+    clamp(luminance + (blue - luminance) * saturation, 0, 255),
+  ];
+}
+
+export function adjustForegroundRgb(red, green, blue, adjustments = {}) {
+  return adjustRgb(red, green, blue, adjustments);
+}
+
+export function composePixelAt(
+  sourcePixels,
+  mask,
+  width,
+  height,
+  sourceX,
+  sourceY,
+  background,
+  options = {},
+  target = new Uint8ClampedArray(4),
+  offset = 0,
+) {
+  const x = clamp(Math.floor(sourceX), 0, width - 1);
+  const y = clamp(Math.floor(sourceY), 0, height - 1);
+  const sourceIndex = y * width + x;
+  const sourceOffset = sourceIndex * 4;
+  const alpha = Math.min(sourcePixels[sourceOffset + 3], mask[sourceIndex]);
+  let red = sourcePixels[sourceOffset];
+  let green = sourcePixels[sourceOffset + 1];
+  let blue = sourcePixels[sourceOffset + 2];
+  const cleanupStrength =
+    options.cleanup === 'medium'
+      ? 0.45
+      : options.cleanup === 'light'
+      ? 0.22
+      : 0;
+  if (cleanupStrength && alpha > 0 && alpha < 255) {
+    let totalRed = 0;
+    let totalGreen = 0;
+    let totalBlue = 0;
+    let totalWeight = 0;
+    for (let oy = -1; oy <= 1; oy += 1) {
+      for (let ox = -1; ox <= 1; ox += 1) {
+        if (!ox && !oy) continue;
+        const nx = x + ox;
+        const ny = y + oy;
+        if (nx < 0 || ny < 0 || nx >= width || ny >= height) continue;
+        const neighbor = ny * width + nx;
+        const neighborAlpha = Math.min(
+          sourcePixels[neighbor * 4 + 3],
+          mask[neighbor],
+        );
+        if (neighborAlpha <= alpha) continue;
+        totalRed += sourcePixels[neighbor * 4] * neighborAlpha;
+        totalGreen += sourcePixels[neighbor * 4 + 1] * neighborAlpha;
+        totalBlue += sourcePixels[neighbor * 4 + 2] * neighborAlpha;
+        totalWeight += neighborAlpha;
+      }
+    }
+    if (totalWeight) {
+      const amount = cleanupStrength * (1 - alpha / 255);
+      red += (totalRed / totalWeight - red) * amount;
+      green += (totalGreen / totalWeight - green) * amount;
+      blue += (totalBlue / totalWeight - blue) * amount;
+    }
+  }
+  const adjustments = options.adjustments || {};
+  const brightness =
+    clamp(Number(adjustments.brightness) || 0, -100, 100) * 2.55;
+  const contrastValue = clamp(Number(adjustments.contrast) || 0, -100, 100);
+  const contrast =
+    (259 * (contrastValue + 255)) / (255 * (259 - contrastValue));
+  const saturation =
+    1 + clamp(Number(adjustments.saturation) || 0, -100, 100) / 100;
+  red = contrast * (red - 128) + 128 + brightness;
+  green = contrast * (green - 128) + 128 + brightness;
+  blue = contrast * (blue - 128) + 128 + brightness;
+  const luminance = red * 0.2126 + green * 0.7152 + blue * 0.0722;
+  red = clamp(luminance + (red - luminance) * saturation, 0, 255);
+  green = clamp(luminance + (green - luminance) * saturation, 0, 255);
+  blue = clamp(luminance + (blue - luminance) * saturation, 0, 255);
+  if (!background) {
+    target[offset] = red;
+    target[offset + 1] = green;
+    target[offset + 2] = blue;
+    target[offset + 3] = alpha;
+    return target;
+  }
+  const amount = alpha / 255;
+  target[offset] = Math.round(red * amount + background[0] * (1 - amount));
+  target[offset + 1] = Math.round(
+    green * amount + background[1] * (1 - amount),
+  );
+  target[offset + 2] = Math.round(blue * amount + background[2] * (1 - amount));
+  target[offset + 3] = 255;
+  return target;
+}
+
 export function composeCroppedPixels(
   sourcePixels,
   mask,
@@ -118,6 +279,7 @@ export function composeCroppedPixels(
   height,
   crop,
   background,
+  options = {},
 ) {
   const safeCrop = normalizeCropRect(
     { x: crop.x, y: crop.y },
@@ -128,30 +290,19 @@ export function composeCroppedPixels(
   const output = new Uint8ClampedArray(safeCrop.width * safeCrop.height * 4);
   for (let y = 0; y < safeCrop.height; y += 1) {
     for (let x = 0; x < safeCrop.width; x += 1) {
-      const sourceIndex = (safeCrop.y + y) * width + safeCrop.x + x;
-      const sourceOffset = sourceIndex * 4;
       const outputOffset = (y * safeCrop.width + x) * 4;
-      const alpha = Math.min(sourcePixels[sourceOffset + 3], mask[sourceIndex]);
-      if (!background) {
-        output[outputOffset] = sourcePixels[sourceOffset];
-        output[outputOffset + 1] = sourcePixels[sourceOffset + 1];
-        output[outputOffset + 2] = sourcePixels[sourceOffset + 2];
-        output[outputOffset + 3] = alpha;
-      } else {
-        const amount = alpha / 255;
-        output[outputOffset] = Math.round(
-          sourcePixels[sourceOffset] * amount + background[0] * (1 - amount),
-        );
-        output[outputOffset + 1] = Math.round(
-          sourcePixels[sourceOffset + 1] * amount +
-            background[1] * (1 - amount),
-        );
-        output[outputOffset + 2] = Math.round(
-          sourcePixels[sourceOffset + 2] * amount +
-            background[2] * (1 - amount),
-        );
-        output[outputOffset + 3] = 255;
-      }
+      composePixelAt(
+        sourcePixels,
+        mask,
+        width,
+        height,
+        safeCrop.x + x,
+        safeCrop.y + y,
+        background,
+        options,
+        output,
+        outputOffset,
+      );
     }
   }
   return output;
@@ -180,6 +331,7 @@ export function applyBrushStamp(
   radius,
   mode,
   onChange,
+  hardness = 100,
 ) {
   const safeRadius = Math.max(0.5, radius);
   const startX = clamp(Math.floor(centerX - safeRadius), 0, width - 1);
@@ -187,13 +339,28 @@ export function applyBrushStamp(
   const startY = clamp(Math.floor(centerY - safeRadius), 0, height - 1);
   const endY = clamp(Math.ceil(centerY + safeRadius), 0, height - 1);
   const radiusSquared = safeRadius * safeRadius;
+  const hardRadius = safeRadius * clamp(Number(hardness) / 100, 0, 1);
   let changed = false;
 
   for (let y = startY; y <= endY; y += 1) {
     for (let x = startX; x <= endX; x += 1) {
-      if ((x - centerX) ** 2 + (y - centerY) ** 2 > radiusSquared) continue;
+      const distanceSquared = (x - centerX) ** 2 + (y - centerY) ** 2;
+      if (distanceSquared > radiusSquared) continue;
+      const distance = Math.sqrt(distanceSquared);
+      const strength =
+        hardRadius >= safeRadius || distance <= hardRadius
+          ? 1
+          : clamp(
+              1 - (distance - hardRadius) / (safeRadius - hardRadius),
+              0,
+              1,
+            );
       const index = y * width + x;
-      const next = mode === 'restore' ? originalAlpha[index] : 0;
+      const next = Math.round(
+        mode === 'restore'
+          ? mask[index] + (originalAlpha[index] - mask[index]) * strength
+          : mask[index] * (1 - strength),
+      );
       if (mask[index] === next) continue;
       onChange?.(index, mask[index], next);
       mask[index] = next;
@@ -380,6 +547,13 @@ export function createRenderOwnership() {
     },
     reviseCrop() {
       cropRevision += 1;
+      requestId += 1;
+      currentToken = null;
+      api.outputBlob = null;
+      api.pending = false;
+    },
+    reviseEffects() {
+      backgroundRevision += 1;
       requestId += 1;
       currentToken = null;
       api.outputBlob = null;

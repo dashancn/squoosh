@@ -1,0 +1,127 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
+import {
+  applyBrushStamp,
+  composeCroppedPixels,
+  normalizeAspectCropRect,
+  parseHexColor,
+} from '../remove-background/src/mask-editor.js';
+
+const read = (path) => readFile(new URL(`../${path}`, import.meta.url), 'utf8');
+
+test('comparison control exposes clear accessible hold and toggle state', async () => {
+  const [html, source] = await Promise.all([
+    read('remove-background/index.html'),
+    read('remove-background/src/main.js'),
+  ]);
+  assert.match(html, /id="compare-button"[^>]*aria-pressed="false"/);
+  assert.match(html, /id="compare-status"[^>]*aria-live="polite"/);
+  assert.match(source, /setComparingOriginal/);
+  assert.match(source, /pointerdown/);
+  assert.match(source, /keydown/);
+  assert.match(source, /original cropped image|原图/);
+});
+
+test('soft brush uses radial alpha and repeated erase/restore stamps converge', () => {
+  const alpha = new Uint8ClampedArray(11 * 11).fill(255);
+  const mask = new Uint8ClampedArray(alpha);
+  applyBrushStamp(mask, alpha, 11, 11, 5, 5, 4, 'erase', undefined, 50);
+  const edge = mask[5 * 11 + 8];
+  assert.ok(edge > 0 && edge < 255, `expected feathered edge, got ${edge}`);
+  const once = mask[5 * 11 + 5];
+  applyBrushStamp(mask, alpha, 11, 11, 5, 5, 4, 'erase', undefined, 50);
+  assert.ok(mask[5 * 11 + 5] <= once);
+  applyBrushStamp(mask, alpha, 11, 11, 5, 5, 4, 'restore', undefined, 50);
+  assert.ok(mask[5 * 11 + 5] > 0);
+  const hard = new Uint8ClampedArray(alpha);
+  applyBrushStamp(hard, alpha, 11, 11, 5, 5, 4, 'erase', undefined, 100);
+  assert.equal(hard[5 * 11 + 8], 0);
+});
+
+test('aspect crop follows drag direction, stays bounded, and yields exact ratios', () => {
+  assert.deepEqual(
+    normalizeAspectCropRect({ x: 90, y: 70 }, { x: 10, y: 10 }, 100, 80, 1),
+    { x: 30, y: 10, width: 60, height: 60 },
+  );
+  assert.deepEqual(
+    normalizeAspectCropRect(
+      { x: 10, y: 10 },
+      { x: 99, y: 79 },
+      100,
+      80,
+      16 / 9,
+    ),
+    { x: 10, y: 10, width: 89, height: 50 },
+  );
+});
+
+test('hex colors sanitize and custom RGB composes exactly', () => {
+  assert.deepEqual(parseHexColor('#1a2B3c'), [26, 43, 60]);
+  assert.deepEqual(parseHexColor('abc'), [170, 187, 204]);
+  assert.equal(parseHexColor('javascript:alert(1)'), null);
+  const output = composeCroppedPixels(
+    Uint8ClampedArray.from([100, 50, 0, 128]),
+    Uint8ClampedArray.from([128]),
+    1,
+    1,
+    { x: 0, y: 0, width: 1, height: 1 },
+    [10, 20, 30],
+  );
+  assert.deepEqual([...output], [55, 35, 15, 255]);
+});
+
+test('cleanup and adjustments are deterministic, immutable, and ordered before composition', () => {
+  const source = Uint8ClampedArray.from([
+    255, 0, 0, 255, 0, 255, 0, 255, 0, 0, 255, 255,
+  ]);
+  const mask = Uint8ClampedArray.from([255, 128, 0]);
+  const beforeSource = [...source];
+  const beforeMask = [...mask];
+  const options = {
+    cleanup: 'medium',
+    adjustments: { brightness: 10, contrast: 20, saturation: -30 },
+  };
+  const a = composeCroppedPixels(
+    source,
+    mask,
+    3,
+    1,
+    { x: 0, y: 0, width: 3, height: 1 },
+    null,
+    options,
+  );
+  const b = composeCroppedPixels(
+    source,
+    mask,
+    3,
+    1,
+    { x: 0, y: 0, width: 3, height: 1 },
+    null,
+    options,
+  );
+  assert.deepEqual([...a], [...b]);
+  assert.deepEqual([...source], beforeSource);
+  assert.deepEqual([...mask], beforeMask);
+  assert.equal(a[3], 255);
+  assert.equal(a[7], 128);
+  assert.equal(a[11], 0);
+});
+
+test('all enhancement controls expose accessible defaults and reset hooks', async () => {
+  const [html, source] = await Promise.all([
+    read('remove-background/index.html'),
+    read('remove-background/src/main.js'),
+  ]);
+  for (const value of ['free', 'original', '1:1', '3:4', '4:3', '16:9'])
+    assert.match(html, new RegExp(`value="${value}"`));
+  assert.match(html, /id="brush-hardness"[^>]*value="100"/);
+  assert.match(html, /name="background" value="custom"/);
+  assert.match(html, /id="custom-background-color"[^>]*type="color"/);
+  assert.match(html, /id="cleanup-level"/);
+  assert.match(html, /<details[^>]*id="adjustments-panel"/);
+  for (const id of ['brightness', 'contrast', 'saturation'])
+    assert.match(html, new RegExp(`id="${id}"[^>]*value="0"`));
+  assert.match(html, /id="reset-adjustments"/);
+  assert.match(source, /reviseEffects/);
+});

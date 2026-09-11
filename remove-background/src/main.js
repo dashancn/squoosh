@@ -11,10 +11,13 @@ import {
   brushIndicatorVisible,
   clampPreviewPan,
   composeCroppedPixels,
+  composePixelAt,
   containedImageRect,
   createMaskHistory,
   createRenderOwnership,
   normalizeCropRect,
+  normalizeAspectCropRect,
+  parseHexColor,
   interpolateStroke,
   isPrimaryPointerStart,
   mergeBounds,
@@ -31,10 +34,21 @@ const status = $('#status');
 const progress = $('#progress');
 const progressLabel = $('#progress-label');
 const backgroundOptions = $('#background-options');
+const customBackgroundColor = $('#custom-background-color');
+const customBackgroundValue = $('#custom-background-value');
+const effectsControls = $('#effects-controls');
+const cleanupLevel = $('#cleanup-level');
+const brightness = $('#brightness');
+const contrast = $('#contrast');
+const saturation = $('#saturation');
+const resetAdjustments = $('#reset-adjustments');
+const cropAspect = $('#crop-aspect');
 const preview = $('#preview');
 const previewPanel = $('.preview-panel');
 const previewEmpty = $('#preview-empty');
 const brushIndicator = $('#brush-indicator');
+const compareButton = $('#compare-button');
+const compareStatus = $('#compare-status');
 const zoomOutButton = $('#zoom-out-button');
 const zoomInButton = $('#zoom-in-button');
 const zoomResetButton = $('#zoom-reset-button');
@@ -51,6 +65,8 @@ const eraseMode = $('#erase-mode');
 const restoreMode = $('#restore-mode');
 const brushSize = $('#brush-size');
 const brushSizeOutput = $('#brush-size-output');
+const brushHardness = $('#brush-hardness');
+const brushHardnessOutput = $('#brush-hardness-output');
 const undoButton = $('#undo-button');
 const redoButton = $('#redo-button');
 const resetMaskButton = $('#reset-mask-button');
@@ -93,6 +109,9 @@ let cropStart = null;
 let cropDraft = null;
 let appliedCrop = null;
 let exportQueue = Promise.resolve();
+let comparingOriginal = false;
+let compareHolding = false;
+let suppressCompareClick = false;
 
 function setProgress(value, message) {
   const percent = Math.max(0, Math.min(100, Math.round(value)));
@@ -144,6 +163,23 @@ function selectedBackground() {
   return $('input[name="background"]:checked').value;
 }
 
+function selectedBackgroundRgb() {
+  const name = selectedBackground();
+  if (name !== 'custom') return backgrounds[name];
+  return parseHexColor(customBackgroundColor.value) || [34, 170, 136];
+}
+
+function effectOptions() {
+  return {
+    cleanup: cleanupLevel.value,
+    adjustments: {
+      brightness: Number(brightness.value),
+      contrast: Number(contrast.value),
+      saturation: Number(saturation.value),
+    },
+  };
+}
+
 function updateEditorButtons() {
   undoButton.disabled = !maskHistory?.canUndo();
   redoButton.disabled = !maskHistory?.canRedo();
@@ -153,10 +189,21 @@ function updateEditorButtons() {
   zoomResetButton.disabled = !maskHistory || previewZoom === 1;
   panModeButton.disabled = !maskHistory || previewZoom === 1;
   cropModeButton.disabled = !maskHistory;
+  compareButton.disabled = !maskHistory;
   applyCropButton.disabled = !cropDraft;
   resetCropButton.disabled = !appliedCrop && !cropDraft;
   downloadButton.disabled =
     !renderOwnership.outputBlob || renderOwnership.pending;
+}
+
+function setComparingOriginal(enabled) {
+  comparingOriginal = Boolean(enabled && sourcePixels && editMask);
+  compareButton.classList.toggle('active', comparingOriginal);
+  compareButton.setAttribute('aria-pressed', String(comparingOriginal));
+  compareButton.textContent = comparingOriginal ? '正在看原图' : '按住看原图';
+  compareStatus.value = comparingOriginal ? '正在显示原图' : '正在显示抠图结果';
+  compareStatus.textContent = compareStatus.value;
+  updatePreviewBounds();
 }
 
 function updatePreviewTransform() {
@@ -289,7 +336,7 @@ function updatePreviewBounds(bounds = null) {
     !sourceHeight
   )
     return;
-  const background = backgrounds[selectedBackground()];
+  const background = selectedBackgroundRgb();
   const crop = appliedCrop || {
     x: 0,
     y: 0,
@@ -333,27 +380,25 @@ function updatePreviewBounds(bounds = null) {
       );
       const sourceIndex = sourceY * sourceWidth + sourceX;
       const pixelIndex = (y * preview.width + x) * 4;
-      const alpha = Math.min(originalAlpha[sourceIndex], editMask[sourceIndex]);
-      if (!background) {
+      if (comparingOriginal) {
         previewImage.data[pixelIndex] = sourcePixels[sourceIndex * 4];
         previewImage.data[pixelIndex + 1] = sourcePixels[sourceIndex * 4 + 1];
         previewImage.data[pixelIndex + 2] = sourcePixels[sourceIndex * 4 + 2];
-        previewImage.data[pixelIndex + 3] = alpha;
-      } else {
-        const amount = alpha / 255;
-        previewImage.data[pixelIndex] = Math.round(
-          sourcePixels[sourceIndex * 4] * amount + background[0] * (1 - amount),
-        );
-        previewImage.data[pixelIndex + 1] = Math.round(
-          sourcePixels[sourceIndex * 4 + 1] * amount +
-            background[1] * (1 - amount),
-        );
-        previewImage.data[pixelIndex + 2] = Math.round(
-          sourcePixels[sourceIndex * 4 + 2] * amount +
-            background[2] * (1 - amount),
-        );
-        previewImage.data[pixelIndex + 3] = 255;
+        previewImage.data[pixelIndex + 3] = originalAlpha[sourceIndex];
+        continue;
       }
+      composePixelAt(
+        sourcePixels,
+        editMask,
+        sourceWidth,
+        sourceHeight,
+        sourceX,
+        sourceY,
+        background,
+        effectOptions(),
+        previewImage.data,
+        pixelIndex,
+      );
     }
   }
   previewContext.putImageData(
@@ -385,7 +430,10 @@ function exportResult() {
     .catch(() => {})
     .then(async () => {
       if (!renderOwnership.isCurrent(token)) return;
-      const background = backgrounds[backgroundName];
+      const background =
+        backgroundName === 'custom'
+          ? parseHexColor(customBackgroundColor.value) || [34, 170, 136]
+          : backgrounds[backgroundName];
       try {
         const crop = appliedCrop || {
           x: 0,
@@ -400,6 +448,7 @@ function exportResult() {
           sourceHeight,
           crop,
           background,
+          effectOptions(),
         );
         if (!renderOwnership.isCurrent(token)) {
           output.fill(0);
@@ -460,6 +509,13 @@ function releaseActivePointer() {
 }
 
 function clearEditor() {
+  comparingOriginal = false;
+  compareHolding = false;
+  compareButton.classList.remove('active');
+  compareButton.setAttribute('aria-pressed', 'false');
+  compareButton.textContent = '按住看原图';
+  compareStatus.value = '正在显示抠图结果';
+  compareStatus.textContent = compareStatus.value;
   releaseActivePointer();
   renderOwnership.select(selectedVersion);
   sourcePixels?.fill(0);
@@ -489,6 +545,7 @@ function clearEditor() {
   exportCanvas.height = 0;
   cropControls.disabled = true;
   maskControls.disabled = true;
+  effectsControls.disabled = true;
   updateEditorButtons();
 }
 
@@ -619,6 +676,7 @@ startButton.addEventListener('click', async () => {
     backgroundOptions.disabled = false;
     cropControls.disabled = false;
     maskControls.disabled = false;
+    effectsControls.disabled = false;
     previewEmpty.hidden = true;
     await exportResult();
     if (version === selectedVersion)
@@ -734,6 +792,7 @@ function stamp(point) {
       if (strokeRecorder && !strokeRecorder.has(index))
         strokeRecorder.set(index, before);
     },
+    Number(brushHardness.value),
   );
   if (result.changed) {
     if (!strokeChanged) {
@@ -821,7 +880,23 @@ preview.addEventListener('pointermove', (event) => {
     const point = eventSourcePoint(event);
     if (!point) return;
     event.preventDefault();
-    cropDraft = normalizeCropRect(cropStart, point, sourceWidth, sourceHeight);
+    const ratios = {
+      original: sourceWidth / sourceHeight,
+      '1:1': 1,
+      '3:4': 3 / 4,
+      '4:3': 4 / 3,
+      '16:9': 16 / 9,
+    };
+    cropDraft =
+      cropAspect.value === 'free'
+        ? normalizeCropRect(cropStart, point, sourceWidth, sourceHeight)
+        : normalizeAspectCropRect(
+            cropStart,
+            point,
+            sourceWidth,
+            sourceHeight,
+            ratios[cropAspect.value],
+          );
     updateCropSelection();
     return;
   }
@@ -890,6 +965,10 @@ eraseMode.addEventListener('click', () => setBrushMode('erase'));
 restoreMode.addEventListener('click', () => setBrushMode('restore'));
 brushSize.addEventListener('input', () => {
   brushSizeOutput.value = `${brushSize.value} px`;
+});
+brushHardness.addEventListener('input', () => {
+  brushHardnessOutput.value = `${brushHardness.value}%`;
+  brushHardnessOutput.textContent = brushHardnessOutput.value;
 });
 zoomOutButton.addEventListener('click', () =>
   setPreviewZoom(previewZoom / 1.25),
@@ -971,6 +1050,74 @@ backgroundOptions.addEventListener('change', () => {
       error instanceof Error ? error.message : String(error)
     }`;
   });
+});
+customBackgroundColor.addEventListener('input', () => {
+  const rgb = parseHexColor(customBackgroundColor.value);
+  if (!rgb) return;
+  customBackgroundValue.value = customBackgroundColor.value.toUpperCase();
+  customBackgroundValue.textContent = customBackgroundValue.value;
+  if (selectedBackground() !== 'custom') return;
+  renderOwnership.reviseBackground();
+  updatePreviewBounds();
+  runExport();
+});
+const updateEffects = () => {
+  renderOwnership.reviseEffects();
+  updatePreviewBounds();
+  runExport();
+};
+cleanupLevel.addEventListener('change', updateEffects);
+for (const control of [brightness, contrast, saturation]) {
+  control.addEventListener('input', () => {
+    const output = $(`#${control.id}-output`);
+    output.value = control.value;
+    output.textContent = control.value;
+    updateEffects();
+  });
+}
+resetAdjustments.addEventListener('click', () => {
+  for (const control of [brightness, contrast, saturation]) {
+    control.value = '0';
+    const output = $(`#${control.id}-output`);
+    output.value = '0';
+    output.textContent = '0';
+  }
+  updateEffects();
+});
+
+compareButton.addEventListener('pointerdown', (event) => {
+  if (compareButton.disabled || event.button !== 0) return;
+  event.preventDefault();
+  compareHolding = true;
+  suppressCompareClick = true;
+  setComparingOriginal(true);
+});
+const releaseComparison = () => {
+  if (!compareHolding) return;
+  compareHolding = false;
+  setComparingOriginal(false);
+};
+compareButton.addEventListener('pointerup', releaseComparison);
+compareButton.addEventListener('pointercancel', releaseComparison);
+compareButton.addEventListener('pointerleave', releaseComparison);
+compareButton.addEventListener('keydown', (event) => {
+  if ((event.code !== 'Space' && event.code !== 'Enter') || event.repeat)
+    return;
+  event.preventDefault();
+  compareHolding = true;
+  setComparingOriginal(true);
+});
+compareButton.addEventListener('keyup', (event) => {
+  if (event.code !== 'Space' && event.code !== 'Enter') return;
+  event.preventDefault();
+  releaseComparison();
+});
+compareButton.addEventListener('click', () => {
+  if (suppressCompareClick) {
+    suppressCompareClick = false;
+    return;
+  }
+  setComparingOriginal(!comparingOriginal);
 });
 
 downloadButton.addEventListener('click', () => {

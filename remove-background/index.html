@@ -60,11 +60,19 @@
             <label><input type="radio" name="background" value="white" />白色</label>
             <label><input type="radio" name="background" value="blue" />蓝色</label>
             <label><input type="radio" name="background" value="red" />红色</label>
+            <label><input type="radio" name="background" value="custom" />自定义</label>
+            <label for="custom-background-color">颜色 <input id="custom-background-color" type="color" value="#22aa88" aria-label="自定义背景颜色" /></label>
+            <output id="custom-background-value" for="custom-background-color">#22AA88</output>
           </fieldset>
 
           <fieldset id="crop-controls" class="mask-editor" disabled>
             <legend>图片裁剪</legend>
             <p>选择裁剪后在预览中拖出矩形，应用前不会改变原图；重置可恢复完整图片。</p>
+            <label for="crop-aspect">宽高比
+              <select id="crop-aspect">
+                <option value="free" selected>自由</option><option value="original">原图</option><option value="1:1">1:1</option><option value="3:4">3:4</option><option value="4:3">4:3</option><option value="16:9">16:9</option>
+              </select>
+            </label>
             <div class="history-buttons">
               <button id="crop-mode-button" class="tool-button" type="button" aria-pressed="false">选择裁剪</button>
               <button id="apply-crop-button" class="tool-button" type="button" disabled>应用裁剪</button>
@@ -85,6 +93,11 @@
               <input id="brush-size" type="range" min="4" max="160" value="36" />
               <output id="brush-size-output" for="brush-size">36 px</output>
             </label>
+            <label class="brush-control" for="brush-hardness">
+              <span>画笔硬度</span>
+              <input id="brush-hardness" type="range" min="0" max="100" value="100" />
+              <output id="brush-hardness-output" for="brush-hardness">100%</output>
+            </label>
             <div class="history-buttons">
               <button id="undo-button" class="tool-button" type="button" disabled aria-label="撤销上一次蒙版精修">撤销</button>
               <button id="redo-button" class="tool-button" type="button" disabled aria-label="重做上一次蒙版精修">重做</button>
@@ -92,11 +105,27 @@
             </div>
           </fieldset>
 
+          <fieldset id="effects-controls" class="mask-editor" disabled>
+            <legend>边缘与图像效果</legend>
+            <label for="cleanup-level">边缘清理
+              <select id="cleanup-level"><option value="off" selected>关闭</option><option value="light">轻度</option><option value="medium">中度</option></select>
+            </label>
+            <details id="adjustments-panel">
+              <summary>图像调整</summary>
+              <label class="brush-control" for="brightness"><span>亮度</span><input id="brightness" type="range" min="-100" max="100" value="0" /><output id="brightness-output">0</output></label>
+              <label class="brush-control" for="contrast"><span>对比度</span><input id="contrast" type="range" min="-100" max="100" value="0" /><output id="contrast-output">0</output></label>
+              <label class="brush-control" for="saturation"><span>饱和度</span><input id="saturation" type="range" min="-100" max="100" value="0" /><output id="saturation-output">0</output></label>
+              <button id="reset-adjustments" class="tool-button" type="button">重置调整</button>
+            </details>
+          </fieldset>
+
           <button id="download-button" class="secondary" type="button" disabled>下载 PNG</button>
         </div>
 
         <div class="preview-panel">
           <div class="preview-toolbar" role="group" aria-label="预览缩放与平移">
+            <button id="compare-button" class="preview-tool" type="button" disabled aria-pressed="false" aria-describedby="compare-status">按住看原图</button>
+            <output id="compare-status" class="sr-only" aria-live="polite">正在显示抠图结果</output>
             <button id="zoom-out-button" class="preview-tool" type="button" disabled aria-label="缩小预览">−</button>
             <output id="zoom-output" aria-live="polite">100%</output>
             <button id="zoom-in-button" class="preview-tool" type="button" disabled aria-label="放大预览">＋</button>
