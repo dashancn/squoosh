@@ -3,6 +3,8 @@ import { readFile } from 'node:fs/promises';
 import { chromium } from '../remove-background/node_modules/playwright-core/index.mjs';
 
 const base = process.env.TARGET || 'https://imgzip.i41.cn';
+const expectedSha = process.env.EXPECTED_SHA;
+assert.match(expectedSha || '', /^[0-9a-f]{40}$/, 'EXPECTED_SHA must be an exact commit SHA');
 const fixture = await readFile(new URL('../heic-converter/tests/fixtures/libheif-example.heic', import.meta.url));
 const browser = await chromium.launch({ executablePath: '/snap/bin/chromium', headless: true, args: ['--no-sandbox','--disable-dev-shm-usage'] });
 const evidence = [];
@@ -18,7 +20,7 @@ try {
     const response = await page.goto(`${base}/remove-background/`, { waitUntil: 'networkidle' });
     assert.equal(response.status(), 200);
     const sourceHref = await page.locator('a[href*="github.com/dashancn/squoosh/tree/"]').getAttribute('href');
-    assert.match(sourceHref, /fd08dc4c678db40aec0acb0bc4838ff5c72efc18/);
+    assert.equal(sourceHref, `https://github.com/dashancn/squoosh/tree/${expectedSha}`);
     const png = await page.evaluate(async () => {
       const c=document.createElement('canvas');c.width=64;c.height=48;const x=c.getContext('2d');x.fillStyle='#e53935';x.fillRect(0,0,64,48);
       return [...new Uint8Array(await (await new Promise(r=>c.toBlob(r,'image/png'))).arrayBuffer())];
