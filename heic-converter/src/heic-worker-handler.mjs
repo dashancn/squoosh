@@ -24,7 +24,33 @@ export async function handleHeicWorkerMessage(data, dependencies) {
     if (!isHeicBytes(buffer)) throw new Error(`${file.name} 的 HEIC 签名无效`);
     postMessage({ id, type: 'progress', message: '正在后台解码 HEIC…' });
     const imageData = await decodeHeic(buffer, validateDimensions);
+    if (
+      !imageData ||
+      !Number.isSafeInteger(imageData.width) ||
+      !Number.isSafeInteger(imageData.height) ||
+      imageData.width <= 0 ||
+      imageData.height <= 0 ||
+      !(imageData.data instanceof Uint8ClampedArray) ||
+      imageData.data.length !== imageData.width * imageData.height * 4
+    )
+      throw new Error('HEIC 解码器返回了无效像素');
+    validateDimensions(imageData.width, imageData.height);
     let output = imageData;
+    const requestedResize = targetWidth !== undefined || targetHeight !== undefined;
+    if (requestedResize) {
+      if (
+        !Number.isSafeInteger(targetWidth) ||
+        !Number.isSafeInteger(targetHeight) ||
+        targetWidth <= 0 ||
+        targetHeight <= 0 ||
+        targetWidth > imageData.width ||
+        targetHeight > imageData.height ||
+        targetWidth > 10_000 ||
+        targetHeight > 10_000 ||
+        targetWidth * targetHeight > 8_000_000
+      )
+        throw new Error('HEIC 转换尺寸超过安全限制');
+    }
     if (
       Number.isSafeInteger(targetWidth) &&
       Number.isSafeInteger(targetHeight) &&
@@ -55,30 +81,33 @@ export async function handleHeicWorkerMessage(data, dependencies) {
       );
       return;
     }
-    const context = canvas.getContext('2d');
-    if (!context) throw new Error('浏览器无法创建后台画布');
-    const drawable =
-      typeof ImageData !== 'function' || output instanceof ImageData
-        ? output
-        : new ImageData(output.data, output.width, output.height);
-    context.putImageData(drawable, 0, 0);
-    const blob = await canvas.convertToBlob({ type: 'image/png' });
-    if (blob.type !== 'image/png') throw new Error('浏览器未生成有效 PNG');
-    const encoded = await blob.arrayBuffer();
-    const signature = new Uint8Array(encoded, 0, Math.min(8, encoded.byteLength));
-    if (
-      encoded.byteLength < 8 ||
-      ![137, 80, 78, 71, 13, 10, 26, 10].every(
-        (value, index) => signature[index] === value,
+    try {
+      const context = canvas.getContext('2d');
+      if (!context) throw new Error('浏览器无法创建后台画布');
+      const drawable =
+        typeof ImageData !== 'function' || output instanceof ImageData
+          ? output
+          : new ImageData(output.data, output.width, output.height);
+      context.putImageData(drawable, 0, 0);
+      const blob = await canvas.convertToBlob({ type: 'image/png' });
+      if (blob.type !== 'image/png') throw new Error('浏览器未生成有效 PNG');
+      const encoded = await blob.arrayBuffer();
+      const signature = new Uint8Array(encoded, 0, Math.min(8, encoded.byteLength));
+      if (
+        encoded.byteLength < 8 ||
+        ![137, 80, 78, 71, 13, 10, 26, 10].every(
+          (value, index) => signature[index] === value,
+        )
       )
-    )
-      throw new Error('浏览器未生成有效 PNG');
-    canvas.width = 1;
-    canvas.height = 1;
-    postMessage(
-      { id, type: 'result', buffer: encoded, mimeType: 'image/png', width: output.width, height: output.height },
-      [encoded],
-    );
+        throw new Error('浏览器未生成有效 PNG');
+      postMessage(
+        { id, type: 'result', buffer: encoded, mimeType: 'image/png', width: output.width, height: output.height },
+        [encoded],
+      );
+    } finally {
+      canvas.width = 1;
+      canvas.height = 1;
+    }
   } catch (error) {
     postMessage({ id, type: 'error', error: error?.message || String(error) });
   }

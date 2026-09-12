@@ -153,6 +153,30 @@ test('worker conversion returns transferable pixels when canvas encoding is unav
   assert.deepEqual(messages.at(-1)[1], [pixels.buffer]);
 });
 
+test('worker rejects unsafe requested output dimensions before scaling allocation', async () => {
+  const messages = [];
+  const pixels = new Uint8ClampedArray(4);
+  await handleHeicWorkerMessage(
+    {
+      id: 11,
+      operation: 'convert',
+      width: 100_000,
+      height: 100_000,
+      file: { name: 'photo.heic', arrayBuffer: async () => new ArrayBuffer(12) },
+    },
+    {
+      isHeicBytes: () => true,
+      inspectHeic: () => ({ width: 1, height: 1 }),
+      decodeHeic: async () => ({ width: 1, height: 1, data: pixels }),
+      validateDimensions: () => {},
+      createCanvas: () => { throw new Error('must reject before canvas'); },
+      postMessage: (message) => messages.push(message),
+    },
+  );
+  assert.equal(messages.at(-1).type, 'error');
+  assert.match(messages.at(-1).error, /安全限制/);
+});
+
 test('terminating the HEIC worker rejects pending work and next request uses a fresh worker', async () => {
   FakeWorker.instances = [];
   const client = new HeicWorkerClient({
