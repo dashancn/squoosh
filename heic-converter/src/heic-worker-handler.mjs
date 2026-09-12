@@ -141,8 +141,12 @@ export async function handleHeicWorkerMessage(data, dependencies) {
         [encoded],
       );
     } finally {
-      canvas.width = 1;
-      canvas.height = 1;
+      try {
+        canvas.width = 1;
+      } catch {}
+      try {
+        canvas.height = 1;
+      } catch {}
     }
   } catch (error) {
     postMessage({ id, type: 'error', error: error?.message || String(error) });

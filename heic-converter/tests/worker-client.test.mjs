@@ -198,6 +198,42 @@ test('worker falls back to exact transferable pixels when OffscreenCanvas encodi
   }
 });
 
+test('worker cleanup setter failures never replace an already posted result with an error', async () => {
+  const messages = [];
+  const png = new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]);
+  const canvas = {
+    _width: 1,
+    _height: 1,
+    get width() { return this._width; },
+    set width(_value) { throw new Error('width cleanup unsupported'); },
+    get height() { return this._height; },
+    set height(_value) { throw new Error('height cleanup unsupported'); },
+    getContext: () => ({ putImageData() {} }),
+    convertToBlob: async () => ({
+      type: 'image/png',
+      arrayBuffer: async () => png.buffer,
+    }),
+  };
+  await handleHeicWorkerMessage(
+    {
+      id: 14,
+      operation: 'convert',
+      width: 1,
+      height: 1,
+      file: { name: 'photo.heic', arrayBuffer: async () => new ArrayBuffer(12) },
+    },
+    {
+      isHeicBytes: () => true,
+      inspectHeic: () => ({ width: 1, height: 1 }),
+      decodeHeic: async () => ({ width: 1, height: 1, data: new Uint8ClampedArray(4) }),
+      validateDimensions: () => {},
+      createCanvas: () => canvas,
+      postMessage: (message) => messages.push(message),
+    },
+  );
+  assert.deepEqual(messages.map((message) => message.type), ['progress', 'result']);
+});
+
 test('worker rejects an unbounded full-size output when resize dimensions are omitted', async () => {
   const messages = [];
   await handleHeicWorkerMessage(
