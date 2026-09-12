@@ -599,6 +599,7 @@ function clearEditor() {
   effectExportScheduler?.cancel?.();
   comparingOriginal = false;
   compareHolding = false;
+  suppressCompareClick = false;
   compareButton.classList.remove('active');
   compareButton.setAttribute('aria-pressed', 'false');
   compareButton.querySelector('.desktop-label').textContent = '按住看原图';

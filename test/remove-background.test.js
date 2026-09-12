@@ -34,6 +34,14 @@ test('独立抠图页面提供完整操作且不使用 iframe 或工作区跳转
   assert.match(source, /image\/png/);
 });
 
+test('编辑器重置同时清除比较点击抑制状态', async () => {
+  const source = await read('remove-background/src/main.js');
+  assert.match(
+    source,
+    /function clearEditor\(\)[\s\S]*?compareHolding = false;[\s\S]*?suppressCompareClick = false;/,
+  );
+});
+
 test('抠图结果提供触控友好的蒙版精修控制且导出使用编辑结果', async () => {
   const [html, source, style] = await Promise.all([
     read('remove-background/index.html'),
