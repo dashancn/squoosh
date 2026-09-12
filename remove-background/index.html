@@ -67,18 +67,18 @@
 
         <div class="preview-panel">
           <div class="preview-toolbar" role="group" aria-label="预览缩放与平移">
-            <button id="compare-button" class="preview-tool" type="button" disabled aria-pressed="false" aria-describedby="compare-status">按住看原图</button>
+            <button id="compare-button" class="preview-tool" type="button" disabled aria-pressed="false" aria-describedby="compare-status" aria-label="按住查看原图"><span class="desktop-label">按住看原图</span><span class="mobile-label" aria-hidden="true">原图</span></button>
             <output id="compare-status" class="sr-only" aria-live="polite">正在显示抠图结果</output>
             <button id="zoom-out-button" class="preview-tool" type="button" disabled aria-label="缩小预览">−</button>
             <output id="zoom-output" aria-live="polite">100%</output>
             <button id="zoom-in-button" class="preview-tool" type="button" disabled aria-label="放大预览">＋</button>
             <button id="pan-mode-button" class="preview-tool" type="button" disabled aria-pressed="false">平移</button>
-            <button id="zoom-reset-button" class="preview-tool" type="button" disabled>适合窗口</button>
+            <button id="zoom-reset-button" class="preview-tool" type="button" disabled aria-label="适合窗口"><span class="desktop-label">适合窗口</span><span class="mobile-label" aria-hidden="true">适合</span></button>
           </div>
           <canvas id="preview" width="720" height="480" aria-label="抠图结果预览与蒙版手工精修画布" aria-describedby="mask-editor-help"></canvas>
           <div id="brush-indicator" hidden aria-hidden="true"></div>
-          <div id="crop-selection" hidden aria-hidden="true">
-            <span data-crop-handle="nw"></span><span data-crop-handle="n"></span><span data-crop-handle="ne"></span><span data-crop-handle="e"></span><span data-crop-handle="se"></span><span data-crop-handle="s"></span><span data-crop-handle="sw"></span><span data-crop-handle="w"></span>
+          <div id="crop-selection" hidden>
+            <button type="button" data-crop-handle="nw" aria-label="调整左上角"></button><button type="button" data-crop-handle="n" aria-label="调整上边"></button><button type="button" data-crop-handle="ne" aria-label="调整右上角"></button><button type="button" data-crop-handle="e" aria-label="调整右边"></button><button type="button" data-crop-handle="se" aria-label="调整右下角"></button><button type="button" data-crop-handle="s" aria-label="调整下边"></button><button type="button" data-crop-handle="sw" aria-label="调整左下角"></button><button type="button" data-crop-handle="w" aria-label="调整左边"></button>
           </div>
           <p id="preview-empty">选择图片后可在此预览；不会自动跳转到其他页面。</p>
         </div>

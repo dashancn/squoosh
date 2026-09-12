@@ -274,6 +274,9 @@ fieldset label {
   background: #1769e0;
   color: #fff;
 }
+.mobile-label {
+  display: none;
+}
 .sr-only {
   position: absolute;
   width: 1px;
@@ -328,6 +331,9 @@ fieldset label {
   box-shadow: 0 0 0 9999px #17202a66;
   pointer-events: none;
 }
+#crop-selection[data-handles-enabled='false'] [data-crop-handle] {
+  display: none;
+}
 #crop-selection [data-crop-handle] {
   position: absolute;
   width: 18px;
@@ -338,6 +344,9 @@ fieldset label {
   box-shadow: 0 0 0 1px #17202a;
   touch-action: none;
   pointer-events: auto;
+  min-width: 0;
+  min-height: 0;
+  padding: 0;
 }
 [data-crop-handle='nw'] {
   left: 0;
@@ -501,16 +510,20 @@ fieldset label {
   }
   .preview-panel {
     grid-row: 2;
-    min-height: 360px;
+    min-height: 416px;
+  }
+  #preview {
+    bottom: 56px;
+    height: auto;
   }
   .advanced-controls {
     grid-row: 3;
   }
   .preview-toolbar {
     top: auto;
-    right: 8px;
-    bottom: 8px;
-    left: 8px;
+    right: 0;
+    bottom: 0;
+    left: 0;
     justify-content: center;
     gap: 3px;
     max-width: none;
@@ -518,22 +531,16 @@ fieldset label {
   }
   .preview-tool {
     min-width: 36px;
-    min-height: 40px;
+    min-height: 44px;
     padding: 4px 6px;
     font-size: 12px;
     white-space: nowrap;
   }
-  #compare-button,
-  #zoom-reset-button {
-    font-size: 0;
+  .desktop-label {
+    display: none;
   }
-  #compare-button::after {
-    content: '原图';
-    font-size: 12px;
-  }
-  #zoom-reset-button::after {
-    content: '适合';
-    font-size: 12px;
+  .mobile-label {
+    display: inline;
   }
   #zoom-output {
     min-width: 43px;

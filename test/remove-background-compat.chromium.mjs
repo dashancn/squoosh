@@ -38,6 +38,7 @@ try {
       if (viewport.width <= 390) {
         const toolbar = await page.locator('.preview-toolbar').evaluate((element) => {
           const panel = element.parentElement.getBoundingClientRect();
+          const canvas = element.parentElement.querySelector('#preview').getBoundingClientRect();
           const rect = element.getBoundingClientRect();
           const labels = [...element.querySelectorAll('button')].map((button) => ({
             text: button.textContent.trim(),
@@ -48,10 +49,13 @@ try {
             bottomInset: panel.bottom - rect.bottom,
             panelHeight: panel.height,
             toolbarHeight: rect.height,
+            canvasBottom: canvas.bottom,
+            toolbarTop: rect.top,
             labels,
           };
         });
-        assert.ok(toolbar.bottomInset <= 12, JSON.stringify({ viewport, toolbar }));
+        assert.ok(toolbar.bottomInset <= 4, JSON.stringify({ viewport, toolbar }));
+        assert.ok(toolbar.canvasBottom <= toolbar.toolbarTop, JSON.stringify({ viewport, toolbar }));
         assert.ok(toolbar.toolbarHeight <= 52, JSON.stringify({ viewport, toolbar }));
         assert.ok(toolbar.toolbarHeight / toolbar.panelHeight < 0.16, JSON.stringify({ viewport, toolbar }));
         assert.ok(toolbar.labels.every((label) => label.whiteSpace === 'nowrap'), JSON.stringify({ viewport, toolbar }));

@@ -266,7 +266,16 @@ function setComparingOriginal(enabled) {
   comparingOriginal = Boolean(enabled && sourcePixels && editMask);
   compareButton.classList.toggle('active', comparingOriginal);
   compareButton.setAttribute('aria-pressed', String(comparingOriginal));
-  compareButton.textContent = comparingOriginal ? '正在看原图' : '按住看原图';
+  compareButton.querySelector('.desktop-label').textContent = comparingOriginal
+    ? '正在看原图'
+    : '按住看原图';
+  compareButton.querySelector('.mobile-label').textContent = comparingOriginal
+    ? '原图中'
+    : '原图';
+  compareButton.setAttribute(
+    'aria-label',
+    comparingOriginal ? '正在查看原图' : '按住查看原图',
+  );
   compareStatus.value = comparingOriginal ? '正在显示原图' : '正在显示抠图结果';
   compareStatus.textContent = compareStatus.value;
   updatePreviewBounds();
@@ -348,6 +357,9 @@ function updateCropSelection() {
   const crop = cropDraft;
   const outputCrop = cropDraft || appliedCrop;
   const rect = displayedCropRect(crop);
+  cropSelection.dataset.handlesEnabled = String(
+    Boolean(cropDraft && cropAspect.value === 'free'),
+  );
   if (!rect) {
     cropSelection.hidden = true;
   } else {
@@ -567,6 +579,10 @@ function releaseActivePointer() {
     } catch {
       // Capture may already have been released by the browser.
     }
+    try {
+      if (cropSelection.hasPointerCapture(activePointer))
+        cropSelection.releasePointerCapture(activePointer);
+    } catch {}
   }
   activePointer = null;
   lastPoint = null;
@@ -574,6 +590,9 @@ function releaseActivePointer() {
   strokeBounds = null;
   strokeRecorder = null;
   panStart = null;
+  cropStart = null;
+  cropResizeHandle = null;
+  cropResizeStart = null;
 }
 
 function clearEditor() {
@@ -582,7 +601,9 @@ function clearEditor() {
   compareHolding = false;
   compareButton.classList.remove('active');
   compareButton.setAttribute('aria-pressed', 'false');
-  compareButton.textContent = '按住看原图';
+  compareButton.querySelector('.desktop-label').textContent = '按住看原图';
+  compareButton.querySelector('.mobile-label').textContent = '原图';
+  compareButton.setAttribute('aria-label', '按住查看原图');
   compareStatus.value = '正在显示抠图结果';
   compareStatus.textContent = compareStatus.value;
   releaseActivePointer();
@@ -820,6 +841,37 @@ function eventSourcePoint(event) {
   return point ? { x: point.x + crop.x, y: point.y + crop.y } : null;
 }
 
+function eventSourceEdgePoint(event) {
+  const crop = appliedCrop || {
+    x: 0,
+    y: 0,
+    width: sourceWidth,
+    height: sourceHeight,
+  };
+  const rect = displayedImageRect();
+  if (!rect) return null;
+  return {
+    x:
+      crop.x +
+      Math.max(
+        0,
+        Math.min(
+          crop.width,
+          ((event.clientX - rect.left) / rect.width) * crop.width,
+        ),
+      ),
+    y:
+      crop.y +
+      Math.max(
+        0,
+        Math.min(
+          crop.height,
+          ((event.clientY - rect.top) / rect.height) * crop.height,
+        ),
+      ),
+  };
+}
+
 function displayedImageRect() {
   const panelRect = previewPanel.getBoundingClientRect();
   const viewportBox = {
@@ -903,11 +955,20 @@ function stamp(point) {
   return result.bounds;
 }
 
+cropAspect.addEventListener('change', updateCropSelection);
+
 cropSelection.addEventListener('pointerdown', (event) => {
   const handle = event.target.closest('[data-crop-handle]')?.dataset.cropHandle;
-  if (!handle || !cropDraft || !editMask || busy || activePointer !== null)
+  if (
+    !handle ||
+    cropAspect.value !== 'free' ||
+    !cropDraft ||
+    !editMask ||
+    busy ||
+    !isPrimaryPointerStart(event, activePointer)
+  )
     return;
-  const point = eventSourcePoint(event);
+  const point = eventSourceEdgePoint(event);
   if (!point) return;
   event.preventDefault();
   event.stopPropagation();
@@ -985,7 +1046,7 @@ function resizeDraftFromPointer(event) {
     !cropResizeStart
   )
     return false;
-  const point = eventSourcePoint(event);
+  const point = eventSourceEdgePoint(event);
   if (!point) return true;
   event.preventDefault();
   cropDraft = resizeCropFromHandle(

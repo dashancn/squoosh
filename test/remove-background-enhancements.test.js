@@ -208,10 +208,10 @@ test('eight crop handles resize free crops from corners and edge midpoints', () 
     width: 75,
     height: 45,
   });
-  assert.deepEqual(resizeCropFromHandle(crop, 'e', { x: 99, y: 30 }, bounds), {
+  assert.deepEqual(resizeCropFromHandle(crop, 'e', { x: 100, y: 30 }, bounds), {
     x: 20,
     y: 10,
-    width: 79,
+    width: 80,
     height: 40,
   });
   assert.deepEqual(resizeCropFromHandle(crop, 'se', { x: 95, y: 75 }, bounds), {
@@ -220,11 +220,11 @@ test('eight crop handles resize free crops from corners and edge midpoints', () 
     width: 75,
     height: 65,
   });
-  assert.deepEqual(resizeCropFromHandle(crop, 's', { x: 50, y: 79 }, bounds), {
+  assert.deepEqual(resizeCropFromHandle(crop, 's', { x: 50, y: 80 }, bounds), {
     x: 20,
     y: 10,
     width: 60,
-    height: 69,
+    height: 70,
   });
   assert.deepEqual(resizeCropFromHandle(crop, 'sw', { x: 5, y: 75 }, bounds), {
     x: 5,

@@ -112,6 +112,15 @@ test('Chromium exposes enhancement controls, accessible states and reset default
     await page.locator('input[name="background"][value="custom"]').isChecked(),
     false,
   );
+  const handles = page.locator('[data-crop-handle]');
+  assert.equal(await handles.count(), 8);
+  for (let index = 0; index < 8; index += 1) {
+    assert.equal(
+      await handles.nth(index).evaluate((node) => node.tagName),
+      'BUTTON',
+    );
+    assert.ok(await handles.nth(index).getAttribute('aria-label'));
+  }
 });
 
 test('Chromium makes a 4000x3000 JPEG preview-ready and enables Start after safe optimization', async () => {
