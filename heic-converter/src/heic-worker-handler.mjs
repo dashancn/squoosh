@@ -7,7 +7,7 @@ export async function handleHeicWorkerMessage(data, dependencies) {
     createCanvas,
     postMessage,
   } = dependencies;
-  const { id, operation, file } = data;
+  const { id, operation, file, width: targetWidth, height: targetHeight } = data;
   try {
     const buffer = await file.arrayBuffer();
     if (operation === 'inspect') {
@@ -24,16 +24,50 @@ export async function handleHeicWorkerMessage(data, dependencies) {
     if (!isHeicBytes(buffer)) throw new Error(`${file.name} 的 HEIC 签名无效`);
     postMessage({ id, type: 'progress', message: '正在后台解码 HEIC…' });
     const imageData = await decodeHeic(buffer, validateDimensions);
-    const canvas = createCanvas(imageData.width, imageData.height);
+    let output = imageData;
+    if (
+      Number.isSafeInteger(targetWidth) &&
+      Number.isSafeInteger(targetHeight) &&
+      targetWidth > 0 &&
+      targetHeight > 0 &&
+      (targetWidth !== imageData.width || targetHeight !== imageData.height)
+    ) {
+      const scaled = new Uint8ClampedArray(targetWidth * targetHeight * 4);
+      for (let y = 0; y < targetHeight; y += 1) {
+        const sourceY = Math.min(imageData.height - 1, Math.floor(y * imageData.height / targetHeight));
+        for (let x = 0; x < targetWidth; x += 1) {
+          const sourceX = Math.min(imageData.width - 1, Math.floor(x * imageData.width / targetWidth));
+          const source = (sourceY * imageData.width + sourceX) * 4;
+          const destination = (y * targetWidth + x) * 4;
+          scaled[destination] = imageData.data[source];
+          scaled[destination + 1] = imageData.data[source + 1];
+          scaled[destination + 2] = imageData.data[source + 2];
+          scaled[destination + 3] = imageData.data[source + 3];
+        }
+      }
+      output = { width: targetWidth, height: targetHeight, data: scaled };
+    }
+    const canvas = createCanvas?.(output.width, output.height);
+    if (!canvas) {
+      postMessage(
+        { id, type: 'pixels', buffer: output.data.buffer, width: output.width, height: output.height },
+        [output.data.buffer],
+      );
+      return;
+    }
     const context = canvas.getContext('2d');
     if (!context) throw new Error('浏览器无法创建后台画布');
-    context.putImageData(imageData, 0, 0);
+    const drawable =
+      typeof ImageData !== 'function' || output instanceof ImageData
+        ? output
+        : new ImageData(output.data, output.width, output.height);
+    context.putImageData(drawable, 0, 0);
     const blob = await canvas.convertToBlob({ type: 'image/png' });
     if (blob.type !== 'image/png') throw new Error('浏览器未生成有效 PNG');
-    const output = await blob.arrayBuffer();
-    const signature = new Uint8Array(output, 0, Math.min(8, output.byteLength));
+    const encoded = await blob.arrayBuffer();
+    const signature = new Uint8Array(encoded, 0, Math.min(8, encoded.byteLength));
     if (
-      output.byteLength < 8 ||
+      encoded.byteLength < 8 ||
       ![137, 80, 78, 71, 13, 10, 26, 10].every(
         (value, index) => signature[index] === value,
       )
@@ -41,9 +75,10 @@ export async function handleHeicWorkerMessage(data, dependencies) {
       throw new Error('浏览器未生成有效 PNG');
     canvas.width = 1;
     canvas.height = 1;
-    postMessage({ id, type: 'result', buffer: output, mimeType: 'image/png' }, [
-      output,
-    ]);
+    postMessage(
+      { id, type: 'result', buffer: encoded, mimeType: 'image/png', width: output.width, height: output.height },
+      [encoded],
+    );
   } catch (error) {
     postMessage({ id, type: 'error', error: error?.message || String(error) });
   }

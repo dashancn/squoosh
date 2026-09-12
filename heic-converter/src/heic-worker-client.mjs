@@ -35,7 +35,7 @@ export class HeicWorkerClient {
     return worker;
   }
 
-  #request(operation, file) {
+  #request(operation, file, options = {}) {
     const worker = this.#load();
     const id = ++this.#nextId;
     return new Promise((resolve, reject) => {
@@ -46,7 +46,7 @@ export class HeicWorkerClient {
         if (this.#worker === worker) this.#worker = undefined;
       }, this.#timeoutMs);
       this.#pending.set(id, { resolve, reject, timer });
-      worker.postMessage({ id, operation, file });
+      worker.postMessage({ id, operation, file, ...options });
     });
   }
 
@@ -55,8 +55,10 @@ export class HeicWorkerClient {
     return { isHeic: isHeic === true, width, height };
   }
 
-  async convert(file) {
-    const { buffer, mimeType } = await this.#request('convert', file);
+  async convert(file, dimensions = {}) {
+    const response = await this.#request('convert', file, dimensions);
+    if (response.type === 'pixels') return this.#encodePixels(response);
+    const { buffer, mimeType, width, height } = response;
     if (
       mimeType !== 'image/png' ||
       !(buffer instanceof ArrayBuffer) ||
@@ -70,7 +72,38 @@ export class HeicWorkerClient {
       )
     )
       throw new Error('HEIC worker 未返回有效 PNG');
-    return { buffer, mimeType };
+    return { buffer, mimeType, width, height };
+  }
+
+  async #encodePixels({ buffer, width, height }) {
+    if (
+      !(buffer instanceof ArrayBuffer) ||
+      !Number.isSafeInteger(width) ||
+      !Number.isSafeInteger(height) ||
+      width <= 0 ||
+      height <= 0 ||
+      buffer.byteLength !== width * height * 4
+    )
+      throw new Error('HEIC worker 未返回有效像素');
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    try {
+      const context = canvas.getContext('2d');
+      if (!context) throw new Error('浏览器无法创建 HEIC 转换画布');
+      context.putImageData(new ImageData(new Uint8ClampedArray(buffer), width, height), 0, 0);
+      const blob = await new Promise((resolve, reject) =>
+        canvas.toBlob(
+          (candidate) => candidate ? resolve(candidate) : reject(new Error('浏览器无法导出 HEIC PNG')),
+          'image/png',
+        ),
+      );
+      const encoded = await blob.arrayBuffer();
+      return { buffer: encoded, mimeType: 'image/png', width, height };
+    } finally {
+      canvas.width = 0;
+      canvas.height = 0;
+    }
   }
 
   #rejectAll(message) {

@@ -17,6 +17,8 @@ export const MAX_DIMENSION = 10_000;
 export function heicPreprocessingInventory({
   width,
   height,
+  outputWidth,
+  outputHeight,
   originalEncodedBytes,
   convertedEncodedBytes,
 }) {
@@ -29,8 +31,18 @@ export function heicPreprocessingInventory({
     throw new Error('无法证明 HEIC 预处理资源安全');
   if (width > MAX_DIMENSION || height > MAX_DIMENSION)
     throw new Error('HEIC 图片边长超过 10000 像素');
-  if (width * height > MAX_DECODED_PIXELS)
-    throw new Error('HEIC 图片不能超过 800 万像素');
+  if (width * height > MAX_PRE_RESIZE_PIXELS)
+    throw new Error('HEIC 图片不能超过 3000 万像素');
+  if (
+    !Number.isSafeInteger(outputWidth) ||
+    !Number.isSafeInteger(outputHeight) ||
+    outputWidth <= 0 ||
+    outputHeight <= 0 ||
+    outputWidth > MAX_DIMENSION ||
+    outputHeight > MAX_DIMENSION ||
+    outputWidth * outputHeight > MAX_DECODED_PIXELS
+  )
+    throw new Error('转换后的 HEIC 图片不能超过 800 万像素');
   if (
     !Number.isSafeInteger(originalEncodedBytes) ||
     originalEncodedBytes < 0 ||
@@ -44,13 +56,14 @@ export function heicPreprocessingInventory({
   )
     throw new Error('转换后的 HEIC 图片不能超过 8 MiB');
   const pixels = width * height;
+  const outputPixels = outputWidth * outputHeight;
   return {
     allocations: {
       originalHeicFile: originalEncodedBytes,
       workerArrayBuffer: originalEncodedBytes,
       decodedRgba: pixels * 4,
-      conversionImageData: pixels * 4,
-      conversionCanvasBacking: pixels * 4,
+      conversionImageData: outputPixels * 4,
+      conversionCanvasBacking: outputPixels * 4,
       convertedPng: convertedEncodedBytes,
     },
     completeBudgetProof: false,
@@ -181,10 +194,11 @@ export function processedDimensions(width, height) {
   };
 }
 
-export async function decodeValidatedRemovalInput(
-  file,
-  decode = (candidate) => createImageBitmap(candidate),
-) {
+export async function decodeValidatedRemovalInput(file, decode) {
+  if (!decode) {
+    const { decodeBrowserImage } = await import('./browser-image-decode.js');
+    decode = decodeBrowserImage;
+  }
   validateEncodedFile(file);
   await inspectRemovalInput(file);
 

@@ -8,6 +8,15 @@ const HEIC_BRANDS = new Set([
 const PNG_SIGNATURE = [137, 80, 78, 71, 13, 10, 26, 10];
 let sharedClient;
 
+function boundedDimensions(width, height, maxPixels) {
+  if (!Number.isFinite(maxPixels) || width * height <= maxPixels) return { width, height };
+  const scale = Math.sqrt(maxPixels / (width * height));
+  return {
+    width: Math.max(1, Math.floor(width * scale)),
+    height: Math.max(1, Math.floor(height * scale)),
+  };
+}
+
 export function heicCandidateFromHeader(bytes) {
   if (!(bytes instanceof Uint8Array) || bytes.length < 12) return false;
   if (String.fromCharCode(...bytes.subarray(4, 8)) !== 'ftyp') return false;
@@ -72,13 +81,21 @@ export async function normalizeImageFile(file, {
     if (limits.maxPixels === 8_000_000) throw new Error('HEIC 图片不能超过 800 万像素');
     validateDimensions(inspection.width, inspection.height);
   }
-  const { buffer, mimeType } = await client.convert(file);
+  const requested = boundedDimensions(
+    inspection.width,
+    inspection.height,
+    limits.targetPixels ?? limits.maxPixels,
+  );
+  const { buffer, mimeType, width = requested.width, height = requested.height } =
+    await client.convert(file, requested);
   verifyPng(buffer, mimeType);
   if (buffer.byteLength > limits.maxOutputBytes)
     throw new Error('转换后的 HEIC 图片不能超过 8 MiB');
   limits.resourceInventory?.({
     width: inspection.width,
     height: inspection.height,
+    outputWidth: width,
+    outputHeight: height,
     originalEncodedBytes: file.size,
     convertedEncodedBytes: buffer.byteLength,
   });

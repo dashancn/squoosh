@@ -3,6 +3,7 @@ import {
   processedDimensions,
   validateDecodedDimensions,
 } from './input-limits.js';
+import { decodeBrowserImage } from './browser-image-decode.js';
 
 const JPEG_MARKER_PREFIXES = new Set([
   0xc0, 0xc1, 0xc2, 0xc3, 0xc5, 0xc6, 0xc7, 0xc9, 0xca, 0xcb, 0xcd, 0xce, 0xcf,
@@ -45,7 +46,7 @@ export async function preprocessRemovalInput({
   input,
   bitmap,
   createCanvas = () => document.createElement('canvas'),
-  decode = (blob) => createImageBitmap(blob),
+  decode = decodeBrowserImage,
 }) {
   const originalWidth = bitmap.width;
   const originalHeight = bitmap.height;

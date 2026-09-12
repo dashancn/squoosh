@@ -74,23 +74,29 @@ test('adapter rejects oversized input and HEIC dimensions before conversion', as
   assert.equal(converted, false);
 });
 
-test('removal policy caps HEIC bytes, dimensions, and converted PNG before decode', async () => {
+test('removal policy accepts common iPhone HEIC and requests bounded decoder output', async () => {
   let operations = [];
   const client = {
     inspect: async () => { operations.push('inspect'); return { isHeic: true, width: 4000, height: 2001 }; },
     convert: async () => { operations.push('convert'); return { buffer: new ArrayBuffer(8), mimeType: 'image/png' }; },
   };
-  const limits = { maxFileBytes: 8 * MiB, maxPixels: 8_000_000, maxEdge: 10_000, maxOutputBytes: 8 * MiB };
+  const limits = { maxFileBytes: 8 * MiB, maxPixels: 30_000_000, targetPixels: 8_000_000, maxEdge: 10_000, maxOutputBytes: 8 * MiB };
   await assert.rejects(normalizeImageFile(new File([header('heic'), new Uint8Array(8 * MiB)], 'large.heic'), {
     createClient: () => client, limits,
   }), /HEIC 文件不能超过 8 MiB/);
   assert.deepEqual(operations, []);
 
-  operations = [];
-  await assert.rejects(normalizeImageFile(new File([header('heic')], 'pixels.heic'), {
-    createClient: () => client, limits,
-  }), /HEIC 图片不能超过 800 万像素/);
-  assert.deepEqual(operations, ['inspect']);
+  let convertOptions;
+  const iphonePng = new Uint8Array([137,80,78,71,13,10,26,10,1]);
+  const iphone = await normalizeImageFile(new File([header('heic')], 'pixels.heic'), {
+    createClient: () => ({
+      inspect: async () => ({ isHeic: true, width: 4032, height: 3024 }),
+      convert: async (_file, options) => { convertOptions = options; return { buffer: iphonePng.buffer, mimeType: 'image/png' }; },
+    }), limits,
+  });
+  assert.equal(iphone.type, 'image/png');
+  assert.deepEqual(convertOptions, { width: 3265, height: 2449 });
+  assert.ok(convertOptions.width * convertOptions.height <= 8_000_000);
 
   const png = new Uint8Array(8 * MiB + 1); png.set([137,80,78,71,13,10,26,10]);
   await assert.rejects(normalizeImageFile(new File([header('heic')], 'output.heic'), {
@@ -103,5 +109,5 @@ test('removal policy caps HEIC bytes, dimensions, and converted PNG before decod
     createClient: () => ({ inspect: async () => ({ isHeic: true, width: 2000, height: 2000 }), convert: async () => ({ buffer: validPng.buffer, mimeType: 'image/png' }) }),
     limits: { ...limits, resourceInventory: (args) => { resourceArgs = args; } },
   });
-  assert.deepEqual(resourceArgs, { width: 2000, height: 2000, originalEncodedBytes: 12, convertedEncodedBytes: 9 });
+  assert.deepEqual(resourceArgs, { width: 2000, height: 2000, outputWidth: 2000, outputHeight: 2000, originalEncodedBytes: 12, convertedEncodedBytes: 9 });
 });

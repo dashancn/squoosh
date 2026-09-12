@@ -9,6 +9,7 @@ import {
 } from './input-limits.js';
 import { createSelectionPreparationQueue } from './selection-preview.js';
 import { preprocessRemovalInput } from './preprocess-input.js';
+import { decodeBrowserImage } from './browser-image-decode.js';
 import {
   normalizeImageFile,
   terminateSharedHeicDecoder,
@@ -95,7 +96,8 @@ const backgrounds = {
 const MAX_PREVIEW_EDGE = 1200;
 const removalHeicLimits = {
   maxFileBytes: MAX_HEIC_ENCODED_BYTES,
-  maxPixels: MAX_DECODED_PIXELS,
+  maxPixels: 30_000_000,
+  targetPixels: MAX_DECODED_PIXELS,
   maxEdge: MAX_DIMENSION,
   maxOutputBytes: MAX_PROCESSED_ENCODED_BYTES,
   resourceInventory: heicPreprocessingInventory,
@@ -141,16 +143,17 @@ function setProgress(value, message) {
   if (message) status.textContent = message;
 }
 
+function revealReadyPreviewOnNarrowScreen() {
+  if (!matchMedia('(max-width: 760px)').matches) return;
+  const bounds = previewPanel.getBoundingClientRect();
+  const visible =
+    Math.min(bounds.bottom, innerHeight) - Math.max(bounds.top, 0);
+  if (visible >= Math.min(bounds.height, innerHeight) * 0.5) return;
+  previewPanel.scrollIntoView({ block: 'start', behavior: 'auto' });
+}
+
 async function decodeBlob(blob) {
-  const image = new Image();
-  const url = URL.createObjectURL(blob);
-  image.src = url;
-  try {
-    await image.decode();
-    return await createImageBitmap(blob);
-  } finally {
-    URL.revokeObjectURL(url);
-  }
+  return decodeBrowserImage(blob);
 }
 
 function pixelsFromBitmap(bitmap) {
@@ -683,6 +686,7 @@ async function selectFile(file) {
     } else {
       setProgress(0, '原图预览已就绪，点击开始抠图');
     }
+    revealReadyPreviewOnNarrowScreen();
   } catch (error) {
     if (version !== selectedVersion) return;
     preparedSelection = null;

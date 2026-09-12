@@ -12,6 +12,7 @@ self.onmessage = ({ data }) =>
     inspectHeic,
     decodeHeic,
     validateDimensions,
-    createCanvas: (width, height) => new OffscreenCanvas(width, height),
+    createCanvas: (width, height) =>
+      typeof OffscreenCanvas === 'function' ? new OffscreenCanvas(width, height) : null,
     postMessage: (...args) => self.postMessage(...args),
   });

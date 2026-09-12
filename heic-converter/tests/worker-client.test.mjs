@@ -107,7 +107,7 @@ test('worker conversion only returns a verified image/png payload', async () => 
     {
       isHeicBytes: () => true,
       inspectHeic: () => ({ width: 1, height: 1 }),
-      decodeHeic: async () => ({ width: 1, height: 1 }),
+      decodeHeic: async () => ({ width: 1, height: 1, data: new Uint8ClampedArray(4) }),
       validateDimensions: () => {},
       createCanvas: () => ({
         width: 1,
@@ -124,6 +124,33 @@ test('worker conversion only returns a verified image/png payload', async () => 
   assert.equal(messages.at(-1).type, 'error');
   assert.match(messages.at(-1).error, /PNG/);
   assert.equal(messages.some((message) => message.type === 'result'), false);
+});
+
+test('worker conversion returns transferable pixels when canvas encoding is unavailable', async () => {
+  const messages = [];
+  const pixels = new Uint8ClampedArray([1, 2, 3, 255]);
+  await handleHeicWorkerMessage(
+    {
+      id: 10,
+      operation: 'convert',
+      width: 1,
+      height: 1,
+      file: { name: 'photo.heic', arrayBuffer: async () => new ArrayBuffer(12) },
+    },
+    {
+      isHeicBytes: () => true,
+      inspectHeic: () => ({ width: 1, height: 1 }),
+      decodeHeic: async () => ({ width: 1, height: 1, data: pixels }),
+      validateDimensions: () => {},
+      createCanvas: () => null,
+      postMessage: (...args) => messages.push(args),
+    },
+  );
+  assert.equal(messages.at(-1)[0].type, 'pixels');
+  assert.equal(messages.at(-1)[0].width, 1);
+  assert.equal(messages.at(-1)[0].height, 1);
+  assert.equal(messages.at(-1)[0].buffer, pixels.buffer);
+  assert.deepEqual(messages.at(-1)[1], [pixels.buffer]);
 });
 
 test('terminating the HEIC worker rejects pending work and next request uses a fresh worker', async () => {

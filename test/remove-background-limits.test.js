@@ -82,6 +82,8 @@ test('HEIC 预处理采用更严格边界并公开无法计量的 WASM 风险', 
   const inventory = heicPreprocessingInventory({
     width: 4000,
     height: 2000,
+    outputWidth: 4000,
+    outputHeight: 2000,
     originalEncodedBytes: MAX_HEIC_ENCODED_BYTES,
     convertedEncodedBytes: MAX_PROCESSED_ENCODED_BYTES,
   });
@@ -98,13 +100,30 @@ test('HEIC 预处理采用更严格边界并公开无法计量的 WASM 风险', 
   assert.throws(
     () =>
       heicPreprocessingInventory({
-        width: 4001,
-        height: 2000,
+        width: 7501,
+        height: 4000,
+        outputWidth: 3265,
+        outputHeight: 2449,
         originalEncodedBytes: 1,
         convertedEncodedBytes: 1,
       }),
-    /800 万像素/,
+    /3000 万像素/,
   );
+});
+
+test('HEIC 清单允许 4032x3024 源图但把 PNG 输出限制到 800 万像素', () => {
+  const output = processedDimensions(4032, 3024);
+  const inventory = heicPreprocessingInventory({
+    width: 4032,
+    height: 3024,
+    outputWidth: output.width,
+    outputHeight: output.height,
+    originalEncodedBytes: MAX_HEIC_ENCODED_BYTES,
+    convertedEncodedBytes: MAX_PROCESSED_ENCODED_BYTES,
+  });
+  assert.deepEqual(output, { width: 3265, height: 2449 });
+  assert.equal(inventory.allocations.decodedRgba, 4032 * 3024 * 4);
+  assert.equal(inventory.allocations.conversionCanvasBacking, 3265 * 2449 * 4);
 });
 
 test('编码文件恰好 20 MiB 时允许处理', () => {
