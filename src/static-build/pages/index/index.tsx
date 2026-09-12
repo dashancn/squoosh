@@ -24,19 +24,38 @@ import * as snackbarStyle from '../../../shared/custom-els/snack-bar/styles.css'
 
 interface Props {}
 
+const description =
+  'i41 图片压缩是一款免费的在线图片压缩与格式转换工具，可在浏览器本地压缩、对比并导出 JPG、PNG、WebP、AVIF 等格式。';
+const pageTitle = 'i41 图片压缩 - 在线压缩与格式转换';
+const pageUrl = `${siteOrigin}/`;
+const structuredData = JSON.stringify({
+  '@context': 'https://schema.org',
+  '@type': 'WebApplication',
+  name: 'i41 图片压缩',
+  url: pageUrl,
+  description,
+  applicationCategory: 'MultimediaApplication',
+  operatingSystem: 'Any',
+  offers: { '@type': 'Offer', price: '0', priceCurrency: 'CNY' },
+});
+
 const Index: FunctionalComponent<Props> = () => (
   <html lang="zh-CN" data-i41-site="imgzip">
     <head>
       <script src="https://stats.i41.cn/analytics.js" async />
-      <title>在线图片压缩工具 - Squoosh</title>
-      <meta
-        name="description"
-        content="Squoosh 是一款免费的在线图片压缩与格式转换工具，可在浏览器本地压缩、对比并导出 JPG、PNG、WebP、AVIF 等格式。"
-      />
+      <title>{pageTitle}</title>
+      <meta name="description" content={description} />
       <meta name="twitter:card" content="summary" />
-      <meta name="twitter:site" content="@SquooshApp" />
-      <meta property="og:title" content="在线图片压缩工具 - Squoosh" />
+      <meta name="twitter:title" content="i41 图片压缩 - 在线压缩与格式转换" />
+      <meta
+        name="twitter:description"
+        content="在浏览器本地压缩、对比并导出 JPG、PNG、WebP、AVIF 等格式。"
+      />
+      <meta name="twitter:image" content={`${siteOrigin}${ogImage}`} />
+      <meta property="og:title" content="i41 图片压缩 - 在线压缩与格式转换" />
       <meta property="og:type" content="website" />
+      <meta property="og:url" content={`${siteOrigin}/`} />
+      <meta property="og:site_name" content="i41 图片工具" />
       <meta property="og:image" content={`${siteOrigin}${ogImage}`} />
       <meta
         property="og:image:secure_url"
@@ -50,8 +69,8 @@ const Index: FunctionalComponent<Props> = () => (
         content="深色背景上，一只手正在压缩图片文件的卡通图标。"
       />
       <meta
-        name="og:description"
-        content="Squoosh 是一款免费的在线图片压缩与格式转换工具，可在浏览器本地压缩、对比并导出 JPG、PNG、WebP、AVIF 等格式。"
+        property="og:description"
+        content="i41 图片压缩是一款免费的在线图片压缩与格式转换工具，可在浏览器本地压缩、对比并导出 JPG、PNG、WebP、AVIF 等格式。"
       />
       <meta
         name="viewport"
@@ -63,7 +82,13 @@ const Index: FunctionalComponent<Props> = () => (
       <link rel="apple-touch-icon" href={ogImage} />
       <meta name="theme-color" content="#ff3385" />
       <link rel="manifest" href="/manifest.json" />
-      <link rel="canonical" href={siteOrigin} />
+      <link rel="canonical" href={pageUrl} />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: escapeStyleScriptContent(structuredData),
+        }}
+      />
       <style
         dangerouslySetInnerHTML={{ __html: escapeStyleScriptContent(baseCss) }}
       />

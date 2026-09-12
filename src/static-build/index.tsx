@@ -48,15 +48,41 @@ const screenshots = [
   form_factor: formFactor(screenshot),
 }));
 
+const publicUrls = [
+  'https://imgzip.i41.cn/',
+  'https://imgzip.i41.cn/heic-converter/',
+  'https://imgzip.i41.cn/remove-background/',
+  'https://imgzip.i41.cn/collage/',
+];
+const lastModified = new Date().toISOString().slice(0, 10);
+
 interface Output {
   [outputPath: string]: string;
 }
 
 const toOutput: Output = {
   'index.html': renderPage(<IndexPage />),
+  'robots.txt':
+    dedent`
+    User-agent: *
+    Allow: /
+    Sitemap: https://imgzip.i41.cn/sitemap.xml
+  ` + '\n',
+  'sitemap.xml':
+    dedent`
+    <?xml version="1.0" encoding="UTF-8"?>
+    <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+    ${publicUrls
+      .map(
+        (url) =>
+          `  <url><loc>${url}</loc><lastmod>${lastModified}</lastmod></url>`,
+      )
+      .join('\n')}
+    </urlset>
+  ` + '\n',
   'manifest.json': JSON.stringify({
-    name: 'Squoosh 在线图片压缩工具',
-    short_name: 'Squoosh 在线图片压缩工具',
+    name: 'i41 图片压缩',
+    short_name: 'i41 图片压缩',
     start_url: '/?utm_medium=PWA&utm_source=launcher',
     display: 'standalone',
     orientation: 'any',
