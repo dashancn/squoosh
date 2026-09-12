@@ -29,6 +29,7 @@ import {
   createRenderOwnership,
   normalizeCropRect,
   normalizeAspectCropWithin,
+  resizeCropFromHandle,
   parseHexColor,
   interpolateStroke,
   isAspectRatioSupported,
@@ -129,6 +130,8 @@ let panMode = false;
 let panStart = null;
 let cropMode = false;
 let cropStart = null;
+let cropResizeHandle = null;
+let cropResizeStart = null;
 let cropDraft = null;
 let appliedCrop = null;
 let exportQueue = Promise.resolve();
@@ -900,6 +903,22 @@ function stamp(point) {
   return result.bounds;
 }
 
+cropSelection.addEventListener('pointerdown', (event) => {
+  const handle = event.target.closest('[data-crop-handle]')?.dataset.cropHandle;
+  if (!handle || !cropDraft || !editMask || busy || activePointer !== null)
+    return;
+  const point = eventSourcePoint(event);
+  if (!point) return;
+  event.preventDefault();
+  event.stopPropagation();
+  activePointer = event.pointerId;
+  cropResizeHandle = handle;
+  cropResizeStart = { ...cropDraft };
+  try {
+    cropSelection.setPointerCapture(event.pointerId);
+  } catch {}
+});
+
 preview.addEventListener('pointerdown', (event) => {
   if (!editMask || busy || !isPrimaryPointerStart(event, activePointer)) return;
   if (panMode) {
@@ -959,7 +978,32 @@ preview.addEventListener('pointerdown', (event) => {
     status.textContent = '笔画已达到安全内存上限，请松开后继续绘制';
 });
 
+function resizeDraftFromPointer(event) {
+  if (
+    event.pointerId !== activePointer ||
+    !cropResizeHandle ||
+    !cropResizeStart
+  )
+    return false;
+  const point = eventSourcePoint(event);
+  if (!point) return true;
+  event.preventDefault();
+  cropDraft = resizeCropFromHandle(
+    cropResizeStart,
+    cropResizeHandle,
+    point,
+    activeCropBounds(),
+  );
+  updateCropSelection();
+  return true;
+}
+
+cropSelection.addEventListener('pointermove', (event) => {
+  resizeDraftFromPointer(event);
+});
+
 preview.addEventListener('pointermove', (event) => {
+  if (resizeDraftFromPointer(event)) return;
   if (!panMode) updateBrushIndicator(event);
   if (event.pointerId !== activePointer || !editMask) return;
   if (panMode && activePointer !== null) {
@@ -1030,17 +1074,24 @@ async function finishStroke(event) {
   if (event.pointerId !== activePointer) return;
   const finishedPan = Boolean(panStart);
   const finishedCrop = Boolean(cropStart);
+  const finishedCropResize = Boolean(cropResizeHandle);
   try {
     if (preview.hasPointerCapture(event.pointerId))
       preview.releasePointerCapture(event.pointerId);
   } catch {
     // lostpointercapture can arrive after automatic release.
   }
+  try {
+    if (cropSelection.hasPointerCapture(event.pointerId))
+      cropSelection.releasePointerCapture(event.pointerId);
+  } catch {}
   activePointer = null;
   lastPoint = null;
   panStart = null;
   cropStart = null;
-  if (finishedPan || finishedCrop) {
+  cropResizeHandle = null;
+  cropResizeStart = null;
+  if (finishedPan || finishedCrop || finishedCropResize) {
     updateCropSelection();
     return;
   }
@@ -1059,6 +1110,9 @@ async function finishStroke(event) {
 preview.addEventListener('pointerup', finishStroke);
 preview.addEventListener('pointercancel', finishStroke);
 preview.addEventListener('lostpointercapture', finishStroke);
+cropSelection.addEventListener('pointerup', finishStroke);
+cropSelection.addEventListener('pointercancel', finishStroke);
+cropSelection.addEventListener('lostpointercapture', finishStroke);
 
 eraseMode.addEventListener('click', () => setBrushMode('erase'));
 restoreMode.addEventListener('click', () => setBrushMode('restore'));

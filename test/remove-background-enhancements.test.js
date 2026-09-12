@@ -7,6 +7,7 @@ import {
   isAspectRatioSupported,
   normalizeAspectCropRect,
   normalizeAspectCropWithin,
+  resizeCropFromHandle,
   parseHexColor,
 } from '../remove-background/src/mask-editor.js';
 
@@ -184,6 +185,59 @@ test('aspect recrop is normalized locally and never escapes the applied crop', (
     assert.ok(crop.x + crop.width <= applied.x + applied.width);
     assert.ok(crop.y + crop.height <= applied.y + applied.height);
   }
+});
+
+test('eight crop handles resize free crops from corners and edge midpoints', () => {
+  const crop = { x: 20, y: 10, width: 60, height: 40 };
+  const bounds = { x: 0, y: 0, width: 100, height: 80 };
+  assert.deepEqual(resizeCropFromHandle(crop, 'nw', { x: 10, y: 5 }, bounds), {
+    x: 10,
+    y: 5,
+    width: 70,
+    height: 45,
+  });
+  assert.deepEqual(resizeCropFromHandle(crop, 'n', { x: 50, y: 0 }, bounds), {
+    x: 20,
+    y: 0,
+    width: 60,
+    height: 50,
+  });
+  assert.deepEqual(resizeCropFromHandle(crop, 'ne', { x: 95, y: 5 }, bounds), {
+    x: 20,
+    y: 5,
+    width: 75,
+    height: 45,
+  });
+  assert.deepEqual(resizeCropFromHandle(crop, 'e', { x: 99, y: 30 }, bounds), {
+    x: 20,
+    y: 10,
+    width: 79,
+    height: 40,
+  });
+  assert.deepEqual(resizeCropFromHandle(crop, 'se', { x: 95, y: 75 }, bounds), {
+    x: 20,
+    y: 10,
+    width: 75,
+    height: 65,
+  });
+  assert.deepEqual(resizeCropFromHandle(crop, 's', { x: 50, y: 79 }, bounds), {
+    x: 20,
+    y: 10,
+    width: 60,
+    height: 69,
+  });
+  assert.deepEqual(resizeCropFromHandle(crop, 'sw', { x: 5, y: 75 }, bounds), {
+    x: 5,
+    y: 10,
+    width: 75,
+    height: 65,
+  });
+  assert.deepEqual(resizeCropFromHandle(crop, 'w', { x: 0, y: 30 }, bounds), {
+    x: 0,
+    y: 10,
+    width: 80,
+    height: 40,
+  });
 });
 
 test('hex colors sanitize and custom RGB composes exactly', () => {

@@ -35,6 +35,27 @@ try {
         Object.defineProperty(globalThis, 'OffscreenCanvas', { configurable: true, value: undefined });
       }, bitmapMode);
       await page.goto(`${origin}/remove-background/`);
+      if (viewport.width <= 390) {
+        const toolbar = await page.locator('.preview-toolbar').evaluate((element) => {
+          const panel = element.parentElement.getBoundingClientRect();
+          const rect = element.getBoundingClientRect();
+          const labels = [...element.querySelectorAll('button')].map((button) => ({
+            text: button.textContent.trim(),
+            whiteSpace: getComputedStyle(button).whiteSpace,
+            height: button.getBoundingClientRect().height,
+          }));
+          return {
+            bottomInset: panel.bottom - rect.bottom,
+            panelHeight: panel.height,
+            toolbarHeight: rect.height,
+            labels,
+          };
+        });
+        assert.ok(toolbar.bottomInset <= 12, JSON.stringify({ viewport, toolbar }));
+        assert.ok(toolbar.toolbarHeight <= 52, JSON.stringify({ viewport, toolbar }));
+        assert.ok(toolbar.toolbarHeight / toolbar.panelHeight < 0.16, JSON.stringify({ viewport, toolbar }));
+        assert.ok(toolbar.labels.every((label) => label.whiteSpace === 'nowrap'), JSON.stringify({ viewport, toolbar }));
+      }
       const png = await page.evaluate(async () => {
         const canvas=document.createElement('canvas'); canvas.width=64; canvas.height=48;
         const context=canvas.getContext('2d'); context.fillStyle='#e53935';context.fillRect(0,0,64,48);

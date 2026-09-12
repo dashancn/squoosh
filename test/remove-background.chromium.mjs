@@ -405,13 +405,28 @@ try {
     { startX: cropStartX, startY: cropStartY, endX: cropEndX, endY: cropEndY },
   );
   assert.equal(await page.locator('#crop-selection').getAttribute('hidden'), null);
+  assert.equal(await page.locator('#crop-selection [data-crop-handle]').count(), 8);
   assert.match(await page.locator('#crop-output').textContent(), /160 × 120 px/);
   assert.equal(await page.locator('#preview').evaluate((canvas) => `${canvas.width}x${canvas.height}`), '320x240', 'draft crop must be non-destructive');
+  const southeast = await page.locator('[data-crop-handle="se"]').boundingBox();
+  assert.ok(southeast, 'southeast crop handle must be visible');
+  await page.mouse.move(southeast.x + southeast.width / 2, southeast.y + southeast.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(southeast.x + southeast.width / 2 + 20, southeast.y + southeast.height / 2 + 15, { steps: 4 });
+  await page.mouse.up();
+  assert.doesNotMatch(await page.locator('#crop-output').textContent(), /^160 × 120 px/);
+  const resizedDraft = await page.locator('#crop-output').textContent();
+  const match = resizedDraft.match(/^(\d+) × (\d+) px/);
+  assert.ok(match, resizedDraft);
+  const expectedCropSize = `${match[1]}x${match[2]}`;
   await page.click('#apply-crop-button');
-  await page.waitForFunction(() => document.querySelector('#preview').width === 160);
-  assert.equal(await page.locator('#preview').evaluate((canvas) => `${canvas.width}x${canvas.height}`), '160x120');
+  await page.waitForFunction((size) => {
+    const canvas = document.querySelector('#preview');
+    return `${canvas.width}x${canvas.height}` === size;
+  }, expectedCropSize);
+  assert.equal(await page.locator('#preview').evaluate((canvas) => `${canvas.width}x${canvas.height}`), expectedCropSize);
   assert.equal(await page.locator('#crop-selection').getAttribute('hidden'), '');
-  assert.match(await page.locator('#crop-output').textContent(), /^160 × 120 px$/);
+  assert.equal(await page.locator('#crop-output').textContent(), `${match[1]} × ${match[2]} px`);
   const appliedBox = await page.locator('#preview').boundingBox();
   await page.mouse.move(appliedBox.x + appliedBox.width / 2, appliedBox.y + appliedBox.height / 2);
   await page.waitForFunction(() => !document.querySelector('#brush-indicator').hidden);
@@ -461,8 +476,8 @@ try {
   assert.match(download.suggestedFilename(), /\.png$/);
   const downloadedBytes = Buffer.from(downloadBytes);
   assert.ok(downloadedBytes.length > 24);
-  assert.equal(downloadedBytes.readUInt32BE(16), 160);
-  assert.equal(downloadedBytes.readUInt32BE(20), 120);
+  assert.equal(downloadedBytes.readUInt32BE(16), Number(match[1]));
+  assert.equal(downloadedBytes.readUInt32BE(20), Number(match[2]));
   await page.click('#reset-crop-button');
   await page.waitForFunction(() => document.querySelector('#preview').width === 320);
   assert.equal(await page.locator('#preview').evaluate((canvas) => `${canvas.width}x${canvas.height}`), '320x240');

@@ -90,6 +90,22 @@ export function normalizeCropRect(start, end, width, height) {
   };
 }
 
+export function resizeCropFromHandle(crop, handle, point, bounds) {
+  const left = handle.includes('w')
+    ? clamp(Math.floor(point.x), bounds.x, crop.x + crop.width - 1)
+    : crop.x;
+  const top = handle.includes('n')
+    ? clamp(Math.floor(point.y), bounds.y, crop.y + crop.height - 1)
+    : crop.y;
+  const right = handle.includes('e')
+    ? clamp(Math.ceil(point.x), crop.x + 1, bounds.x + bounds.width)
+    : crop.x + crop.width;
+  const bottom = handle.includes('s')
+    ? clamp(Math.ceil(point.y), crop.y + 1, bounds.y + bounds.height)
+    : crop.y + crop.height;
+  return { x: left, y: top, width: right - left, height: bottom - top };
+}
+
 function integerRatio(value, maximumDenominator = 10_000) {
   let bestNumerator = 1;
   let bestDenominator = 1;

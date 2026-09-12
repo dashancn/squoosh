@@ -328,6 +328,65 @@ fieldset label {
   box-shadow: 0 0 0 9999px #17202a66;
   pointer-events: none;
 }
+#crop-selection [data-crop-handle] {
+  position: absolute;
+  width: 18px;
+  height: 18px;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  background: #1769e0;
+  box-shadow: 0 0 0 1px #17202a;
+  touch-action: none;
+  pointer-events: auto;
+}
+[data-crop-handle='nw'] {
+  left: 0;
+  top: 0;
+  cursor: nwse-resize;
+  transform: translate(-50%, -50%);
+}
+[data-crop-handle='n'] {
+  left: 50%;
+  top: 0;
+  cursor: ns-resize;
+  transform: translate(-50%, -50%);
+}
+[data-crop-handle='ne'] {
+  right: 0;
+  top: 0;
+  cursor: nesw-resize;
+  transform: translate(50%, -50%);
+}
+[data-crop-handle='e'] {
+  right: 0;
+  top: 50%;
+  cursor: ew-resize;
+  transform: translate(50%, -50%);
+}
+[data-crop-handle='se'] {
+  right: 0;
+  bottom: 0;
+  cursor: nwse-resize;
+  transform: translate(50%, 50%);
+}
+[data-crop-handle='s'] {
+  left: 50%;
+  bottom: 0;
+  cursor: ns-resize;
+  transform: translate(-50%, 50%);
+}
+[data-crop-handle='sw'] {
+  left: 0;
+  bottom: 0;
+  cursor: nesw-resize;
+  transform: translate(-50%, 50%);
+}
+[data-crop-handle='w'] {
+  left: 0;
+  top: 50%;
+  cursor: ew-resize;
+  transform: translate(-50%, -50%);
+}
 .mask-editor {
   display: grid;
   gap: 12px;
@@ -446,6 +505,43 @@ fieldset label {
   }
   .advanced-controls {
     grid-row: 3;
+  }
+  .preview-toolbar {
+    top: auto;
+    right: 8px;
+    bottom: 8px;
+    left: 8px;
+    justify-content: center;
+    gap: 3px;
+    max-width: none;
+    padding: 3px;
+  }
+  .preview-tool {
+    min-width: 36px;
+    min-height: 40px;
+    padding: 4px 6px;
+    font-size: 12px;
+    white-space: nowrap;
+  }
+  #compare-button,
+  #zoom-reset-button {
+    font-size: 0;
+  }
+  #compare-button::after {
+    content: '原图';
+    font-size: 12px;
+  }
+  #zoom-reset-button::after {
+    content: '适合';
+    font-size: 12px;
+  }
+  #zoom-output {
+    min-width: 43px;
+    font-size: 12px;
+  }
+  #crop-selection [data-crop-handle] {
+    width: 24px;
+    height: 24px;
   }
 }
 
