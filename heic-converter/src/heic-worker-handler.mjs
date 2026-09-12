@@ -50,6 +50,8 @@ export async function handleHeicWorkerMessage(data, dependencies) {
         targetWidth * targetHeight > 8_000_000
       )
         throw new Error('HEIC 转换尺寸超过安全限制');
+    } else if (imageData.width * imageData.height > 8_000_000) {
+      throw new Error('HEIC 转换输出不能超过 800 万像素');
     }
     if (
       Number.isSafeInteger(targetWidth) &&
@@ -73,23 +75,57 @@ export async function handleHeicWorkerMessage(data, dependencies) {
       }
       output = { width: targetWidth, height: targetHeight, data: scaled };
     }
-    const canvas = createCanvas?.(output.width, output.height);
-    if (!canvas) {
+    const transferPixels = () => {
+      const exactPixels =
+        output.data.byteOffset === 0 &&
+        output.data.byteLength === output.data.buffer.byteLength
+          ? output.data
+          : output.data.slice();
       postMessage(
-        { id, type: 'pixels', buffer: output.data.buffer, width: output.width, height: output.height },
-        [output.data.buffer],
+        { id, type: 'pixels', buffer: exactPixels.buffer, width: output.width, height: output.height },
+        [exactPixels.buffer],
       );
+    };
+    let canvas;
+    try {
+      canvas = createCanvas?.(output.width, output.height);
+    } catch {
+      transferPixels();
+      return;
+    }
+    if (!canvas) {
+      transferPixels();
       return;
     }
     try {
-      const context = canvas.getContext('2d');
-      if (!context) throw new Error('浏览器无法创建后台画布');
+      let context;
+      try {
+        context = canvas.getContext('2d');
+      } catch {
+        transferPixels();
+        return;
+      }
+      if (!context) {
+        transferPixels();
+        return;
+      }
       const drawable =
         typeof ImageData !== 'function' || output instanceof ImageData
           ? output
           : new ImageData(output.data, output.width, output.height);
-      context.putImageData(drawable, 0, 0);
-      const blob = await canvas.convertToBlob({ type: 'image/png' });
+      try {
+        context.putImageData(drawable, 0, 0);
+      } catch {
+        transferPixels();
+        return;
+      }
+      let blob;
+      try {
+        blob = await canvas.convertToBlob({ type: 'image/png' });
+      } catch {
+        transferPixels();
+        return;
+      }
       if (blob.type !== 'image/png') throw new Error('浏览器未生成有效 PNG');
       const encoded = await blob.arrayBuffer();
       const signature = new Uint8Array(encoded, 0, Math.min(8, encoded.byteLength));

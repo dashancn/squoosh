@@ -153,6 +153,76 @@ test('worker conversion returns transferable pixels when canvas encoding is unav
   assert.deepEqual(messages.at(-1)[1], [pixels.buffer]);
 });
 
+test('worker falls back to exact transferable pixels when OffscreenCanvas encoding fails', async () => {
+  for (const createCanvas of [
+    () => ({ width: 1, height: 1, getContext: () => { throw new Error('unsupported'); } }),
+    () => ({ width: 1, height: 1, getContext: () => null }),
+    () => ({
+      width: 1,
+      height: 1,
+      getContext: () => ({ putImageData() { throw new Error('unsupported'); } }),
+      convertToBlob: async () => { throw new Error('must not reach'); },
+    }),
+    () => ({
+      width: 1,
+      height: 1,
+      getContext: () => ({ putImageData() {} }),
+      convertToBlob: async () => { throw new Error('unsupported'); },
+    }),
+  ]) {
+    const messages = [];
+    const backing = new Uint8ClampedArray([99, 1, 2, 3, 255, 88]);
+    const pixels = new Uint8ClampedArray(backing.buffer, 1, 4);
+    await handleHeicWorkerMessage(
+      {
+        id: 12,
+        operation: 'convert',
+        width: 1,
+        height: 1,
+        file: { name: 'photo.heic', arrayBuffer: async () => new ArrayBuffer(12) },
+      },
+      {
+        isHeicBytes: () => true,
+        inspectHeic: () => ({ width: 1, height: 1 }),
+        decodeHeic: async () => ({ width: 1, height: 1, data: pixels }),
+        validateDimensions: () => {},
+        createCanvas,
+        postMessage: (...args) => messages.push(args),
+      },
+    );
+    const [message, transfer] = messages.at(-1);
+    assert.equal(message.type, 'pixels');
+    assert.equal(message.buffer.byteLength, 4);
+    assert.deepEqual([...new Uint8ClampedArray(message.buffer)], [1, 2, 3, 255]);
+    assert.deepEqual(transfer, [message.buffer]);
+  }
+});
+
+test('worker rejects an unbounded full-size output when resize dimensions are omitted', async () => {
+  const messages = [];
+  await handleHeicWorkerMessage(
+    {
+      id: 13,
+      operation: 'convert',
+      file: { name: 'photo.heic', arrayBuffer: async () => new ArrayBuffer(12) },
+    },
+    {
+      isHeicBytes: () => true,
+      inspectHeic: () => ({ width: 4000, height: 3000 }),
+      decodeHeic: async () => ({
+        width: 4000,
+        height: 3000,
+        data: new Uint8ClampedArray(4000 * 3000 * 4),
+      }),
+      validateDimensions: () => {},
+      createCanvas: () => { throw new Error('must reject before canvas'); },
+      postMessage: (message) => messages.push(message),
+    },
+  );
+  assert.equal(messages.at(-1).type, 'error');
+  assert.match(messages.at(-1).error, /800 万像素/);
+});
+
 test('worker rejects unsafe requested output dimensions before scaling allocation', async () => {
   const messages = [];
   const pixels = new Uint8ClampedArray(4);
