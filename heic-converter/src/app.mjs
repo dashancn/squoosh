@@ -1,4 +1,4 @@
-import { classifyFile, hasWebpSignature, validateBatch, validateDimensions, outputFilename, encoderOptions, cyclicIndex, VersionOwner, readinessMessage, CACHE_KEY } from './core.mjs';
+import { classifyFile, hasWebpSignature, validateBatch, validateDimensions, outputFilename, encoderOptions, cyclicIndex, VersionOwner, readinessMessage, CACHE_KEY, MAX_PIXELS } from './core.mjs';
 import { HeicWorkerClient } from './heic-worker-client.mjs';
 
 const $ = (id) => document.getElementById(id);
@@ -170,7 +170,11 @@ input.addEventListener('change', async () => {
 });
 async function decode(item) {
   if (item.kind === 'heic') {
-    const { buffer, mimeType } = await heicWorker.convert(item.file);
+    const { buffer, mimeType } = await heicWorker.convert(item.file, {
+      width: item.width,
+      height: item.height,
+      maxOutputPixels: MAX_PIXELS,
+    });
     return createImageBitmap(new Blob([buffer], { type: mimeType }));
   }
   return createImageBitmap(item.file);

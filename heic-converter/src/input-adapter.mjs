@@ -17,6 +17,14 @@ function boundedDimensions(width, height, maxPixels) {
   };
 }
 
+function retryDimensions(width, height, outputBytes, maxOutputBytes) {
+  const ratio = Math.min(0.9, Math.sqrt((maxOutputBytes * 0.9) / outputBytes));
+  return {
+    width: Math.max(1, Math.floor(width * ratio)),
+    height: Math.max(1, Math.floor(height * ratio)),
+  };
+}
+
 export function heicCandidateFromHeader(bytes) {
   if (!(bytes instanceof Uint8Array) || bytes.length < 12) return false;
   if (String.fromCharCode(...bytes.subarray(4, 8)) !== 'ftyp') return false;
@@ -86,11 +94,23 @@ export async function normalizeImageFile(file, {
     inspection.height,
     limits.targetPixels ?? limits.maxPixels,
   );
-  const { buffer, mimeType, width = requested.width, height = requested.height } =
-    await client.convert(file, requested);
-  verifyPng(buffer, mimeType);
+  const maxOutputPixels = limits.targetPixels ?? limits.maxPixels;
+  let converted = await client.convert(file, { ...requested, maxOutputPixels });
+  verifyPng(converted.buffer, converted.mimeType);
+  if (converted.buffer.byteLength > limits.maxOutputBytes) {
+    const retry = retryDimensions(
+      converted.width ?? requested.width,
+      converted.height ?? requested.height,
+      converted.buffer.byteLength,
+      limits.maxOutputBytes,
+    );
+    converted = null;
+    converted = await client.convert(file, { ...retry, maxOutputPixels });
+    verifyPng(converted.buffer, converted.mimeType);
+  }
+  const { buffer, mimeType, width = requested.width, height = requested.height } = converted;
   if (buffer.byteLength > limits.maxOutputBytes)
-    throw new Error('转换后的 HEIC 图片不能超过 8 MiB');
+    throw new Error('HEIC 图片已自动缩小，但转换结果仍超过 8 MiB');
   limits.resourceInventory?.({
     width: inspection.width,
     height: inspection.height,

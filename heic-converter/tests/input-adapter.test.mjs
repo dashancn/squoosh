@@ -95,13 +95,27 @@ test('removal policy accepts common iPhone HEIC and requests bounded decoder out
     }), limits,
   });
   assert.equal(iphone.type, 'image/png');
-  assert.deepEqual(convertOptions, { width: 3265, height: 2449 });
+  assert.deepEqual(convertOptions, { width: 3265, height: 2449, maxOutputPixels: 8_000_000 });
   assert.ok(convertOptions.width * convertOptions.height <= 8_000_000);
 
-  const png = new Uint8Array(8 * MiB + 1); png.set([137,80,78,71,13,10,26,10]);
-  await assert.rejects(normalizeImageFile(new File([header('heic')], 'output.heic'), {
-    createClient: () => ({ inspect: async () => ({ isHeic: true, width: 2000, height: 2000 }), convert: async () => ({ buffer: png.buffer, mimeType: 'image/png' }) }), limits,
-  }), /转换后的 HEIC 图片不能超过 8 MiB/);
+  const oversizedPng = new Uint8Array(8 * MiB + 1); oversizedPng.set([137,80,78,71,13,10,26,10]);
+  const retryPng = new Uint8Array([137,80,78,71,13,10,26,10,1]);
+  const attempts = [];
+  const retried = await normalizeImageFile(new File([header('heic')], 'output.heic'), {
+    createClient: () => ({
+      inspect: async () => ({ isHeic: true, width: 2000, height: 2000 }),
+      convert: async (_file, options) => {
+        attempts.push(options);
+        return attempts.length === 1
+          ? { buffer: oversizedPng.buffer, mimeType: 'image/png', width: 2000, height: 2000 }
+          : { buffer: retryPng.buffer, mimeType: 'image/png', width: options.width, height: options.height };
+      },
+    }), limits,
+  });
+  assert.equal(retried.type, 'image/png');
+  assert.equal(attempts.length, 2);
+  assert.ok(attempts[1].width * attempts[1].height < attempts[0].width * attempts[0].height);
+  assert.equal(attempts[0].maxOutputPixels, 8_000_000);
 
   const validPng = new Uint8Array([137,80,78,71,13,10,26,10,1]);
   let resourceArgs;

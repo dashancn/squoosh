@@ -256,7 +256,33 @@ test('worker rejects an unbounded full-size output when resize dimensions are om
     },
   );
   assert.equal(messages.at(-1).type, 'error');
-  assert.match(messages.at(-1).error, /800 万像素/);
+  assert.match(messages.at(-1).error, /安全像素限制/);
+});
+
+test('worker accepts an explicit converter policy up to 30 MP while default stays at 8 MP', async () => {
+  const messages = [];
+  const width = 4000;
+  const height = 3000;
+  await handleHeicWorkerMessage(
+    {
+      id: 15,
+      operation: 'convert',
+      width,
+      height,
+      maxOutputPixels: 30_000_000,
+      file: { name: 'photo.heic', arrayBuffer: async () => new ArrayBuffer(12) },
+    },
+    {
+      isHeicBytes: () => true,
+      inspectHeic: () => ({ width, height }),
+      decodeHeic: async () => ({ width, height, data: new Uint8ClampedArray(width * height * 4) }),
+      validateDimensions: () => {},
+      createCanvas: () => null,
+      postMessage: (message) => messages.push(message),
+    },
+  );
+  assert.equal(messages.at(-1).type, 'pixels');
+  assert.deepEqual([messages.at(-1).width, messages.at(-1).height], [width, height]);
 });
 
 test('worker rejects unsafe requested output dimensions before scaling allocation', async () => {

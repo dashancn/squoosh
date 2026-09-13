@@ -7,7 +7,14 @@ export async function handleHeicWorkerMessage(data, dependencies) {
     createCanvas,
     postMessage,
   } = dependencies;
-  const { id, operation, file, width: targetWidth, height: targetHeight } = data;
+  const {
+    id,
+    operation,
+    file,
+    width: targetWidth,
+    height: targetHeight,
+    maxOutputPixels = 8_000_000,
+  } = data;
   try {
     const buffer = await file.arrayBuffer();
     if (operation === 'inspect') {
@@ -47,11 +54,14 @@ export async function handleHeicWorkerMessage(data, dependencies) {
         targetHeight > imageData.height ||
         targetWidth > 10_000 ||
         targetHeight > 10_000 ||
-        targetWidth * targetHeight > 8_000_000
+        !Number.isSafeInteger(maxOutputPixels) ||
+        maxOutputPixels <= 0 ||
+        maxOutputPixels > 30_000_000 ||
+        targetWidth * targetHeight > maxOutputPixels
       )
         throw new Error('HEIC 转换尺寸超过安全限制');
-    } else if (imageData.width * imageData.height > 8_000_000) {
-      throw new Error('HEIC 转换输出不能超过 800 万像素');
+    } else if (imageData.width * imageData.height > maxOutputPixels) {
+      throw new Error('HEIC 转换输出超过安全像素限制');
     }
     if (
       Number.isSafeInteger(targetWidth) &&
