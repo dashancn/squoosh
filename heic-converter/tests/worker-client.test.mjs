@@ -285,6 +285,30 @@ test('worker accepts an explicit converter policy up to 30 MP while default stay
   assert.deepEqual([messages.at(-1).width, messages.at(-1).height], [width, height]);
 });
 
+test('worker rejects invalid output policies even when resize dimensions are omitted', async () => {
+  for (const maxOutputPixels of [Number.NaN, Number.POSITIVE_INFINITY, 30_000_001]) {
+    const messages = [];
+    await handleHeicWorkerMessage(
+      {
+        id: 16,
+        operation: 'convert',
+        maxOutputPixels,
+        file: { name: 'photo.heic', arrayBuffer: async () => new ArrayBuffer(12) },
+      },
+      {
+        isHeicBytes: () => true,
+        inspectHeic: () => ({ width: 1, height: 1 }),
+        decodeHeic: async () => ({ width: 1, height: 1, data: new Uint8ClampedArray(4) }),
+        validateDimensions: () => {},
+        createCanvas: () => { throw new Error('must reject before canvas'); },
+        postMessage: (message) => messages.push(message),
+      },
+    );
+    assert.equal(messages.at(-1).type, 'error');
+    assert.match(messages.at(-1).error, /输出策略/);
+  }
+});
+
 test('worker rejects unsafe requested output dimensions before scaling allocation', async () => {
   const messages = [];
   const pixels = new Uint8ClampedArray(4);

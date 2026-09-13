@@ -116,6 +116,30 @@ test('removal policy accepts common iPhone HEIC and requests bounded decoder out
   assert.equal(attempts.length, 2);
   assert.ok(attempts[1].width * attempts[1].height < attempts[0].width * attempts[0].height);
   assert.equal(attempts[0].maxOutputPixels, 8_000_000);
+  assert.equal(attempts[1].maxOutputPixels, 8_000_000);
+  const expectedRetryEdge = Math.floor(
+    2000 * Math.min(0.9, Math.sqrt((8 * MiB * 0.9) / oversizedPng.byteLength)),
+  );
+  assert.deepEqual(
+    [attempts[1].width, attempts[1].height],
+    [expectedRetryEdge, expectedRetryEdge],
+  );
+
+  await assert.rejects(
+    normalizeImageFile(new File([header('heic')], 'still-large.heic'), {
+      createClient: () => ({
+        inspect: async () => ({ isHeic: true, width: 2000, height: 2000 }),
+        convert: async (_file, options) => ({
+          buffer: oversizedPng.slice().buffer,
+          mimeType: 'image/png',
+          width: options.width,
+          height: options.height,
+        }),
+      }),
+      limits,
+    }),
+    /自动缩小.*仍超过 8 MiB/,
+  );
 
   const validPng = new Uint8Array([137,80,78,71,13,10,26,10,1]);
   let resourceArgs;

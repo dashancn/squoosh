@@ -29,6 +29,12 @@ export async function handleHeicWorkerMessage(data, dependencies) {
     }
     if (operation !== 'convert') throw new Error('未知的 HEIC worker 操作');
     if (!isHeicBytes(buffer)) throw new Error(`${file.name} 的 HEIC 签名无效`);
+    if (
+      !Number.isSafeInteger(maxOutputPixels) ||
+      maxOutputPixels <= 0 ||
+      maxOutputPixels > 30_000_000
+    )
+      throw new Error('HEIC 转换输出策略无效');
     postMessage({ id, type: 'progress', message: '正在后台解码 HEIC…' });
     const imageData = await decodeHeic(buffer, validateDimensions);
     if (
@@ -54,9 +60,6 @@ export async function handleHeicWorkerMessage(data, dependencies) {
         targetHeight > imageData.height ||
         targetWidth > 10_000 ||
         targetHeight > 10_000 ||
-        !Number.isSafeInteger(maxOutputPixels) ||
-        maxOutputPixels <= 0 ||
-        maxOutputPixels > 30_000_000 ||
         targetWidth * targetHeight > maxOutputPixels
       )
         throw new Error('HEIC 转换尺寸超过安全限制');
